@@ -40,12 +40,12 @@ def main(inp, out, mode='rhythm'):
         y = signal.sosfilt(signal.butter(4, 2600, 'lowpass', fs=fs, output='sos'), y)
         y = signal.sosfilt(signal.butter(2, 32, 'highpass', fs=fs, output='sos'), y)
         wavfile.write(out, fs, (y / (np.max(np.abs(y)) + 1e-9) * 0.9).astype(np.float32)); return
-    x = signal.sosfilt(signal.butter(2, 90 if mode == 'rhythm' else 130, 'highpass', fs=fs, output='sos'), x)
+    x = signal.sosfilt(signal.butter(2, 90 if mode == 'rhythm' else 100, 'highpass', fs=fs, output='sos'), x)
     pad = int(0.6 * fs)  # the plugins click as they start up: let that happen in silence, then trim it away
     x = x / (np.max(np.abs(x)) + 1e-9)
     # overdrive pedal in front of the amp (tube-screamer style): mid hump, then hard soft-clipping
     mid = signal.sosfilt(signal.butter(1, [500, 1800], 'bandpass', fs=fs, output='sos'), x)
-    k = 7.0 if mode == 'rhythm' else 5.0
+    k = 3.5 if mode == 'rhythm' else 10.0   # rhythm: tighter, less fuzz; lead: saturated sustain
     x = np.tanh(k * (x + 1.5 * mid)) / np.tanh(k)
     x = signal.sosfilt(signal.butter(2, 5000, 'lowpass', fs=fs, output='sos'), x)
     x = np.concatenate([np.zeros(pad), x / (np.max(np.abs(x)) + 1e-9) * 0.5])
@@ -53,13 +53,17 @@ def main(inp, out, mode='rhythm'):
         a, c, e = [os.path.join(d, n) for n in ('a.wav', 'c.wav', 'e.wav')]
         wavfile.write(a, fs, (x * 32767).astype(np.int16))  # the JCM800 plugin needs 16-bit input
         lv2(a, c, 'gx_jcm800pre_#_jcm800pre_', {'P6v': 1.0, 'Bass': 0.6, 'Middle': 0.7 if mode == 'rhythm' else 0.75,
-                                                'Treble': 0.4, 'WET_DRY': 100, 'GAIN': -8})
-        lv2(c, e, 'gx_bossds1_#_bossds1_', {'DRIVE': 1.0, 'TONE': 0.15, 'LEVEL': -8, 'BYPASS': 1})  # BYPASS 1 = pedal on; dark tone, less fizz
+                                                'Treble': 0.4, 'WET_DRY': 100, 'GAIN': -12 if mode == 'rhythm' else -3})
+        lv2(c, e, 'gx_bossds1_#_bossds1_', {'DRIVE': 0.8 if mode == 'rhythm' else 1.0, 'TONE': 0.15, 'LEVEL': -8, 'BYPASS': 1})  # BYPASS 1 = pedal on; dark tone, less fizz
         fs2, y = wavfile.read(e)
     y = y.astype(np.float32)
     if y.ndim > 1: y = y.mean(axis=1)
     if np.max(np.abs(y)) > 2: y /= 32768.0
     y = cabinet(y, fs2)[pad:]
+    if mode == 'lead':  # a second gain stage: squash the lead into a thick, sustaining wall, then re-darken
+        y = y / (np.max(np.abs(y)) + 1e-9)
+        y = np.tanh(4.0 * y)
+        y = signal.sosfilt(signal.butter(2, 4500, 'lowpass', fs=fs2, output='sos'), y)
     y = y / (np.max(np.abs(y)) + 1e-9) * 0.9
     wavfile.write(out, fs2, y.astype(np.float32))
 

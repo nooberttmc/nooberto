@@ -31,6 +31,7 @@ const BRK_LEAD = [[[0, 78, 16]], [[0, 76, 8], [8, 73, 8]], [[0, 79, 12], [12, 78
 const STAB = [0, 3, 6, 8, 11, 14];
 const CLX_TOP = [[81, 80, 78, 81, 85, 81], [83, 81, 80, 78, 76, 78], [81, 78, 74, 78, 81, 86], [85, 83, 81, 78, 81, 83],
   [83, 78, 74, 78, 83, 86], [85, 83, 81, 83, 85, 86], [85, 80, 77, 80, 85, 89], [83, 80, 77, 73, 77, 80]];
+const LO = -12;  // every lead line sits an octave lower: darker, heavier, less piercing
 const SCALE = [0, 2, 3, 5, 7, 8, 10];  // natural minor from the tonic
 const RUNS = [[1, 2, 1, 3, 2, 1, 2, 0, 1, 0, 1, 2], [0, 1, 2, 3, 2, 3, 4, 3, 2, 1, 2, 1], [3, 2, 1, 2, 0, 1, 0, -1, 0, 1, 2, 3]];
 
@@ -70,17 +71,17 @@ function guitarEvents() {
     P.bass.push([t0 + s * STEP, root - 12 + (bassOct && s % 4 === 2 ? 12 : 0), l * STEP * 0.95, art === 'open' ? 112 : 98, 'open']);
   });
   const melody = (t0, line, tr, notes, twin) => line.forEach(([s, m, l]) => {
-    const mm = m + tr; note(P.lead, t0 + s * STEP, mm, l * STEP * 0.97, 114, 'lead');
+    const mm = m + tr + LO; note(P.lead, t0 + s * STEP, mm, l * STEP * 0.97, 114, 'lead');
     if (twin) note(P.harm, t0 + s * STEP, below(mm, notes), l * STEP * 0.97, 106, 'lead');
   });
   const runBar = (t0, notes, fig, twin, base) => {
-    const r = run(notes, base || 73, RUNS[fig % RUNS.length]);
+    const r = run(notes, (base || 73) + LO, RUNS[fig % RUNS.length]);
     r.forEach((m, i) => { note(P.lead, t0 + i * STEP, m, STEP * 0.92, 108 + (i % 4 === 0 ? 10 : 0), 'open'); if (twin) note(P.harm, t0 + i * STEP, below(m, notes), STEP * 0.92, 98, 'open'); });
     const last = r[r.length - 1];
     note(P.lead, t0 + 12 * STEP, last + (fig % 2 ? 3 : 2), STEP * 1.9, 112, 'lead'); note(P.lead, t0 + 14 * STEP, last, STEP * 1.9, 112, 'lead');
   };
   const scaleDown = (t0, top, tr, n, s0) => { // a descending minor-scale run in 16ths from `top`
-    const pcs = SCALE.map(x => (x + 6 + tr) % 12); let m = top;
+    const pcs = SCALE.map(x => (x + 6 + tr) % 12); let m = top + LO;
     for (let i = 0; i < n; i++) { note(P.lead, t0 + (s0 + i) * STEP, m, STEP * 0.92, 110, 'open'); do m--; while (pcs.indexOf(((m % 12) + 12) % 12) < 0); }
   };
   const pianoBar = (t0, notes, ch, tr, vel, busy) => {
@@ -134,7 +135,7 @@ function guitarEvents() {
     } else if (sec === 'clx') { // staccato chord stabs, everyone on the same rhythm
       pat(t0, r, STABS, true);
       const top = CLX_TOP[b % 8];
-      STAB.forEach((s, i) => { const m = top[i] + tr; note(P.lead, at(s), m, STEP * 1.6, 118, 'open'); note(P.harm, at(s), below(m, notes), STEP * 1.6, 108, 'open');
+      STAB.forEach((s, i) => { const m = top[i] + tr + LO; note(P.lead, at(s), m, STEP * 1.6, 118, 'open'); note(P.harm, at(s), below(m, notes), STEP * 1.6, 108, 'open');
         chord(P.brass, at(s), str, STEP * 1.5, 112); });
       chord(P.organ, t0, low, BAR, 96); strings(96, true); lowStr(108);
       if (b % 2 === 0) timp(t0, ch, tr, 118);
