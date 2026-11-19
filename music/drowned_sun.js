@@ -147,7 +147,7 @@ function guitarEvents() {
     } else if (sec === 'inter') { // the storm drops to piano and muted guitars, then climbs into G minor
       pianoBar(t0, notes, ch, tr, 96, true);
       pat(t0, r, b === 7 ? DRIVE : EIGHTHS);
-      strings(76 + b * 3); lowStr(90); chord(P.organ, t0, low, BAR, 74 + b * 3);
+      lowStr(84 + b * 3);
       if (b >= 4) melody(t0, b === 7 ? [[0, 74, 8], [8, 78, 4], [12, 81, 4]] : [[0, voicing(notes, 73)[0], 16]], 0, notes, b >= 6);
       if (b >= 6) for (let s = 0; s < 16; s += 4) timp(at(s), ch, tr, 90 + b * 4 + s);
     } else if (b === 0) { // outro: G minor; the lead falls two octaves and everything lands on one low G
@@ -220,14 +220,14 @@ async function renderSong() {
   }
   const HP = f => ['highpass', f, null, 0.7], LP = f => ['lowpass', f, null, 0.7], PK = (f, g, q) => ['peaking', f, g, q || 1];
   // rhythm guitars: 100 Hz up, scooped where bass/snare live (350) and where the lead sings (1.8-2.5k)
-  const GTR = [HP(100), PK(350, -3.5, 1.1), PK(2200, -3, 1.2), LP(5500)];
+  const GTR = [HP(100), PK(350, -3.5, 1.1), PK(2200, -4.5, 1.1), LP(5500)];
   await stem('rhythmL', -0.75, -17.5, 0.02, false, GTR, 0.3);
   await stem('rhythmR', 0.75, -17.5, 0.02, false, GTR, 0.3);
   // bass: owns 45-250 Hz under the guitars; the sub synth owns the very bottom
   await stem('bass', 0, -20, 0, false, [HP(45), PK(350, -3, 1), PK(900, 2, 1), LP(2600)], 0.5);
   // lead: on top, with presence where the rhythm guitars were scooped
-  await stem('lead', 0.0, -16, 0.2, true, [HP(170), PK(450, -2, 1), PK(2000, 2, 0.9), LP(6000)]);
-  await stem('harmony', 0.22, -23, 0.2, true, [HP(260), PK(2000, 1.5, 0.9), LP(6000)]);
+  await stem('lead', 0.0, -14.5, 0.18, true, [HP(170), PK(450, -2.5, 1), PK(2100, 3, 0.9), LP(6000)]);
+  await stem('harmony', 0.3, -25.5, 0.2, true, [HP(260), PK(2000, 1.5, 0.9), LP(6000)]);
   await stem('piano', -0.15, -21, 0.4, false, [HP(110)]);
   await stem('strings', 0.25, -27, 0.45, false, [HP(320), LP(8000)]);
   await stem('low', 0, -24, 0.2, false, [LP(500)], 0.4);
@@ -245,14 +245,17 @@ async function renderSong() {
   const drumLP = ctx.createBiquadFilter(); drumLP.type = 'lowpass'; drumLP.frequency.value = 18000;
   const drumLow = ctx.createBiquadFilter(); drumLow.type = 'lowshelf'; drumLow.frequency.value = 110; drumLow.gain.value = 0;
   drumBus.connect(drumLow); drumLow.connect(drumBus2); drumDip.connect(drumLP); drumLP.connect(dry); send(drumLP, 0.05);
-  function slice(name, t, idx, len, rate, vol) {
+  const DLOG = { break: [], layer: [], kick: [] };   // drum hits, for the visualizer
+  function slice(name, t, idx, len, rate, vol, quiet) {
     const buf = BRK[name]; if (!buf) return;
+    if (!quiet) DLOG[name === 'steppin1' ? 'layer' : 'break'].push([t, Math.min(len, 2) * STEP * 0.8, idx % 12]);
     const src = ctx.createBufferSource(); src.buffer = buf; src.playbackRate.value = rate;
     const g = ctx.createGain(), d = len * bStep / rate, v = vol == null ? 1 : vol;
     g.gain.setValueAtTime(v, t); g.gain.setValueAtTime(v, t + Math.max(0.005, d - 0.008)); g.gain.linearRampToValueAtTime(0, t + d);
     src.connect(g); g.connect(drumBus); src.start(t, idx * bStep, len * bStep); src.stop(t + d + 0.01);
   }
-  const groove = (name, t0, loopBar, vol, len) => INFO[name] && slice(name, t0, (loopBar % (INFO[name].steps / 16)) * 16, len || 16, R, vol);
+  const groove = (name, t0, loopBar, vol, len) => { if (!INFO[name]) return; const i0 = (loopBar % (INFO[name].steps / 16)) * 16;
+    slice(name, t0, i0, len || 16, R, vol, true); for (let k = 0; k < (len || 16); k += 2) DLOG.break.push([t0 + k * STEP, STEP * 1.6, (i0 + k) % 12]); };
   const roll = (name, t, steps, n, p0, p1, v0, v1) => { for (let k = 0; k < n; k++) { const f = k / Math.max(1, n - 1); slice(name, t + k * steps * STEP / n, INFO[name].snare, steps / n, R * (p0 + (p1 - p0) * f), v0 + (v1 - v0) * f); } };
   const fillBar = (name, t0, b, big) => { groove(name, t0, b, 1, 12); roll(name, t0 + 12 * STEP, 4, big ? 8 : 4, 1, 1.25, 0.55, 0.95); };
 
@@ -262,13 +265,12 @@ async function renderSong() {
   function nz(t, d, type, f, q, v, dest, attack) { const s = ctx.createBufferSource(); s.buffer = noise; s.loop = true; const fl = ctx.createBiquadFilter(); fl.type = type; fl.frequency.value = f; fl.Q.value = q;
     const g = ctx.createGain(); if (attack) { g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(v, t + attack); } else g.gain.setValueAtTime(v, t);
     g.gain.exponentialRampToValueAtTime(0.0008, t + d); s.connect(fl); fl.connect(g); g.connect(dest || drumBus); s.start(t, rand()); s.stop(t + d + 0.02); return fl; }
-  const kick = (t, v) => { hit(t, 150, 50, 0.2, 0.7 * v); hit(t, 70, 42, 0.32, 0.45 * v); nz(t, 0.01, 'highpass', 3000, 0.7, 0.18 * v); duck(t, v); };
+  const kick = (t, v) => { hit(t, 150, 50, 0.2, 0.7 * v); hit(t, 70, 42, 0.32, 0.45 * v); duck(t, v); DLOG.kick.push([t, STEP, 60]); };
   function duck(t, v) { // the bass, sub and rhythm guitars dip for ~120 ms so every kick lands clean
     for (const [g, depth] of ducks) { const k = 1 - depth * Math.min(1, v); g.gain.setTargetAtTime(k, t, 0.003); g.gain.setTargetAtTime(1, t + 0.03, 0.06); }
   }
-  const crash = (t, v) => nz(t, 2.2, 'highpass', 4800, 0.5, 0.14 * v);
-  function impact(t, v) { crash(t, v); hit(t, 90, 28, 1.0, 0.6 * v, master); nz(t, 0.4, 'lowpass', 300, 0.7, 0.3 * v, master); }
-  function riser(tEnd, len, v) { const f = nz(tEnd - len, len, 'bandpass', 400, 2, v, master, len * 0.95); f.frequency.setValueAtTime(250, tEnd - len); f.frequency.exponentialRampToValueAtTime(6000, tEnd); }
+    function impact(t, v) { hit(t, 90, 28, 1.0, 0.6 * v, master); }
+  function riser() {}  // removed: noise sweeps aren't instruments
   const subBus = ctx.createGain(); subBus.gain.value = 0.5; const subDuck = ctx.createGain(); subBus.connect(subDuck); subDuck.connect(dry); ducks.push([subDuck, 0.45]);
   function sub(t, m, len, v) { const o = ctx.createOscillator(); o.frequency.value = 440 * Math.pow(2, (m - 69) / 12); const g = ctx.createGain();
     g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(v, t + 0.01); g.gain.setValueAtTime(v, t + len - 0.04); g.gain.linearRampToValueAtTime(0.0001, t + len); o.connect(g); g.connect(subBus); o.start(t); o.stop(t + len + 0.05); }
@@ -325,5 +327,5 @@ async function renderSong() {
   v.setUint32(24, SR, true); v.setUint32(28, SR * 4, true); v.setUint16(32, 4, true); v.setUint16(34, 16, true); ws(36, 'data'); v.setUint32(40, n * 4, true);
   for (let i = 0, o = 44; i < n; i++, o += 4) { v.setInt16(o, Math.max(-1, Math.min(1, L[i] * norm)) * 32767, true); v.setInt16(o + 2, Math.max(-1, Math.min(1, Rc[i] * norm)) * 32767, true); }
   let bin = ''; const u8 = new Uint8Array(buf); for (let i = 0; i < u8.length; i += 32768) bin += String.fromCharCode.apply(null, u8.subarray(i, i + 32768));
-  return { wav: btoa(bin), seconds: dur, peak };
+  return { wav: btoa(bin), seconds: dur, peak, drums: DLOG };
 }

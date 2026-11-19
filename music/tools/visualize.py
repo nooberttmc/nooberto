@@ -1,0 +1,129 @@
+"""Render a DAW-style scrolling arrangement video of a song, in the colours of the Drowned Sun fight.
+
+usage: python3 visualize.py events.json drums.json song.mp3 out.mp4 [fps]
+Tracks are stacked down the screen with their names on the left; every note is a thin bar that scrolls
+past the playhead at the left edge; each track's clip strip lights up in the colour of the current phase.
+"""
+import sys, json, subprocess, bisect
+import numpy as np
+from PIL import Image, ImageDraw, ImageFont
+
+W, H = 1280, 720
+BPM = 178; BAR = 60 / BPM * 4
+PX = 300.0                     # pixels per second of scroll
+X0 = 76                        # playhead (left edge of the lanes)
+# the Drowned Sun palette (from the fight): ember-black, molten orange, gold, flare red, eclipse violet
+BG, PANEL, GRID = (9, 4, 6), (18, 8, 8), (34, 16, 14)
+CREAM, GOLD, ORANGE, RED, VIOLET = (255, 240, 192), (255, 208, 96), (255, 176, 64), (255, 80, 48), (192, 96, 255)
+SECTIONS = [('intro', 8), ('a1', 16), ('b1', 16), ('brk', 8), ('a2', 16), ('clx', 16), ('inter', 8), ('a3', 16), ('b3', 16), ('outro', 4)]
+PHASE = {'intro': ORANGE, 'a1': ORANGE, 'b1': ORANGE, 'brk': RED, 'a2': ORANGE, 'clx': RED, 'inter': VIOLET, 'a3': VIOLET, 'b3': VIOLET, 'outro': GOLD}
+SEC_NAME = {'intro': 'Dawn', 'a1': 'Phase I', 'b1': 'Phase I', 'brk': 'Corona', 'a2': 'Phase II', 'clx': 'Phase II', 'inter': 'Eclipse', 'a3': 'Phase III', 'b3': 'Phase III', 'outro': 'Drowned'}
+sec_at = []
+t = 0.0
+for name, n in SECTIONS: sec_at.append((t, name)); t += n * BAR
+
+def section(t):
+    i = bisect.bisect_right([s[0] for s in sec_at], t) - 1
+    return sec_at[max(0, i)][1]
+
+def mix(a, b, f): return tuple(int(a[k] + (b[k] - a[k]) * f) for k in range(3))
+
+def main(events, drums, audio, out, fps=60, start=0.0, length=None):
+    parts = json.load(open(events))['parts']
+    dr = json.load(open(drums))
+    # lanes: (label, clip name, note list, height)
+    rhythm = parts['rhythmL']['notes']
+    lanes = [('Lead Guitar', 'Lead', parts['lead']['notes'], 64), ('Harmony', 'Harmony', parts['harmony']['notes'], 40),
+             ('Rhythm Gtrs', 'Rhythm', rhythm, 50), ('Bass', 'Bass', parts['bass']['notes'], 34),
+             ('Piano', 'Piano', parts['piano']['notes'], 50), ('Strings', 'Strings', parts['strings']['notes'], 28),
+             ('Low Strings', 'Low', parts['low']['notes'], 26), ('Brass', 'Brass', parts['brass']['notes'], 26),
+             ('Organ', 'Organ', parts['organ']['notes'], 26), ('Timpani', 'Timpani', parts['timp']['notes'], 24)]
+    # drums share one lane: kick on the bottom row, the layered break above it, the main break's slices on top
+    drum = [[t, 0, d, 100, 'd'] for t, d, p in dr.get('kick', [])] + [[t, 4, d, 100, 'd'] for t, d, p in dr.get('layer', [])] + \
+           [[t, 8 + p, d, 100, 'd'] for t, d, p in dr.get('break', [])]
+    lanes.append(('Drums', 'Breaks', drum, 56))
+    top = 38
+    lay = []
+    for label, clip, notes, h in lanes:
+        notes = sorted(notes, key=lambda n: n[0])
+        ps = [n[1] for n in notes] or [60]
+        lo, hi = min(ps), max(ps)
+        lay.append(dict(label=label, clip=clip, notes=notes, starts=[n[0] for n in notes], y=top, h=h, lo=lo, hi=max(hi, lo + 1),
+                        maxd=max([n[2] for n in notes] or [0]), bars=set(b for n in notes for b in range(int(n[0] / BAR), int((n[0] + n[2] - 1e-3) / BAR) + 1))))
+        top += h + 13
+    auto_y = top + 6
+    # loudness envelope for the automation lane
+    pcm = np.frombuffer(subprocess.run(['ffmpeg', '-loglevel', 'error', '-i', audio, '-ac', '1', '-ar', '8000', '-f', 'f32le', '-'], capture_output=True).stdout, np.float32)
+    hop = 80; env = np.sqrt(np.convolve(pcm ** 2, np.ones(hop) / hop, 'same'))[::hop]; env /= env.max() + 1e-9   # 100 per second
+    dur = len(pcm) / 8000
+    try: font = ImageFont.truetype('/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf', 10); fbig = ImageFont.truetype('/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf', 11)
+    except OSError: font = fbig = ImageFont.load_default()
+    # static backdrop: panel, track names, lane shading
+    base = Image.new('RGB', (W, H), BG); d = ImageDraw.Draw(base)
+    d.rectangle([0, 0, X0 - 4, H], fill=PANEL); d.line([X0 - 4, 0, X0 - 4, H], fill=(60, 26, 20))
+    d.text((4, 4), 'Instruments', font=font, fill=(200, 170, 150))
+    for L in lay:
+        d.rectangle([X0, L['y'], W, L['y'] + L['h'] + 10], fill=(14, 6, 8))
+        d.text((4, L['y'] + 1), L['label'], font=font, fill=(214, 186, 160))
+        d.ellipse([X0 - 16, L['y'] + L['h'] - 2, X0 - 10, L['y'] + L['h'] + 4], outline=(120, 70, 50))
+        d.line([X0, L['y'] + L['h'] + 11, W, L['y'] + L['h'] + 11], fill=(26, 12, 12))
+    d.text((4, auto_y + 4), 'Automation', font=font, fill=(214, 186, 160))
+    cmd = ['ffmpeg', '-y', '-loglevel', 'error', '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-s', f'{W}x{H}', '-r', str(fps), '-i', '-', '-ss', str(start), '-i', audio,
+           '-c:v', 'libx264', '-preset', 'medium', '-crf', '20', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-b:a', '192k', '-shortest', '-movflags', '+faststart', out]
+    enc = subprocess.Popen(cmd, stdin=subprocess.PIPE)
+    view = (W - X0) / PX
+    nframes = int(((length or dur - start)) * fps)
+    for fi in range(nframes):
+        t = start + fi / fps
+        img = base.copy(); g = ImageDraw.Draw(img)
+        sec = section(t); col = PHASE[sec]
+        # smooth colour change into each new section
+        st = max(s for s, n in sec_at if s <= t + 1e-9); prev = PHASE[section(st - 0.01)] if st > 0 else col
+        col = mix(prev, col, min(1, (t - st) / 1.2))
+        # ruler: bar numbers scroll with the music
+        b0 = int(t / BAR)
+        for b in range(b0, b0 + int(view / BAR) + 2):
+            x = X0 + (b * BAR - t) * PX
+            if x < X0: continue
+            g.line([x, 22, x, 32], fill=(110, 70, 50)); g.text((x + 3, 20), str(b + 1), font=font, fill=(150, 110, 90))
+            g.line([x, 34, x, auto_y - 4], fill=GRID)
+        g.text((X0 + 6, 4), f'The Drowned Sun  —  {SEC_NAME[sec]}', font=fbig, fill=col)
+        for L in lay:
+            y, h = L['y'], L['h']
+            i0 = bisect.bisect_left(L['starts'], t - L['maxd'] - 0.01); i1 = bisect.bisect_right(L['starts'], t + view)
+            vis = [n for n in L['notes'][i0:i1] if n[0] + n[2] >= t]
+            if not vis: continue
+            # clip strips, like pattern blocks, over the bars this track plays in, in the phase colour
+            b = int(t / BAR)
+            while b * BAR < t + view:
+                if b in L['bars']:
+                    e = b
+                    while e + 1 in L['bars'] and (e + 1) * BAR < t + view: e += 1
+                    xa = max(X0, X0 + (b * BAR - t) * PX); xb = min(W, X0 + ((e + 1) * BAR - t) * PX) - 1
+                    g.rectangle([xa, y, xb, y + 9], fill=mix(BG, col, 0.62))
+                    if xb - xa > 60: g.text((xa + 4, y - 1), L['clip'] + ' ' + str(b // 8 + 1), font=font, fill=mix(col, CREAM, 0.6))
+                    b = e + 1
+                else: b += 1
+            span = L['hi'] - L['lo']
+            for n in vis:
+                x1 = X0 + (n[0] - t) * PX; x2 = X0 + (n[0] + n[2] - t) * PX
+                ny = y + 12 + (h - 6) * (1 - (n[1] - L['lo']) / span) if span > 1 else y + 12 + h / 2 - 4
+                playing = n[0] <= t < n[0] + n[2]
+                c = CREAM if playing else mix(col, CREAM, 0.55)
+                g.rectangle([max(X0, x1), ny, max(X0 + 1, x2 - 1), ny + 2], fill=c)
+                if playing: g.rectangle([X0, ny - 1, X0 + 3, ny + 3], fill=GOLD)
+        # automation lane: the song's loudness, scrolling like a volume curve
+        ay = auto_y + 16; ah = H - ay - 10
+        g.rectangle([X0, auto_y, W, auto_y + 11], fill=(232, 220, 210)); g.text((X0 + 6, auto_y), 'Master - Volume', font=font, fill=(90, 50, 40))
+        xs = np.arange(X0, W, 2); idx = np.clip(((t + (xs - X0) / PX) * 100).astype(int), 0, len(env) - 1)
+        pts = [(int(x), int(ay + ah - env[i] * ah)) for x, i in zip(xs, idx)]
+        g.line(pts, fill=mix(col, CREAM, 0.3), width=2)
+        # playhead glow
+        g.line([X0, 34, X0, H], fill=GOLD, width=2)
+        enc.stdin.write(img.tobytes())
+        if fi % (fps * 20) == 0: print(f'{t:.0f}s / {dur:.0f}s', flush=True)
+    enc.stdin.close(); enc.wait()
+    print('wrote', out)
+
+if __name__ == '__main__':
+    main(sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4], int(sys.argv[5]) if len(sys.argv) > 5 else 60)

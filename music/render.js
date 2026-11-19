@@ -40,6 +40,7 @@ const pcm = p => execSync(`ffmpeg -loglevel error -i "${p}" -ac 1 -ar 44100 -f f
   const r = await pg.evaluate(() => renderSong());
   await b.close();
   if (errs.length) { console.log(errs); process.exit(1); }
+  if (r.drums) fs.writeFileSync(path.join(__dirname, 'stems', 'drums.json'), JSON.stringify(r.drums));
   const wav = path.join(__dirname, file.replace(/\.js$/, '.wav')), mp3 = path.join(__dirname, title + '.mp3');
   fs.writeFileSync(wav, Buffer.from(r.wav, 'base64'));
   execSync(`ffmpeg -y -loglevel error -i "${wav}" -af "volume=${opt.gain == null ? 3 : opt.gain}dB,alimiter=limit=0.89:level=false" -codec:a libmp3lame -b:a 192k -metadata title="${title}" -metadata artist="Emberwake" "${mp3}"`);
