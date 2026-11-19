@@ -5,9 +5,9 @@ events.json (from the song's guitarEvents()):
   {"parts": {name: {"sf": "musescore"|"fluid", "amp": "rhythm"|"lead"|"none", "humanize": ms,
                     "notes": [[t_sec, midi, dur_sec, velocity, "open"|"mute"|"lead"], ...]}}}
 Open notes use the part's "program" (default GM 27, clean electric guitar), palm mutes "mute_program" (default 28).
-Lead notes slide in and get vibrato. amp "none" leaves orchestral parts (piano, strings, organ...) as recorded.
+Lead notes get vibrato; 'bend' notes bend up a whole step into pitch, 'release' notes sag a semitone as they end, 'bendrel' does both. amp "none" leaves orchestral parts (piano, strings, organ...) as recorded.
 """
-import sys, os, json, random, subprocess
+import sys, os, json, math, random, subprocess
 import mido
 sys.path.insert(0, os.path.dirname(__file__))
 import reamp
@@ -26,25 +26,32 @@ def write_midi(part, path, seed):
     tr.append(mido.Message('control_change', channel=0, control=100, value=0, time=0))
     tr.append(mido.Message('control_change', channel=0, control=6, value=2, time=0))
     ev = []; hum = part.get('humanize', 0) / 1000.0
-    cents = part.get('cents', 0)
+    cents = part.get('cents', 0); base = int(8192 * cents / 200)   # constant detune, kept under every bend
     if cents:
-        for ch in (0, 1): tr.append(mido.Message('pitchwheel', channel=ch, pitch=int(8192 * cents / 200), time=0))
+        for ch in (0, 1): tr.append(mido.Message('pitchwheel', channel=ch, pitch=base, time=0))
+    PB = lambda t, v: ev.append((t, 2, ('pitchwheel', 0, base + int(v), 0)))   # v in 1/4096 semitone, range +-2
     for t, m, d, v, art in part['notes']:
         jt = rnd.uniform(-hum, hum) if hum else 0.0
         ch = 1 if art == 'mute' else 0
         vel = max(30, min(127, int(v + (rnd.randint(-7, 7) if hum else 0))))
         ev.append((t + jt, 1, ('note_on', ch, int(m), vel)))
         ev.append((t + jt + d, 0, ('note_off', ch, int(m), 0)))
-        if art == 'lead':
-            if d >= 0.2:  # slide into long notes from a whole step below
-                for k in range(6): ev.append((t + jt + k * 0.012, 2, ('pitchwheel', 0, int(-4096 * (1 - k / 5)), 0)))
-            if d >= 0.35:  # vibrato that grows after the attack
-                n = int((d - 0.18) / 0.02)
-                for k in range(n):
-                    tt = t + jt + 0.18 + k * 0.02; depth = min(1.0, k / 12) * 700
-                    import math
-                    ev.append((tt, 2, ('pitchwheel', 0, int(depth * math.sin(2 * math.pi * 5.6 * (tt - t))), 0)))
-            ev.append((t + jt + d + 0.001, 2, ('pitchwheel', 0, 0, 0)))
+        if art in ('lead', 'bend', 'release', 'bendrel'):
+            t0 = t + jt; vib_from = 0.18
+            if art in ('bend', 'bendrel'):  # pick a whole step low, then bend up to pitch (eased)
+                bl = min(0.16, d * 0.35); n = 10
+                for k in range(n + 1): PB(t0 + k * bl / n, -8191 * (1 - (k / n) ** 0.6))
+                vib_from = bl + 0.12
+            rel = art in ('release', 'bendrel') and d >= 0.25
+            vib_to = d - (0.14 if rel else 0)
+            if vib_to - vib_from >= 0.15:  # vibrato that grows after the attack
+                k = 0
+                while vib_from + k * 0.02 < vib_to:
+                    tt = t0 + vib_from + k * 0.02; depth = min(1.0, k / 12) * 600
+                    PB(tt, depth * math.sin(2 * math.pi * 5.6 * (tt - t0))); k += 1
+            if rel:  # let the note sag down a semitone as it ends
+                for k in range(8): PB(t0 + vib_to + k * 0.0175, -4096 * (k / 7) ** 1.5)
+            PB(t0 + d + 0.001, 0)
     ev.sort(key=lambda e: (e[0], e[1])); last = 0
     for t, _, (kind, ch, a, b) in ev:
         tk = max(0, sec(max(0.0, t))); dt = max(0, tk - last); last = max(last, tk)

@@ -70,10 +70,17 @@ function guitarEvents() {
     pc(t0 + s * STEP, root, l * STEP * 0.95, art, art === 'open' ? 120 : 106);
     P.bass.push([t0 + s * STEP, root - 12 + (bassOct && s % 4 === 2 ? 12 : 0), l * STEP * 0.95, art === 'open' ? 112 : 98, 'open']);
   });
-  const melody = (t0, line, tr, notes, twin) => line.forEach(([s, m, l]) => {
-    const mm = m + tr + LO; note(P.lead, t0 + s * STEP, mm, l * STEP * 0.97, 114, 'lead');
-    if (twin) note(P.harm, t0 + s * STEP, below(mm, notes), l * STEP * 0.97, 106, 'lead');
-  });
+  // pitch bends, used sparingly: every other bar the longest held note is bent up into pitch,
+  // and every fourth bar the phrase's last note sags down as it ends
+  const melody = (t0, line, tr, notes, twin) => {
+    const gi = Math.round(t0 / BAR), longest = line.reduce((a, n, i) => n[2] > line[a][2] ? i : a, 0);
+    line.forEach(([s, m, l], i) => {
+      const bend = gi % 2 === 0 && i === longest && l >= 6, rel = gi % 4 === 3 && i === line.length - 1 && l >= 4;
+      const art = bend && rel ? 'bendrel' : bend ? 'bend' : rel ? 'release' : 'lead';
+      const mm = m + tr + LO; note(P.lead, t0 + s * STEP, mm, l * STEP * 0.97, 114, art);
+      if (twin) note(P.harm, t0 + s * STEP, below(mm, notes), l * STEP * 0.97, 106, art);
+    });
+  };
   const runBar = (t0, notes, fig, twin, base) => {
     const r = run(notes, (base || 73) + LO, RUNS[fig % RUNS.length]);
     r.forEach((m, i) => { note(P.lead, t0 + i * STEP, m, STEP * 0.92, 108 + (i % 4 === 0 ? 10 : 0), 'open'); if (twin) note(P.harm, t0 + i * STEP, below(m, notes), STEP * 0.92, 98, 'open'); });
