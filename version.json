@@ -1,0 +1,9 @@
+{
+  "versionCode": 3,
+  "versionName": "1.2",
+  "apk": "https://raw.githubusercontent.com/nooberttmc/nooberto/claude/android-game-apk-w2q4io/Emberwake.apk",
+  "notes": [
+    "In-game updater: new versions download and install right from the game.",
+    "Check for updates any time from Settings."
+  ]
+}

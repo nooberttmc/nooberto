@@ -1,0 +1,2 @@
+In-game updater: new versions download and install right from the game.
+Check for updates any time from Settings.

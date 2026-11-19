@@ -21,6 +21,20 @@ import android.webkit.WebViewClient;
 
 public class MainActivity extends Activity {
     private WebView web;
+    private Updater updater;
+
+    /** Runs a snippet of JavaScript in the game, from any thread. */
+    void js(final String code) {
+        runOnUiThread(new Runnable() {
+            public void run() { if (web != null) web.evaluateJavascript(code, null); }
+        });
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        if (intent != null && Updater.ACTION_STATUS.equals(intent.getAction()) && updater != null) updater.onStatus(intent);
+    }
 
     @Override
     protected void onCreate(Bundle state) {
@@ -28,6 +42,7 @@ public class MainActivity extends Activity {
         requestWindowFeature(Window.FEATURE_NO_TITLE);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN | WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
+        updater = new Updater(this);
         web = new WebView(this);
         web.setBackgroundColor(Color.rgb(5, 7, 15));
         WebSettings s = web.getSettings();
@@ -136,6 +151,18 @@ public class MainActivity extends Activity {
     }
 
     class Bridge {
+        @JavascriptInterface
+        public int getVersionCode() { return updater.versionCode(); }
+
+        @JavascriptInterface
+        public String getVersionName() { return updater.versionName(); }
+
+        @JavascriptInterface
+        public void checkUpdate() { updater.check(); }
+
+        @JavascriptInterface
+        public void downloadUpdate(String url) { updater.download(url); }
+
         @JavascriptInterface
         public void save(String json) {
             getSharedPreferences("emberwake", MODE_PRIVATE).edit().putString("save", json).apply();

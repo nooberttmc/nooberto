@@ -1412,6 +1412,12 @@ function drawTitle() {
   button(VW / 2 - 120, y + 74, 240, 54, 'The Hearth', () => go('hearth'), { size: 18, color: '#ffd060', sub: '◆ ' + fmt(save.embers) + ' Embers' });
   button(VW / 2 - 120, y + 140, 115, 46, 'Codex', () => go('codex'), { size: 15, color: '#8aa0ff' });
   button(VW / 2 + 5, y + 140, 115, 46, 'Settings', () => go('settings'), { size: 15, color: '#8aa0ff' });
+  if (UPD.state === 'available' && !UPD.open) {
+    const pulse = 0.6 + Math.sin(menuT * 4) * 0.4;
+    g.globalAlpha = 0.75 + pulse * 0.25;
+    button(VW / 2 - 110, y + 200, 220, 40, 'Update ready: v' + UPD.info.versionName, () => { UPD.open = true; SFX.play('click'); }, { size: 13, color: '#60d090' });
+    g.globalAlpha = 1;
+  }
   const s = save.stats;
   text('Best wave ' + s.bestWave + '  ·  Depths cleared ' + save.depthCleared + '/' + DEPTHS.length + '  ·  Foes ' + fmt(s.kills), VW / 2, VH - 46, 11, '#7888b0', 'center', 'normal');
   const tips = ['Wardens appear every 5 waves and drop relics.', 'Golden-ringed elites may carry treasure chests.', 'Spend Embers at the Hearth for permanent power.', 'Clear wave 20 to unlock a deeper, richer Depth.', 'New spirits awaken as you reach milestones.', 'Chill slows foes; mines and novas reward kiting.'];
@@ -1547,12 +1553,70 @@ function drawSettings() {
     button(30, y, VW - 60, 50, 'Add icon to Home screen', () => { try { window.Android.pinShortcut(); showToast('Check your home screen!'); } catch (e) { } SFX.play('click'); }, { size: 15, color: '#ffb040' });
     y += 62;
   }
+  if (hasUpdater()) {
+    const label = UPD.state === 'checking' ? 'Checking…' : UPD.state === 'available' ? 'Update to v' + UPD.info.versionName : 'Check for updates';
+    button(30, y, VW - 60, 50, label, () => { SFX.play('click'); if (UPD.state === 'available') UPD.open = true; else checkForUpdate(true); }, { size: 15, color: '#60d090', sub: 'Installed: v' + appVersion() });
+    y += 62;
+  }
   button(30, y, VW - 60, 50, confirmReset > 0 ? 'Tap again to ERASE all progress' : 'Reset progress', () => {
     if (confirmReset > 0) { const keep = save.settings; save = defaultSave(); save.settings = keep; persist(); confirmReset = 0; showToast('Progress erased'); }
     else { confirmReset = 3; SFX.play('click'); }
   }, { size: 14, color: '#ff6060' });
-  text('Emberwake v1.1 · made with flame and code', VW / 2, VH - 90, 11, '#667', 'center', 'normal');
+  text('Emberwake v' + appVersion() + ' · made with flame and code', VW / 2, VH - 90, 11, '#667', 'center', 'normal');
   button(VW / 2 - 70, VH - 62, 140, 46, 'Back', () => go('title'), { size: 16, color: '#8aa0ff' });
+}
+
+// ================= UPDATES =================
+const UPD = { state: 'idle', info: null, open: false, progress: 0, msg: '', checked: false, manual: false, dismissed: 0 };
+function hasUpdater() { return !!(window.Android && window.Android.checkUpdate); }
+function appVersion() { try { return window.Android.getVersionName(); } catch (e) { return '1.2'; } }
+function checkForUpdate(manual) {
+  if (!hasUpdater() || UPD.state === 'checking' || UPD.state === 'downloading' || UPD.state === 'installing') return;
+  UPD.state = 'checking'; UPD.manual = manual; UPD.msg = '';
+  try { window.Android.checkUpdate(); } catch (e) { UPD.state = 'idle'; }
+}
+window.onUpdateInfo = function (info) {
+  let cur = 0; try { cur = window.Android.getVersionCode(); } catch (e) { }
+  if (info && info.versionCode > cur && info.apk) {
+    UPD.info = info; UPD.state = 'available';
+    if (UPD.manual || UPD.dismissed !== info.versionCode) UPD.open = true;
+  } else { UPD.state = 'latest'; if (UPD.manual) showToast("You're on the latest version", '#80ffb0'); }
+};
+window.onUpdateProgress = function (f, done) { UPD.progress = f; if (done) UPD.state = 'installing'; };
+window.onUpdateError = function (msg, quiet) {
+  UPD.state = UPD.info ? 'available' : 'idle'; UPD.msg = msg;
+  if (!quiet || UPD.manual) showToast(msg, '#ff9090');
+};
+function startUpdate() {
+  persist(); // make sure the latest progress is saved before the app is replaced
+  UPD.state = 'downloading'; UPD.progress = 0; UPD.msg = '';
+  try { window.Android.downloadUpdate(UPD.info.apk); } catch (e) { window.onUpdateError('Update failed to start.'); }
+}
+function drawUpdateModal() {
+  const info = UPD.info; if (!info) { UPD.open = false; return; }
+  button(0, 0, VW, VH, '', () => { }, { invisible: true }); // blocks taps on the menu behind
+  dim(0.72);
+  const notes = info.notes || [];
+  const w = VW - 40, x = 20, h = 230 + notes.length * 34, y = Math.max(40, VH / 2 - h / 2);
+  panel(x, y, w, h, '#ffb040', 0.97);
+  g.globalCompositeOperation = 'lighter'; glow(VW / 2, y + 34, 90, '#ffb040', 0.3); g.globalCompositeOperation = 'source-over';
+  text('UPDATE AVAILABLE', VW / 2, y + 32, 22, '#ffe0c0', 'center', 'bold', 'Georgia, serif');
+  text('v' + appVersion() + '  →  v' + info.versionName, VW / 2, y + 58, 14, '#ffd050');
+  let yy = y + 88;
+  for (const n of notes) { const lines = wrap('• ' + n, x + 22, yy, w - 44, 12.5, '#c4cce8', 15, 'left'); yy += Math.max(34, lines * 15 + 8); }
+  text('Your progress is kept.', VW / 2, yy + 4, 12, '#80ffb0', 'center', 'normal');
+  const by = y + h - 76;
+  if (UPD.state === 'downloading') {
+    bar(x + 30, by + 8, w - 60, 14, UPD.progress, '#ffe070', '#ff9a30');
+    text('Downloading… ' + Math.round(UPD.progress * 100) + '%', VW / 2, by + 42, 13, '#ffd080');
+  } else if (UPD.state === 'installing') {
+    text('Confirm the update in the Android prompt', VW / 2, by + 10, 13, '#ffd080');
+    button(VW / 2 - 60, by + 26, 120, 40, 'Close', () => { UPD.open = false; UPD.state = 'available'; SFX.play('click'); }, { size: 14, color: '#8aa0ff' });
+  } else {
+    if (UPD.msg) text(UPD.msg, VW / 2, by - 12, 11, '#ff9090', 'center', 'normal');
+    button(x + 20, by + 4, w / 2 - 26, 52, 'Later', () => { UPD.open = false; UPD.dismissed = info.versionCode; SFX.play('click'); }, { size: 16, color: '#8aa0ff' });
+    button(VW / 2 + 6, by + 4, w / 2 - 26, 52, 'Update now', () => { SFX.play('select'); startUpdate(); }, { size: 16, color: '#ffb040' });
+  }
 }
 
 // ================= MAIN LOOP =================
@@ -1582,6 +1646,8 @@ function step(dt) {
     else if (scene === 'hearth') drawHearth();
     else if (scene === 'codex') drawCodex();
     else if (scene === 'settings') drawSettings();
+    if (!UPD.checked && menuT > 1.5) { UPD.checked = true; checkForUpdate(false); }
+    if (UPD.open) drawUpdateModal();
   }
   if (toast) {
     g.globalAlpha = Math.min(1, toast.t * 2);
@@ -1593,6 +1659,7 @@ function step(dt) {
 
 // ---------- Android / lifecycle hooks ----------
 window.handleBack = function () {
+  if (UPD.open && scene !== 'run') { if (UPD.state !== 'downloading') UPD.open = false; return true; }
   if (scene === 'run' && R) {
     if (!R.overlay && !R.dead) { R.overlay = 'pause'; R.overlayT = 0; stopJoy(); return true; }
     if (R.overlay === 'pause') { R.overlay = null; return true; }

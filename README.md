@@ -4,6 +4,11 @@ A roguelite survival game for Android. You play a small flame drifting through a
 
 **Install:** download [`Emberwake.apk`](Emberwake.apk) on your phone, open it, and allow "install unknown apps" if Android asks. The **Emberwake** icon then appears in your app drawer. On first launch the game also offers to add an icon to your home screen; you can do this again later under Settings.
 
+## Updates
+From v1.2 on, the game checks for updates when it starts, and you can also check under **Settings → Check for updates**. Tap **Update now** and Android installs the new version over the old one, so your progress is kept. The first time, Android asks you to allow Emberwake to install apps.
+
+To publish an update: bump `versionCode`/`versionName` in `app/AndroidManifest.xml`, write the changes in `app/release-notes.txt`, run `app/build.sh`, then commit and push `Emberwake.apk` and `version.json` to this branch.
+
 ## How to play
 - Drag anywhere on the screen to move. Your weapons fire on their own.
 - Collect shards to level up, then pick one of 3 upgrades: new weapons, weapon levels or passive boosts.
