@@ -95,7 +95,9 @@ async function renderSong() {
   const BARS = bars(), totalBars = BARS.length, dur = totalBars * BAR + 6;
   const ctx = new OfflineAudioContext(2, Math.ceil(SR * dur), SR);
   const comp = ctx.createDynamicsCompressor(); comp.threshold.value = -14; comp.ratio.value = 3.5; comp.attack.value = 0.005; comp.release.value = 0.15;
-  const master = ctx.createGain(); master.gain.value = 0.85; master.connect(comp); comp.connect(ctx.destination);
+  const master = ctx.createGain(); master.gain.value = 0.85;
+  const lowShelf = ctx.createBiquadFilter(); lowShelf.type = 'lowshelf'; lowShelf.frequency.value = 90; lowShelf.gain.value = -4.5; // keep the sub from eating the guitars' headroom
+  master.connect(lowShelf); lowShelf.connect(comp); comp.connect(ctx.destination);
   const dry = ctx.createGain(); dry.connect(master);
   const verb = ctx.createConvolver();
   { const len = SR * 3.5, ir = ctx.createBuffer(2, len, SR); for (let ch = 0; ch < 2; ch++) { const d = ir.getChannelData(ch); for (let i = 0; i < len; i++) d[i] = (rand() * 2 - 1) * Math.pow(1 - i / len, 2.3); } verb.buffer = ir; }
@@ -142,7 +144,7 @@ async function renderSong() {
   function nz(t, d, type, f, q, v, dest, attack) { const s = ctx.createBufferSource(); s.buffer = noise; s.loop = true; const fl = ctx.createBiquadFilter(); fl.type = type; fl.frequency.value = f; fl.Q.value = q;
     const g = ctx.createGain(); if (attack) { g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(v, t + attack); } else g.gain.setValueAtTime(v, t);
     g.gain.exponentialRampToValueAtTime(0.0008, t + d); s.connect(fl); fl.connect(g); g.connect(dest || drumBus); s.start(t, rand()); s.stop(t + d + 0.02); return fl; }
-  const kick = (t, v) => { hit(t, 140, 45, 0.28, 0.85 * v); nz(t, 0.01, 'highpass', 3000, 0.7, 0.18 * v); };
+  const kick = (t, v) => { hit(t, 150, 55, 0.2, 0.75 * v); nz(t, 0.01, 'highpass', 3000, 0.7, 0.2 * v); }; // tighter, less boomy
   const crash = (t, v) => { nz(t, 2.4, 'highpass', 5200, 0.5, 0.17 * v); nz(t, 1.3, 'bandpass', 3200, 0.6, 0.07 * v); };
   const taiko = (t, v) => { hit(t, 78, 40, 0.9, 0.9 * v); nz(t, 0.25, 'lowpass', 500, 0.7, 0.32 * v); };
   const tom = (t, f, v) => hit(t, f, f * 0.6, 0.32, 0.55 * v);
@@ -178,7 +180,7 @@ async function renderSong() {
       o.connect(f); f.connect(g); g.connect(dry); send(g, 0.35); o.start(t); o.stop(t + len + 0.15);
     });
   }
-  const bassBus = ctx.createGain(); bassBus.gain.value = 0.6; bassBus.connect(dry);
+  const bassBus = ctx.createGain(); bassBus.gain.value = 0.42; bassBus.connect(dry);
   function bass(t, m, len, vol, grit) {
     const o = ctx.createOscillator(); o.type = 'sine'; o.frequency.value = mtof(m);
     const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(vol, t + 0.008); g.gain.setValueAtTime(vol, t + len - 0.04); g.gain.linearRampToValueAtTime(0.0001, t + len);
@@ -251,7 +253,7 @@ async function renderSong() {
       const name = b < 8 ? 'bloodfire' : 'amen_df';
       if (b === 15) { groove(name, t0, b, 1, 8); snareRoll(name, at(8), 8, 16, 1, 1.5, 0.45, 1); }
       else groove(name, t0, b, 1);
-      for (let s = 0; s < 16; s += 2) kick(at(s), s % 4 ? 0.65 : 0.9);
+      for (let s = 0; s < 16; s += 2) kick(at(s), s % 4 ? 0.45 : 0.7);
       brass(t0, up, STEP * 4, 0.036); brass(at(8), up, STEP * 3, 0.03);
       strings(t0, notes.concat([notes[0] + 12]), BAR, 0.011); choir(t0, notes[0] + 12, BAR * 0.95, 0.022); choir(t0, notes[2] + 12, BAR * 0.95, 0.018);
       bass(t0, sub, BAR - 0.02, 0.36, true);
