@@ -1,8 +1,8 @@
 {
-  "versionCode": 9,
-  "versionName": "1.7",
+  "versionCode": 10,
+  "versionName": "1.8",
   "apk": "https://raw.githubusercontent.com/nooberttmc/nooberto/claude/android-game-apk-w2q4io/Emberwake.apk",
   "notes": [
-    "New music: \"The Drowned Sun\", a full orchestral metal theme with electric guitars, now plays during the final boss"
+    "Final boss music rebuilt: real chopped breakbeats, re-amped electric guitars, faster and heavier"
   ]
 }
