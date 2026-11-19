@@ -1,6 +1,6 @@
 // "Undertow Requiem": atmospheric DnB / breakcore, made entirely with Web Audio synthesis.
-// Step 1 synthesizes an Amen-style break (original pattern played at ~140 BPM) into a buffer.
-// Step 2 treats that buffer like a sample: chopped into 16th slices, pitched up to 172 BPM and re-sequenced
+// Step 1 loads a real Amen break (Myor break pack, 160 BPM).
+// Step 2 treats it like a sample: chopped into 16th slices, pitched up to 172 BPM and re-sequenced
 // in phrases: grooves keep the backbeat, edits and fills build toward each next downbeat.
 // A tape-wobbled synthesized piano carries the motif; an analog-style arp opens up through the builds.
 async function renderSong() {
@@ -9,46 +9,9 @@ async function renderSong() {
   const mtof = m => 440 * Math.pow(2, (m - 69) / 12);
 
   // ---------------- 1. the break ----------------
-  const BREAK_BPM = 140, bStep = 60 / BREAK_BPM / 4, bSteps = 32;
-  const bctx = new OfflineAudioContext(1, Math.ceil(SR * bStep * bSteps + SR * 0.5), SR);
+  // The real Amen break from the Myor pack (160 BPM, 2 bars), loaded by render.js and chopped into 16th slices.
+  const bStep = 60 / 160 / 4;
   const noiseBuf = (ctx, sec) => { const b = ctx.createBuffer(1, SR * sec, SR), d = b.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = rand() * 2 - 1; return b; };
-  const bNoise = noiseBuf(bctx, 1);
-  const shaper = bctx.createWaveShaper(); // a little grit, like a dusty record
-  const curve = new Float32Array(1024); for (let i = 0; i < 1024; i++) { const x = i / 512 - 1; curve[i] = Math.tanh(x * 2.2) / Math.tanh(2.2); }
-  shaper.curve = curve; shaper.connect(bctx.destination);
-  const bOut = bctx.createGain(); bOut.gain.value = 0.8; bOut.connect(shaper);
-  function bNoiseHit(t, dur, type, f, q, v, dest) {
-    const src = bctx.createBufferSource(); src.buffer = bNoise;
-    const fl = bctx.createBiquadFilter(); fl.type = type; fl.frequency.value = f; fl.Q.value = q;
-    const g = bctx.createGain(); g.gain.setValueAtTime(v, t); g.gain.exponentialRampToValueAtTime(0.0008, t + dur);
-    src.connect(fl); fl.connect(g); g.connect(dest || bOut); src.start(t, rand() * 0.5); src.stop(t + dur + 0.02);
-  }
-  function bTone(t, f0, f1, dur, type, v) {
-    const o = bctx.createOscillator(); o.type = type; o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(f1, t + dur * 0.6);
-    const g = bctx.createGain(); g.gain.setValueAtTime(v, t); g.gain.exponentialRampToValueAtTime(0.0008, t + dur);
-    o.connect(g); g.connect(bOut); o.start(t); o.stop(t + dur + 0.02);
-  }
-  const kick = (t, v) => { bTone(t, 160, 42, 0.32, 'sine', 0.95 * v); bNoiseHit(t, 0.012, 'highpass', 3000, 0.7, 0.25 * v); };
-  const snare = (t, v) => { bTone(t, 230, 170, 0.12, 'triangle', 0.45 * v); bNoiseHit(t, 0.2, 'bandpass', 1900, 0.6, 0.7 * v); bNoiseHit(t, 0.08, 'highpass', 6000, 0.7, 0.25 * v); };
-  const hat = (t, v) => bNoiseHit(t, 0.045, 'highpass', 8000, 0.8, 0.22 * v);
-  const ride = (t, v) => bNoiseHit(t, 0.16, 'bandpass', 4200, 1.2, 0.12 * v); // soft noise-only ride (no ringing tones)
-  // Amen-style two-bar pattern (K kick, S snare, s ghost snare)
-  const pat = [
-    'K.K.S..s.sKKS..s',
-    'K.K.S..s.sK...S.',
-  ].join('');
-  for (let i = 0; i < bSteps; i++) {
-    const t = i * bStep, c = pat[i];
-    if (c === 'K') kick(t, i % 16 === 0 ? 1 : 0.85);
-    if (c === 'S') snare(t, 1);
-    if (c === 's') snare(t, 0.45);
-    if (i % 2 === 0) ride(t, i % 4 === 0 ? 1 : 0.7);
-    hat(t, i % 2 ? 0.55 : 0.8);
-  }
-  const breakBuf = await bctx.startRendering();
-  // reversed copy for reverse chops
-  const rev = new AudioBuffer({ length: breakBuf.length, sampleRate: SR, numberOfChannels: 1 });
-  { const a = breakBuf.getChannelData(0), r = rev.getChannelData(0); for (let i = 0; i < a.length; i++) r[i] = a[a.length - 1 - i]; }
 
   // ---------------- 2. the song ----------------
   const BPM = 172, step = 60 / BPM / 4, bar = step * 16;
@@ -56,6 +19,9 @@ async function renderSong() {
   const totalBars = S.reduce((a, s) => a + s[1], 0), dur = totalBars * bar + 5;
   const ctx = new OfflineAudioContext(2, Math.ceil(SR * dur), SR);
   const noise = noiseBuf(ctx, 2);
+  const breakBuf = await loadAsset('break/amen_yki', ctx); // reversed copy for reverse chops
+  const rev = new AudioBuffer({ length: breakBuf.length, sampleRate: SR, numberOfChannels: 1 });
+  { const a = breakBuf.getChannelData(0), r = rev.getChannelData(0); for (let i = 0; i < a.length; i++) r[i] = a[a.length - 1 - i]; }
   const comp = ctx.createDynamicsCompressor(); comp.threshold.value = -12; comp.ratio.value = 4; comp.attack.value = 0.004; comp.release.value = 0.18;
   const master = ctx.createGain(); master.gain.value = 0.9; master.connect(comp); comp.connect(ctx.destination);
   const dry = ctx.createGain(); dry.connect(master);
@@ -140,13 +106,13 @@ async function renderSong() {
     const off = opts.reverse ? breakBuf.duration - (idx + len) * bStep : idx * bStep;
     src.start(t, Math.max(0, off), len * bStep); src.stop(t + sliceDur + 0.01);
   }
-  const R = 172 / 140; // break pitched up to song tempo
+  const R = 172 / 160; // break pitched up to song tempo
   // Slice map of the break: 0 kick, 2 kick, 4 snare, 7 ghost, 9 ghost, 10-11 double kick, 12 snare, 15 ghost; 16-31 the second bar.
-  const KICK = 0, SNARE = 4, SNARE2 = 12, GHOST = 7;
+  const BI = window.BREAK_INFO.amen_yki, KICK = BI.kick, SNARE = BI.snare, SNARE2 = BI.snare, GHOST = BI.ghost; // measured by tools/analyze_breaks.py
   // ---- drum bars: every edit has a job. The groove keeps kick on 1 and snares on 2 and 4 ----
   function groove(t0, which, vol) { for (let i = 0; i < 16; i++) slice(t0 + i * step, which * 16 + i, 1, R, { vol }); }
   function rolling(t0) { // groove variant: kick re-triggered on the "and" of 3 for a rolling feel
-    const map = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 12, 13, 14, 15]; map.forEach((s, i) => slice(t0 + i * step, s, 1, R));
+    const map = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, KICK, KICK, 12, 13, 14, 15]; map.forEach((s, i) => slice(t0 + i * step, s, 1, R));
   }
   function roll(t, steps, n, pitchFrom, pitchTo, volFrom, volTo, idx) { // even roll spanning `steps` 16ths
     for (let k = 0; k < n; k++) { const f = k / Math.max(1, n - 1); slice(t + k * steps * step / n, idx == null ? SNARE : idx, steps / n, R * (pitchFrom + (pitchTo - pitchFrom) * f), { vol: volFrom + (volTo - volFrom) * f }); }

@@ -1,0 +1,44 @@
+{
+ "amen_yki": {
+  "kick": 27,
+  "snare": 16,
+  "ghost": 9,
+  "steps": 32
+ },
+ "amen_df": {
+  "kick": 25,
+  "snare": 31,
+  "ghost": 15,
+  "steps": 32
+ },
+ "steppin1": {
+  "kick": 23,
+  "snare": 14,
+  "ghost": 26,
+  "steps": 32
+ },
+ "steppin2": {
+  "kick": 1,
+  "snare": 18,
+  "ghost": 30,
+  "steps": 32
+ },
+ "bloodfire": {
+  "kick": 60,
+  "snare": 3,
+  "ghost": 48,
+  "steps": 64
+ },
+ "think": {
+  "kick": 17,
+  "snare": 52,
+  "ghost": 4,
+  "steps": 64
+ },
+ "hotpants_crash": {
+  "kick": 10,
+  "snare": 16,
+  "ghost": 8,
+  "steps": 32
+ }
+}
