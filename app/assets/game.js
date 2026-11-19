@@ -156,6 +156,10 @@ function drawIcon(kind, id, x, y, s, color) {
       case 'seeker': g.beginPath(); g.moveTo(k, -k); g.lineTo(-k * 0.2, -k * 0.5); g.lineTo(k * 0.5, k * 0.2); g.closePath(); g.fill(); g.beginPath(); g.moveTo(k * 0.1, -k * 0.1); g.quadraticCurveTo(-k, 0, -k * 0.8, k); g.stroke(); break;
       case 'mine': g.beginPath(); g.arc(0, 0, k * 0.5, 0, TAU); g.fill(); for (let i = 0; i < 6; i++) { const a = i * TAU / 6; g.beginPath(); g.moveTo(Math.cos(a) * k * 0.6, Math.sin(a) * k * 0.6); g.lineTo(Math.cos(a) * k, Math.sin(a) * k); g.stroke(); } break;
     }
+  } else if (kind === 'heal') {
+    g.beginPath(); g.moveTo(0, k * 0.8); g.bezierCurveTo(-k * 1.3, -k * 0.1, -k * 0.6, -k * 1.1, 0, -k * 0.4); g.bezierCurveTo(k * 0.6, -k * 1.1, k * 1.3, -k * 0.1, 0, k * 0.8); g.fill();
+  } else if (kind === 'cache') {
+    g.beginPath(); g.moveTo(0, -k); g.lineTo(k * 0.7, 0); g.lineTo(0, k); g.lineTo(-k * 0.7, 0); g.closePath(); g.fill();
   } else if (kind === 'relic') {
     g.beginPath(); g.moveTo(0, -k); g.lineTo(k * 0.8, -k * 0.2); g.lineTo(0, k); g.lineTo(-k * 0.8, -k * 0.2); g.closePath(); g.globalAlpha = 0.35; g.fill(); g.globalAlpha = 1; g.stroke();
     g.beginPath(); g.moveTo(-k * 0.8, -k * 0.2); g.lineTo(k * 0.8, -k * 0.2); g.stroke();
@@ -171,6 +175,7 @@ let buttons = [];
 const ptr = { down: false, id: null, x: 0, y: 0, sx: 0, sy: 0, btn: null };
 const joy = { active: false, id: null, ox: 0, oy: 0, x: 0, y: 0, dx: 0, dy: 0 };
 const keys = {};
+function stopJoy() { joy.active = false; joy.id = null; joy.dx = 0; joy.dy = 0; }
 function toV(e) { return { x: e.clientX / S, y: e.clientY / S }; }
 function button(x, y, w, h, label, onClick, o) {
   o = o || {};
@@ -207,13 +212,13 @@ cvs.addEventListener('pointermove', e => {
   const p = toV(e);
   if (joy.active && e.pointerId === joy.id) {
     let dx = p.x - joy.ox, dy = p.y - joy.oy; const d = Math.hypot(dx, dy), max = 46;
-    if (d > max) { joy.ox += dx * (1 - max / d); joy.oy += dy * (1 - max / d); dx = p.x - joy.ox; dy = p.y - joy.oy; }
+    if (d > max) { dx *= max / d; dy *= max / d; } // the base stays where the thumb first landed
     joy.x = p.x; joy.y = p.y; joy.dx = dx / max; joy.dy = dy / max;
   }
   if (ptr.down && e.pointerId === ptr.id) { ptr.x = p.x; ptr.y = p.y; }
 });
 function endPtr(e, cancel) {
-  if (joy.active && e.pointerId === joy.id) { joy.active = false; joy.dx = joy.dy = 0; }
+  if (joy.active && e.pointerId === joy.id) { stopJoy(); }
   if (ptr.down && e.pointerId === ptr.id) {
     ptr.down = false;
     const p = toV(e);
@@ -268,7 +273,7 @@ function newRun() {
   if (spirit.relic) R.relics.push(pick(RELIC_IDS.filter(k => k !== 'coin')));
   recalc(); R.p.hp = st.maxHp;
   save.stats.runs++; persist();
-  joy.active = false;
+  stopJoy();
   scene = 'run';
   SFX.music('run'); SFX.setIntensity(1);
 }
@@ -361,21 +366,27 @@ function pickType() {
   return 'drifter';
 }
 function spawnBoss(n) {
-  const loop = Math.floor((n - 1) / FINAL_WAVE);
+  const endless = n > FINAL_WAVE;
+  // Endless mode: "Enhanced" wardens whose health, damage and attack power keep scaling with the wave,
+  // so e.g. the wave-25 Hollow Eye outclasses the wave-20 Heart of the Deep.
+  const enh = endless ? 1.3 + (n - FINAL_WAVE) * 0.035 : 1;
   const idx = (n % FINAL_WAVE === 0) ? 3 : ((n / 5 - 1) % 4);
   const b = BOSSES[idx];
   const a = rand(TAU), dist = Math.min(VW, VH) / 2 + 40;
   const e = spawnEnemy('drifter', R.p.x + Math.cos(a) * dist, R.p.y + Math.sin(a) * dist);
-  Object.assign(e, { boss: true, bd: b, kind: b.kind, r: b.r, color: b.color, spd: b.spd, hp: b.hp * Math.pow(R.depth.hp, 0.85) * (1 + loop * 1.6), dmg: 22 * R.depth.dmg * (1 + loop * 0.5),
-    xp: 120 + 20 * n, state: 'chase', st: 2, pt: 1.5, sumT: 5, ringN: 0, spiralA: 0, enraged: false, name: b.name });
+  const hp = endless ? BOSSES[3].hp * 1.1 * Math.pow(n / FINAL_WAVE, 1.8) : b.hp;
+  const dmg = b.dmg * (endless ? 1.15 * Math.pow(n / FINAL_WAVE, 1.3) : 1);
+  const name = endless ? 'Enhanced ' + b.name.replace(/^The /, '') : b.name;
+  Object.assign(e, { boss: true, bd: b, kind: b.kind, r: b.r * (endless ? 1.12 : 1), color: b.color, spd: b.spd * (endless ? 1.1 : 1), hp: hp * Math.pow(R.depth.hp, 0.85), dmg: dmg * R.depth.dmg,
+    xp: 120 + 20 * n, state: 'chase', st: 2, pt: 1.5, sumT: 5, ringN: 0, spiralA: 0, enraged: false, name, enh });
   e.maxHp = e.hp;
   R.boss = e;
-  R.banner = { text: b.name, sub: 'A Warden rises from the deep', t: 3, color: b.color };
+  R.banner = { text: name, sub: endless ? 'Empowered by the endless tide' : 'A Warden rises from the deep', t: 3, color: endless ? '#ffd040' : b.color };
   SFX.play('bossroar'); SFX.music('boss'); addShake(8);
 }
-function eShoot(x, y, a, spd, dmg, color, r) {
-  if (R.ebul.length > 400) return;
-  R.ebul.push({ x, y, vx: Math.cos(a) * spd, vy: Math.sin(a) * spd, r: r || 6, dmg, life: 7, c: color || '#ff4070' });
+function eShoot(x, y, a, spd, dmg, color, r, life) {
+  if (R.ebul.length > 450) return;
+  R.ebul.push({ x, y, vx: Math.cos(a) * spd, vy: Math.sin(a) * spd, r: r || 6, dmg, life: life || 7, c: color || '#ff4070' });
 }
 
 function hurtEnemy(e, dmg, o) {
@@ -458,7 +469,7 @@ function hurtPlayer(d, src) {
   if (p.hp <= 0) {
     if (hasRelic('phoenix') && !R.phoenixUsed) { R.phoenixUsed = true; revive(1); }
     else if (hR('wind') && !R.windUsed) { R.windUsed = true; revive(0.5); }
-    else { p.hp = 0; R.dead = true; R.deathT = 2; R.slow = 0.3; SFX.play('death'); burst(p.x, p.y, R.spirit.color, 60, 260, 4, 1.4); joy.active = false; }
+    else { p.hp = 0; R.dead = true; R.deathT = 2; R.slow = 0.3; SFX.play('death'); burst(p.x, p.y, R.spirit.color, 60, 260, 4, 1.4); stopJoy(); }
   }
 }
 function revive(frac) {
@@ -592,20 +603,20 @@ function genChoices() {
   R.choices = out;
 }
 function applyChoice(c) {
-  if (c.t === 'weapon') { const w = R.weapons.find(w => w.id === c.id); if (w) w.lvl = c.lvl; else addWeapon(c.id); }
-  else if (c.t === 'passive') { R.passives[c.id] = c.lvl; if (c.id === 'vigor') { recalc(); healP(20, true); } }
+  if (c.t === 'weapon') { const w = R.weapons.find(w => w.id === c.id); if (w) w.lvl = Math.min(5, Math.max(w.lvl, c.lvl)); else addWeapon(c.id); }
+  else if (c.t === 'passive') { R.passives[c.id] = Math.min(PASSIVES[c.id].max, Math.max(R.passives[c.id] || 0, c.lvl)); if (c.id === 'vigor') { recalc(); healP(20, true); } }
   else if (c.t === 'heal') healP(st.maxHp * 0.4);
   else if (c.t === 'embers') R.embersFound += 15;
   recalc();
   SFX.play('select');
   R.pending--;
-  if (R.pending > 0) genChoices(); else R.overlay = null;
+  if (R.pending > 0) { genChoices(); R.overlayT = 0; } else R.overlay = null;
 }
 function choiceInfo(c) {
   if (c.t === 'weapon') { const d = WEAPONS[c.id]; return { name: d.name, desc: d.lv[c.lvl], color: d.color, tag: c.lvl === 1 ? 'NEW WEAPON' : 'LEVEL ' + c.lvl, kind: 'weapon', lvl: c.lvl, max: 5 }; }
   if (c.t === 'passive') { const d = PASSIVES[c.id]; return { name: d.name, desc: d.desc, color: d.color, tag: c.lvl === 1 ? 'NEW' : 'LEVEL ' + c.lvl, kind: 'passive', lvl: c.lvl, max: d.max }; }
-  if (c.t === 'heal') return { name: 'Warm Embers', desc: 'Restore 40% of your HP.', color: '#70ff90', tag: 'RESTORE', kind: 'passive' };
-  return { name: 'Ember Cache', desc: '+15 Embers for the Hearth.', color: '#ffd040', tag: 'TREASURE', kind: 'passive' };
+  if (c.t === 'heal') return { name: 'Warm Embers', desc: 'Restore 40% of your HP. (Repeatable bonus)', color: '#70ff90', tag: 'BONUS · HEAL', kind: 'heal' };
+  return { name: 'Ember Cache', desc: '+15 Embers for the Hearth. (Repeatable bonus)', color: '#ffd040', tag: 'BONUS · TREASURE', kind: 'cache' };
 }
 function openRelics() {
   const pool = shuffle(RELIC_IDS.filter(k => !hasRelic(k)));
@@ -705,7 +716,7 @@ function finishRun(victory) {
 
 // ---------- update ----------
 function updateRun(rdt) {
-  if (R.overlay) { R.overlayT = (R.overlayT || 0) + rdt; return; }
+  if (R.overlay) { R.overlayT = (R.overlayT || 0) + rdt; R.shake = 0; R.hurtFlash = 0; if (joy.active) stopJoy(); return; }
   if (R.hitstop > 0) { R.hitstop -= rdt; return; }
   if (R.slowT > 0) { R.slowT -= rdt; if (R.slowT <= 0) R.slow = 1; }
   const dt = rdt * (R.dead ? 0.3 : R.slow);
@@ -719,7 +730,7 @@ function updateRun(rdt) {
   }
   if (R.tutorial > 0) R.tutorial -= dt;
   // movement
-  let mx = joy.dx, my = joy.dy;
+  let mx = joy.active ? joy.dx : 0, my = joy.active ? joy.dy : 0;
   if (keys['w'] || keys['arrowup']) my -= 1; if (keys['s'] || keys['arrowdown']) my += 1;
   if (keys['a'] || keys['arrowleft']) mx -= 1; if (keys['d'] || keys['arrowright']) mx += 1;
   if (window.__bot) { const b = window.__bot(R); mx = b[0]; my = b[1]; }
@@ -749,8 +760,8 @@ function updateRun(rdt) {
   R.enemies = R.enemies.filter(e => !e.dead);
 
   if (R.shake > 0) R.shake = Math.max(0, R.shake - dt * 30);
-  if (!R.overlay && R.pending > 0 && !R.dead) { genChoices(); R.overlay = 'level'; R.overlayT = 0; SFX.play('level'); joy.active = false; }
-  if (!R.overlay && R.victoryPending) { R.victoryPending = false; R.overlay = 'victory'; R.overlayT = 0; joy.active = false; SFX.play('revive'); }
+  if (!R.overlay && R.pending > 0 && !R.dead) { genChoices(); R.overlay = 'level'; R.overlayT = 0; SFX.play('level'); stopJoy(); }
+  if (!R.overlay && R.victoryPending) { R.victoryPending = false; R.overlay = 'victory'; R.overlayT = 0; stopJoy(); SFX.play('revive'); }
 }
 function updateEnemies(dt) {
   const p = R.p;
@@ -798,67 +809,103 @@ function updateEnemies(dt) {
   }
 }
 function bossAI(e, dt, d, ux, uy) {
-  const p = R.p;
+  const p = R.p, pw = Math.min(e.enh || 1, 2.2);
   e.pt -= dt; e.sumT -= dt;
   if (!e.enraged && e.hp < e.maxHp * 0.5) { e.enraged = true; R.banner = { text: 'ENRAGED', sub: e.name, t: 1.6, color: '#ff4040' }; SFX.play('bossroar'); addShake(6); }
-  const rage = e.enraged ? 1.35 : 1;
+  const rage = (e.enraged ? 1.35 : 1) * pw;          // attack tempo
+  const cnt = n => Math.round(n * (1 + (pw - 1) * 0.6)); // bullet counts grow in endless
+  const bsp = v => v * (1 + (pw - 1) * 0.35);           // bullet speeds grow in endless
+  const bdmg = e.dmg * 0.6;
   let vx = 0, vy = 0;
-  const summon = (type, n) => { for (let i = 0; i < n; i++) { const a = rand(TAU); const m = spawnEnemy(type, e.x + Math.cos(a) * 50, e.y + Math.sin(a) * 50); m.spawnT = 0.4; } };
-  const ring = (n, spd, off) => { for (let i = 0; i < n; i++) eShoot(e.x, e.y, off + i * TAU / n, spd, e.dmg * 0.6, e.color, 7); SFX.play('eshot'); };
-  const aimA = Math.atan2(p.y - e.y, p.x - e.x);
+  const summon = (type, n) => {
+    n = Math.round(n * pw);
+    for (let i = 0; i < n; i++) { const a = rand(TAU); const m = spawnEnemy(type, e.x + Math.cos(a) * 50, e.y + Math.sin(a) * 50, { elite: pw > 1 && Math.random() < 0.15 }); m.spawnT = 0.4; }
+  };
+  const ring = (n, spd, off, col) => { n = cnt(n); for (let i = 0; i < n; i++) eShoot(e.x, e.y, off + i * TAU / n, bsp(spd), bdmg, col || e.color, 7); SFX.play('eshot'); };
+  const fan = (n, step, spd, col) => { n = cnt(n); const a0 = Math.atan2(R.p.y - e.y, R.p.x - e.x); for (let i = 0; i < n; i++) eShoot(e.x, e.y, a0 + (i - (n - 1) / 2) * step, bsp(spd), bdmg, col || e.color, 6); SFX.play('eshot'); };
+  const later = (t, f) => { R.delayed = (R.delayed || []).concat([{ t, f: () => { if (!e.dead) f(); } }]); };
+  const dashTo = (wind) => { e.state = 'wind'; e.pt = wind; e.cx = ux; e.cy = uy; SFX.play('telegraph'); };
   switch (e.kind) {
-    case 'eye': {
+    case 'eye': { // easiest: orbits you, rings of bullets with an aimed burst every third volley
       e.orb = (e.orb || 0) + dt * 0.35;
-      const tx = p.x + Math.cos(e.orb) * 180, ty = p.y + Math.sin(e.orb) * 180;
+      const tx = p.x + Math.cos(e.orb) * 175, ty = p.y + Math.sin(e.orb) * 175;
       const ddx = tx - e.x, ddy = ty - e.y, dl = Math.hypot(ddx, ddy) || 1;
       vx = ddx / dl * e.spd * 1.6; vy = ddy / dl * e.spd * 1.6;
       if (e.pt <= 0) {
         e.ringN++;
-        if (e.ringN % 3 === 0) { for (let i = -2; i <= 2; i++) eShoot(e.x, e.y, aimA + i * 0.16, 170, e.dmg * 0.6, '#ff80ff', 7); }
-        else ring(e.enraged ? 16 : 11, 105 * rage, rand(TAU));
-        e.pt = 2.3 / rage;
+        if (e.ringN % 3 === 0) fan(7, 0.15, 175, '#ff80ff');
+        else {
+          const off = rand(TAU), n = e.enraged ? 18 : 12;
+          ring(n, 110, off);
+          if (e.enraged) later(0.35, () => ring(n, 110, off + Math.PI / n));
+        }
+        e.pt = 2.1 / rage;
       }
-      if (e.sumT <= 0) { summon('drifter', 3); e.sumT = 9; }
+      if (e.sumT <= 0) { summon('drifter', 4); e.sumT = 8; }
       break;
     }
-    case 'maw': {
-      if (e.state === 'chase') { vx = ux * e.spd * rage; vy = uy * e.spd * rage; if (e.pt <= 0) { e.state = 'wind'; e.pt = 0.85; e.cx = ux; e.cy = uy; SFX.play('telegraph'); } }
-      else if (e.state === 'wind') { if (e.pt <= 0) { e.state = 'dash'; e.pt = 0.7; } }
-      else if (e.state === 'dash') { vx = e.cx * 400; vy = e.cy * 400; if (e.pt <= 0) { e.state = 'chase'; e.pt = 3 / rage; addShake(4); if (e.enraged) ring(10, 120, rand(TAU)); } }
+    case 'maw': { // charges with fiery trails, bursts at the end of each charge; double-charges when enraged
+      if (e.state === 'chase') { vx = ux * e.spd * 1.1 * rage; vy = uy * e.spd * 1.1 * rage; if (e.pt <= 0) { e.dashes = e.enraged ? 2 : 1; dashTo(0.8); } }
+      else if (e.state === 'wind') { if (e.pt <= 0) { e.state = 'dash'; e.pt = 0.65; e.trail = 0; } }
+      else if (e.state === 'dash') {
+        vx = e.cx * 430; vy = e.cy * 430;
+        e.trail -= dt;
+        if (e.trail <= 0) { e.trail = 0.08; eShoot(e.x, e.y, rand(TAU), 22, bdmg * 0.7, '#ff8030', 7, 1.8); }
+        if (e.pt <= 0) {
+          ring(e.enraged ? 12 : 8, 120, rand(TAU)); addShake(4);
+          e.dashes--;
+          if (e.dashes > 0) { const dx = R.p.x - e.x, dy = R.p.y - e.y, dl = Math.hypot(dx, dy) || 1; ux = dx / dl; uy = dy / dl; dashTo(0.45); }
+          else { e.state = 'chase'; e.pt = 2.6 / rage; }
+        }
+      }
       if (e.sumT <= 0) { summon(R.wave > 10 ? 'dart' : 'drifter', 4); e.sumT = 7; }
       break;
     }
-    case 'tide': {
+    case 'tide': { // keeps its distance: spiral arms, then aimed fans
       const want = 220, f = d > want + 40 ? 1 : d < want - 40 ? -1 : 0;
       vx = (ux * f - uy * 0.4) * e.spd; vy = (uy * f + ux * 0.4) * e.spd;
       if (e.state === 'chase') e.state = 'spiral';
       if (e.state === 'spiral') {
         e.sp = (e.sp || 0) - dt;
-        if (e.sp <= 0) { e.sp = 0.11 / rage; e.spiralA += 0.33; eShoot(e.x, e.y, e.spiralA, 115, e.dmg * 0.55, '#40d0ff', 6); eShoot(e.x, e.y, e.spiralA + Math.PI, 115, e.dmg * 0.55, '#40d0ff', 6); if (e.enraged) eShoot(e.x, e.y, e.spiralA + Math.PI / 2, 115, e.dmg * 0.55, '#40d0ff', 6); }
-        if (e.pt <= 0) { e.state = 'rest'; e.pt = 1.3; }
+        if (e.sp <= 0) {
+          e.sp = 0.105 / rage; e.spiralA += 0.33;
+          const arms = (e.enraged ? 3 : 2) + (pw > 1.5 ? 1 : 0);
+          for (let k = 0; k < arms; k++) eShoot(e.x, e.y, e.spiralA + k * TAU / arms, bsp(124), bdmg * 0.9, '#40d0ff', 6);
+        }
+        if (e.pt <= 0) { e.state = 'rest'; e.pt = 1.2; }
       } else if (e.state === 'rest') { if (e.pt <= 0) { e.state = 'fan'; e.pt = 1.2; e.fanN = 0; e.sp = 0; } }
       else if (e.state === 'fan') {
         e.sp -= dt;
-        if (e.sp <= 0 && e.fanN < 3) { e.fanN++; e.sp = 0.35; for (let i = -3; i <= 3; i++) eShoot(e.x, e.y, aimA + i * 0.14, 165, e.dmg * 0.6, '#a0f0ff', 6); SFX.play('eshot'); }
+        if (e.sp <= 0 && e.fanN < 3) { e.fanN++; e.sp = 0.35; fan(7, 0.14, 168, '#a0f0ff'); }
         if (e.pt <= 0) { e.state = 'spiral'; e.pt = 3; }
       }
-      if (e.sumT <= 0) { summon('dart', 5); e.sumT = 8; }
+      if (e.sumT <= 0) { summon('dart', 6); e.sumT = 7.5; }
       break;
     }
-    case 'heart': {
-      e.beat = (e.beat || 0) + dt;
-      if (e.state === 'dash') { vx = e.cx * 380; vy = e.cy * 380; if (e.pt <= 0) { e.state = 'chase'; e.pt = 2; ring(14, 120, rand(TAU)); addShake(5); } }
-      else if (e.state === 'wind') { if (e.pt <= 0) { e.state = 'dash'; e.pt = 0.65; } }
-      else {
-        vx = ux * e.spd * rage; vy = uy * e.spd * rage;
+    case 'heart': { // hardest: cycles charges, double rings, triple volleys and a 4-arm spiral; heartbeat waves when enraged
+      if (e.enraged) {
+        e.beat = (e.beat || 0) - dt;
+        if (e.beat <= 0) { e.beat = 3.2 / pw; ring(30, 68, rand(TAU), '#ff90c0'); addShake(2); }
+      }
+      if (e.state === 'wind') { if (e.pt <= 0) { e.state = 'dash'; e.pt = 0.6; } }
+      else if (e.state === 'dash') { vx = e.cx * 420; vy = e.cy * 420; if (e.pt <= 0) { e.state = 'chase'; e.pt = 1.2 / rage; ring(20, 130, rand(TAU)); addShake(5); } }
+      else if (e.state === 'spiral') {
+        vx = ux * e.spd * 0.4; vy = uy * e.spd * 0.4;
+        e.sp = (e.sp || 0) - dt;
+        if (e.sp <= 0) { e.sp = 0.09 / pw; e.spiralA += 0.27; const arms = e.enraged ? 5 : 4; for (let k = 0; k < arms; k++) eShoot(e.x, e.y, e.spiralA + k * TAU / arms, bsp(120), bdmg, '#ff60a0', 6); }
+        if (e.pt <= 0) { e.state = 'chase'; e.pt = 1.0 / rage; }
+      } else {
+        vx = ux * e.spd * 1.1 * rage; vy = uy * e.spd * 1.1 * rage;
         if (e.pt <= 0) {
           e.ringN++;
-          if (e.enraged && e.ringN % 3 === 0) { e.state = 'wind'; e.pt = 0.8; e.cx = ux; e.cy = uy; SFX.play('telegraph'); }
-          else if (e.ringN % 2 === 0) { for (let k = 0; k < 3; k++) R.delayed = (R.delayed || []).concat([{ t: k * 0.25, f: () => { if (!e.dead) ring(9, 140, Math.atan2(R.p.y - e.y, R.p.x - e.x) + k * 0.2); } }]); e.pt = 1.8; }
-          else { ring(e.enraged ? 22 : 16, 105, rand(TAU)); e.pt = 1.9 / rage; }
+          const k = e.ringN % (e.enraged ? 3 : 4);
+          if (k === 0) dashTo(0.7);
+          else if (k === 1) { const off = rand(TAU), n = e.enraged ? 24 : 18; ring(n, 115, off); later(0.3, () => ring(n, 115, off + Math.PI / n)); e.pt = 1.6 / rage; }
+          else if (k === 2) { for (let j = 0; j < 4; j++) later(j * 0.2, () => fan(11, 0.12, 155)); e.pt = 1.6 / rage; }
+          else { e.state = 'spiral'; e.pt = 2.2; }
         }
       }
-      if (e.sumT <= 0) { summon(pick(['drifter', 'dart', 'spitter', 'mini']), 5); e.sumT = 6.5; }
+      if (e.sumT <= 0) { summon(pick(['drifter', 'dart', 'spitter', 'charger', 'mini']), 7); e.sumT = 5; }
       break;
     }
   }
@@ -1012,6 +1059,14 @@ function drawEnemy(e) {
 }
 function drawBossBody(e, r) {
   const t = e.t, c = e.color;
+  if (e.enh > 1) {
+    g.save(); g.rotate(-t * 0.7);
+    g.strokeStyle = hexA('#ffd040', 0.75 + Math.sin(t * 5) * 0.2); g.lineWidth = 2.5;
+    g.beginPath();
+    for (let i = 0; i < 24; i++) { const a = i * TAU / 24, rr2 = r * (i % 2 ? 1.75 : 1.95); g.lineTo(Math.cos(a) * rr2, Math.sin(a) * rr2); }
+    g.closePath(); g.stroke(); g.restore();
+    g.globalCompositeOperation = 'lighter'; glow(0, 0, r * 2.4, '#ffd040', 0.25); g.globalCompositeOperation = 'source-over';
+  }
   g.globalCompositeOperation = 'lighter'; glow(0, 0, r * 2.6, c, 0.45 + (e.enraged ? Math.sin(t * 10) * 0.15 : 0)); g.globalCompositeOperation = 'source-over';
   const fill = e.flash > 0 ? '#ffffff' : mixHex(c, 0.8, '#08060f');
   g.lineWidth = 3; g.strokeStyle = c; g.fillStyle = fill;
@@ -1064,7 +1119,7 @@ function drawPlayer() {
 }
 function renderRun() {
   const p = R.p;
-  const sx = R.shake ? rand(-R.shake, R.shake) : 0, sy = R.shake ? rand(-R.shake, R.shake) : 0;
+  const shk = R.overlay ? 0 : R.shake, sx = shk ? rand(-shk, shk) : 0, sy = shk ? rand(-shk, shk) : 0;
   const camX = R.cam.x - VW / 2 + sx, camY = R.cam.y - VH / 2 + sy;
   drawBackground(camX, camY, R.depth, R.t);
   g.save(); g.translate(-camX, -camY);
@@ -1186,7 +1241,7 @@ function drawHUD() {
   }
   if (R.combo >= 10) text(R.combo + ' CHAIN', VW - 14, top + 62, 13 + Math.min(8, R.combo / 25), '#ffb060', 'right');
   // pause button
-  if (!R.overlay) button(VW - 52, 4, 44, 40, '❚❚', () => { R.overlay = 'pause'; R.overlayT = 0; SFX.play('click'); joy.active = false; }, { size: 15, color: '#8aa0ff', radius: 10 });
+  if (!R.overlay) button(VW - 52, 4, 44, 40, '❚❚', () => { R.overlay = 'pause'; R.overlayT = 0; SFX.play('click'); stopJoy(); }, { size: 15, color: '#8aa0ff', radius: 10 });
   // boss bar
   if (R.boss) {
     const b = R.boss, bw = VW - 40;
@@ -1254,7 +1309,7 @@ function drawOverlay() {
     const n = R.choices.length, ch = 96, gap = 12, total = n * ch + (n - 1) * gap;
     let y = Math.max(160, VH / 2 - total / 2 + 20);
     R.choices.forEach((c, i) => {
-      const info = choiceInfo(c); info.id = c.id || (c.t === 'heal' ? 'vigor' : 'wisdom');
+      const info = choiceInfo(c); info.id = c.id;
       const ap = clamp(ot * 5 - i * 0.4, 0, 1);
       choiceCard(20 + (1 - ap) * 40, y, VW - 40, ch, info, () => { if (ot > 0.35) applyChoice(c); }, ap);
       y += ch + gap;
@@ -1496,7 +1551,7 @@ function drawSettings() {
     if (confirmReset > 0) { const keep = save.settings; save = defaultSave(); save.settings = keep; persist(); confirmReset = 0; showToast('Progress erased'); }
     else { confirmReset = 3; SFX.play('click'); }
   }, { size: 14, color: '#ff6060' });
-  text('Emberwake v1.0 · made with flame and code', VW / 2, VH - 90, 11, '#667', 'center', 'normal');
+  text('Emberwake v1.1 · made with flame and code', VW / 2, VH - 90, 11, '#667', 'center', 'normal');
   button(VW / 2 - 70, VH - 62, 140, 46, 'Back', () => go('title'), { size: 16, color: '#8aa0ff' });
 }
 
@@ -1539,7 +1594,7 @@ function step(dt) {
 // ---------- Android / lifecycle hooks ----------
 window.handleBack = function () {
   if (scene === 'run' && R) {
-    if (!R.overlay && !R.dead) { R.overlay = 'pause'; R.overlayT = 0; joy.active = false; return true; }
+    if (!R.overlay && !R.dead) { R.overlay = 'pause'; R.overlayT = 0; stopJoy(); return true; }
     if (R.overlay === 'pause') { R.overlay = null; return true; }
     return true;
   }
@@ -1548,7 +1603,7 @@ window.handleBack = function () {
 };
 window.onAppPause = function () {
   if (scene === 'run' && R && !R.overlay && !R.dead) { R.overlay = 'pause'; R.overlayT = 0; }
-  joy.active = false;
+  stopJoy();
   persist(); SFX.suspend();
 };
 window.onAppResume = function () { SFX.resume(); lastT = performance.now(); };

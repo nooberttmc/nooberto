@@ -110,8 +110,8 @@ const ENEMIES = {
 const ENEMY_IDS = Object.keys(ENEMIES).filter(k => ENEMIES[k].w > 0);
 
 const BOSSES = [
-  { name: 'The Hollow Eye',   hp: 1400, r: 34, color: '#b06cff', spd: 45, kind: 'eye' },
-  { name: 'Maw of Ash',       hp: 3400, r: 40, color: '#ff5030', spd: 50, kind: 'maw' },
-  { name: 'The Tidecaller',   hp: 6200, r: 38, color: '#30c0ff', spd: 40, kind: 'tide' },
-  { name: 'Heart of the Deep',hp: 11000, r: 48, color: '#ff3080', spd: 38, kind: 'heart' },
+  { name: 'The Hollow Eye',   hp: 2400,  r: 34, color: '#b06cff', spd: 45, dmg: 20, kind: 'eye' },
+  { name: 'Maw of Ash',       hp: 5200,  r: 40, color: '#ff5030', spd: 48, dmg: 22, kind: 'maw' },
+  { name: 'The Tidecaller',   hp: 8200,  r: 38, color: '#30c0ff', spd: 40, dmg: 24, kind: 'tide' },
+  { name: 'Heart of the Deep',hp: 15000, r: 48, color: '#ff3080', spd: 40, dmg: 30, kind: 'heart' },
 ];
