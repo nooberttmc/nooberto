@@ -1,12 +1,9 @@
 {
-  "versionCode": 7,
-  "versionName": "1.6",
+  "versionCode": 8,
+  "versionName": "1.6.1",
   "apk": "https://raw.githubusercontent.com/nooberttmc/nooberto/claude/android-game-apk-w2q4io/Emberwake.apk",
   "notes": [
-    "Depths 9 and 10. Wave 20 of the last one: The Drowned Sun, a 3-phase final boss",
-    "Beat it to unlock Boss Raids: Pearls buy multipliers and Luck at the Pearl Altar",
-    "Mythic upgrades: a rare 1 in 25 level-up card (one per run) with huge buffs",
-    "Far fewer bullets, far less screen shake. Extra projectiles aim at different enemies",
-    "\"Foes\" are now \"enemies\". Banish is explained on the level-up screen"
+    "Fix: Seraph Halo, Tidal Crown and Multiplicity now add their full projectiles to every weapon",
+    "Fix: Nova Pulse gains extra pulses from extra projectiles"
   ]
 }

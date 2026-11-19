@@ -807,7 +807,7 @@ function fireWeapons(dt) {
       }
       case 'arc': {
         let fired = false;
-        for (let c = 0; c < Math.round((s.count + (st.extra > 0 ? 1 : 0)) * st.projMult); c++) {
+        for (let c = 0; c < Math.round((s.count + st.extra) * st.projMult); c++) {
           const used = new Set();
           let cur = nearest(p.x, p.y, s.range * Math.sqrt(st.area), c > 0 ? null : null);
           if (c > 0 && cur) { // second arc picks a different start
@@ -831,7 +831,9 @@ function fireWeapons(dt) {
       case 'nova': {
         if (!nearest(p.x, p.y, s.radius * st.area + 40)) { w.cd = 0.2; break; }
         novaBlast(p.x, p.y, s.radius * st.area, s.dmg, def.color);
-        if (s.count > 1) R.delayed = (R.delayed || []).concat([{ t: 0.3, f: () => novaBlast(R.p.x, R.p.y, s.radius * st.area * 1.1, s.dmg * 0.7, '#ffb070') }]);
+        // extra pulses: from level 5 and from every extra projectile (Multiplicity, Tidal Crown, Seraph Halo, Twin Barrage)
+        const pulses = Math.round((s.count + st.extra) * st.projMult) - 1;
+        for (let k = 1; k <= pulses; k++) R.delayed = (R.delayed || []).concat([{ t: 0.3 * k, f: () => novaBlast(R.p.x, R.p.y, s.radius * st.area * (1 + 0.08 * k), s.dmg * 0.7, '#ffb070') }]);
         SFX.play('nova'); w.cd = s.cd * st.cdm; break;
       }
       case 'seeker': {
@@ -844,7 +846,7 @@ function fireWeapons(dt) {
         SFX.play('fan'); w.cd = s.cd * st.cdm; break;
       }
       case 'mine': {
-        const n = Math.round((s.count + (st.extra > 0 ? 1 : 0)) * st.projMult);
+        const n = Math.round((s.count + st.extra) * st.projMult);
         for (let i = 0; i < n; i++) {
           if (R.mines.length > 14) R.mines.shift();
           R.mines.push({ x: p.x + rand(-16, 16), y: p.y + rand(-16, 16), arm: 0.45, life: 7, dmg: s.dmg, aoe: s.aoe * st.area, twice: s.twice, c: WEAPONS.mine.color });
@@ -852,7 +854,7 @@ function fireWeapons(dt) {
         SFX.play('mine'); w.cd = s.cd * st.cdm; break;
       }
       case 'lance': {
-        const n = Math.round((s.count + (st.extra > 0 ? 1 : 0)) * st.projMult), ts = nearestN(p.x, p.y, s.len, n); if (!ts.length) { w.cd = 0.15; break; }
+        const n = Math.round((s.count + st.extra) * st.projMult), ts = nearestN(p.x, p.y, s.len, n); if (!ts.length) { w.cd = 0.15; break; }
         const wd = s.width * Math.sqrt(st.area);
         for (let i = 0; i < n; i++) {
           const a = aimAt(p, ts, i, n) * 1, dx = Math.cos(a), dy = Math.sin(a);
@@ -882,7 +884,7 @@ function fireWeapons(dt) {
       case 'meteor': {
         const pool = R.enemies.filter(e => !e.dead && Math.abs(e.x - p.x) < VW * 0.55 && Math.abs(e.y - p.y) < VH * 0.55);
         if (!pool.length) { w.cd = 0.2; break; }
-        const n = Math.round((s.count + (st.extra > 0 ? 1 : 0)) * st.projMult), aoe = s.aoe * st.area;
+        const n = Math.round((s.count + st.extra) * st.projMult), aoe = s.aoe * st.area;
         for (let i = 0; i < n; i++) {
           const t = pick(pool), x = t.x + rand(-10, 10), y = t.y + rand(-10, 10);
           R.fx.push({ k: 'mark', x, y, r: aoe, life: 0.45, max: 0.45, c: def.color });
@@ -891,7 +893,7 @@ function fireWeapons(dt) {
         w.cd = s.cd * st.cdm; break;
       }
       case 'ricochet': {
-        const n = Math.round((s.count + (st.extra > 0 ? 1 : 0)) * st.projMult), ts = nearestN(p.x, p.y, 380, n); if (!ts.length) { w.cd = 0.15; break; }
+        const n = Math.round((s.count + st.extra) * st.projMult), ts = nearestN(p.x, p.y, 380, n); if (!ts.length) { w.cd = 0.15; break; }
         for (let i = 0; i < n; i++) {
           const a = aimAt(p, ts, i, n);
           R.shots.push({ k: 'rico', x: p.x, y: p.y, vx: Math.cos(a) * 460, vy: Math.sin(a) * 460, r: 5, dmg: s.dmg, life: 1.4, c: def.color, hit: [], bounces: s.bounces + st.extra, spin: 0 });
