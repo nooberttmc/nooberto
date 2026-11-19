@@ -31,7 +31,7 @@ async function renderSong() {
   const kick = (t, v) => { bTone(t, 160, 42, 0.32, 'sine', 0.95 * v); bNoiseHit(t, 0.012, 'highpass', 3000, 0.7, 0.25 * v); };
   const snare = (t, v) => { bTone(t, 230, 170, 0.12, 'triangle', 0.45 * v); bNoiseHit(t, 0.2, 'bandpass', 1900, 0.6, 0.7 * v); bNoiseHit(t, 0.08, 'highpass', 6000, 0.7, 0.25 * v); };
   const hat = (t, v) => bNoiseHit(t, 0.045, 'highpass', 8000, 0.8, 0.22 * v);
-  const ride = (t, v) => { bNoiseHit(t, 0.35, 'bandpass', 5200, 3, 0.18 * v); bTone(t, 3150, 3100, 0.3, 'square', 0.025 * v); bTone(t, 4720, 4700, 0.25, 'square', 0.018 * v); };
+  const ride = (t, v) => bNoiseHit(t, 0.16, 'bandpass', 4200, 1.2, 0.12 * v); // soft noise-only ride (no ringing tones)
   // Amen-style two-bar pattern (K kick, S snare, s ghost snare)
   const pat = [
     'K.K.S..s.sKKS..s',
@@ -58,6 +58,7 @@ async function renderSong() {
   const noise = noiseBuf(ctx, 2);
   const comp = ctx.createDynamicsCompressor(); comp.threshold.value = -12; comp.ratio.value = 4; comp.attack.value = 0.004; comp.release.value = 0.18;
   const master = ctx.createGain(); master.gain.value = 0.9; master.connect(comp); comp.connect(ctx.destination);
+  const dry = ctx.createGain(); dry.connect(master);
   const verb = ctx.createConvolver();
   { const len = SR * 3.4, ir = ctx.createBuffer(2, len, SR); for (let ch = 0; ch < 2; ch++) { const d = ir.getChannelData(ch); for (let i = 0; i < len; i++) d[i] = (rand() * 2 - 1) * Math.pow(1 - i / len, 2.4); } verb.buffer = ir; }
   const verbOut = ctx.createGain(); verbOut.gain.value = 0.6; verb.connect(verbOut); verbOut.connect(master);
@@ -66,22 +67,22 @@ async function renderSong() {
   delay.connect(dlp); dlp.connect(fb); fb.connect(delay); dlp.connect(master); dlp.connect(verb);
   const drumBus = ctx.createGain(); drumBus.gain.value = 1.35;
   const drumLP = ctx.createBiquadFilter(); drumLP.type = 'lowpass'; drumLP.frequency.value = 18000; drumLP.Q.value = 0.8;
-  drumBus.connect(drumLP); drumLP.connect(master);
+  drumBus.connect(drumLP); drumLP.connect(dry);
   const drumVerb = ctx.createGain(); drumVerb.gain.value = 0.1; drumLP.connect(drumVerb); drumVerb.connect(verb);
-  const padBus = ctx.createGain(); padBus.connect(master); const padSend = ctx.createGain(); padSend.gain.value = 0.6; padBus.connect(padSend); padSend.connect(verb);
-  const bassBus = ctx.createGain(); bassBus.connect(master);
-  const fxBus = ctx.createGain(); fxBus.connect(master); fxBus.connect(verb); fxBus.connect(delay);
+  const padBus = ctx.createGain(); padBus.connect(dry); const padSend = ctx.createGain(); padSend.gain.value = 0.6; padBus.connect(padSend); padSend.connect(verb);
+  const bassBus = ctx.createGain(); bassBus.connect(dry);
+  const fxBus = ctx.createGain(); fxBus.connect(dry); fxBus.connect(verb); fxBus.connect(delay);
   // the "modified piano": tape-wobbled, darkened, washed in delay and reverb
   const pianoBus = ctx.createGain(); pianoBus.gain.value = 1;
   const pianoLP = ctx.createBiquadFilter(); pianoLP.type = 'lowpass'; pianoLP.frequency.value = 2600; pianoLP.Q.value = 0.5;
   const pianoSat = ctx.createWaveShaper(); { const c = new Float32Array(1024); for (let i = 0; i < 1024; i++) { const x = i / 512 - 1; c[i] = Math.tanh(x * 1.6); } pianoSat.curve = c; }
-  pianoBus.connect(pianoSat); pianoSat.connect(pianoLP); pianoLP.connect(master);
+  pianoBus.connect(pianoSat); pianoSat.connect(pianoLP); pianoLP.connect(dry);
   const pianoSend = ctx.createGain(); pianoSend.gain.value = 0.55; pianoLP.connect(pianoSend); pianoSend.connect(verb); pianoSend.connect(delay);
   const wobble = ctx.createOscillator(); wobble.frequency.value = 0.55; const wobbleAmt = ctx.createGain(); wobbleAmt.gain.value = 11; // cents of tape wow
   wobble.connect(wobbleAmt); wobble.start(0); wobble.stop(dur);
   // synth arp bus with a filter that opens through the intro and builds
   const arpBus = ctx.createGain(); const arpLP = ctx.createBiquadFilter(); arpLP.type = 'lowpass'; arpLP.Q.value = 6; arpLP.frequency.value = 500;
-  arpBus.connect(arpLP); arpLP.connect(master); const arpSend = ctx.createGain(); arpSend.gain.value = 0.35; arpLP.connect(arpSend); arpSend.connect(delay);
+  arpBus.connect(arpLP); arpLP.connect(dry); const arpSend = ctx.createGain(); arpSend.gain.value = 0.35; arpLP.connect(arpSend); arpSend.connect(delay);
 
   function tone(t, f, d, o) {
     const osc = ctx.createOscillator(); osc.type = o.type || 'sine'; osc.frequency.setValueAtTime(f, t);
@@ -98,6 +99,7 @@ async function renderSong() {
     const f = mtof(midi), p = ctx.createStereoPanner(); p.pan.value = pan || 0; p.connect(pianoBus);
     const body = Math.max(1.2, 4.2 - (midi - 48) * 0.05);
     for (let k = 1; k <= 6; k++) {
+      if (f * k > 3500) continue; // keep the piano warm: no high, bell-like partials
       const o = ctx.createOscillator(); o.frequency.value = f * k * Math.sqrt(1 + 0.0004 * k * k); wobbleAmt.connect(o.detune);
       const g = ctx.createGain(), v = vel * 0.16 / Math.pow(k, 1.25), dec = body / (0.6 + k * 0.55);
       g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(v, t + 0.004); g.gain.exponentialRampToValueAtTime(v * 0.35, t + 0.12); g.gain.exponentialRampToValueAtTime(0.0001, t + dec);
@@ -110,7 +112,7 @@ async function renderSong() {
   // reversed piano chord, made like a sampler would: render it, flip it
   const swell = await (async () => {
     const len = 2.6, oc = new OfflineAudioContext(1, Math.ceil(SR * len), SR);
-    for (const m of [53, 60, 63, 65, 68, 72]) for (let k = 1; k <= 5; k++) {
+    for (const m of [41, 53, 56, 60, 63]) for (let k = 1; k <= 4; k++) {
       const o = oc.createOscillator(); o.frequency.value = mtof(m) * k; const g = oc.createGain(), v = 0.06 / Math.pow(k, 1.3);
       g.gain.setValueAtTime(v, 0); g.gain.exponentialRampToValueAtTime(0.0001, len / (0.5 + k * 0.4)); o.connect(g); g.connect(oc.destination); o.start(0); o.stop(len);
     }
@@ -118,7 +120,7 @@ async function renderSong() {
   })();
   function reverseSwell(tEnd, vol) { // ends exactly on tEnd, sucking into the next downbeat
     const src = ctx.createBufferSource(); src.buffer = swell; const g = ctx.createGain(); g.gain.value = vol;
-    src.connect(g); g.connect(fxBus); src.start(tEnd - swell.duration);
+    src.connect(g); g.connect(master); g.connect(verb); src.start(tEnd - swell.duration);
   }
   function impact(t, v) { // downbeat crash + sub drop that marks a new phrase
     const src = ctx.createBufferSource(); src.buffer = noise; const f = ctx.createBiquadFilter(); f.type = 'highpass'; f.frequency.value = 4500;
@@ -172,51 +174,112 @@ async function renderSong() {
   function bcRoll(t0) { // a full-bar snare roll that accelerates and rises, resolving on the next downbeat
     let t = t0; for (let k = 0; k < 4; k++) { const n = [4, 8, 8, 16][k]; roll(t, 4, n, 1 + k * 0.15, 1.15 + k * 0.2, 0.45 + k * 0.1, 0.6 + k * 0.12); t += 4 * step; }
   }
-  // ---- harmony ----
-  const chordsA = [[53, 'm'], [49, 'M'], [56, 'M'], [51, 'M']], chordsB = [[53, 'm'], [54, 'M'], [49, 'M'], [48, 'M']];
-  const notesOf = c => c[1] === 'm' ? [c[0], c[0] + 3, c[0] + 7, c[0] + 10] : [c[0], c[0] + 4, c[0] + 7, c[0] + 11];
-  // the piano motif (16th-step, midi) over Fm - Db - Ab - Eb: a falling, unresolved line
-  const MOTIF = [[[0, 72], [6, 68], [8, 67], [12, 68]], [[0, 65], [6, 68], [8, 72], [14, 73]], [[0, 75], [6, 72], [8, 68], [12, 72]], [[0, 70], [6, 67], [8, 75], [12, 74]]];
-  const MOTIF_B = [[[0, 72], [6, 68], [8, 67], [12, 65]], [[0, 66], [6, 70], [8, 73], [14, 75]], [[0, 73], [6, 72], [8, 68], [12, 65]], [[0, 67], [6, 64], [8, 67], [12, 72]]];
+  // ---- harmony: F minor, mixing triads and 7th chords; C7 (the dominant) pulls back home ----
+  const Q = { m: [0, 3, 7], M: [0, 4, 7], m7: [0, 3, 7, 10], M7: [0, 4, 7, 11], '7': [0, 4, 7, 10] };
+  const notesOf = c => Q[c[1]].map(i => c[0] + i);
+  const Fm = [53, 'm'], Fm7 = [53, 'm7'], Db = [49, 'M'], Dbmaj7 = [49, 'M7'], Ab = [56, 'M'], Eb = [51, 'M'], Bbm7 = [46, 'm7'], C7 = [48, '7'], Gbmaj7 = [54, 'M7'];
+  const PROG = {
+    calm:  [Fm7, Dbmaj7, Bbm7, C7, Fm7, Dbmaj7, Bbm7, C7],      // intro, breakdown
+    build: [Bbm7, C7, Dbmaj7, C7],                              // tension into the drop
+    dropA: [Fm, Db, Ab, Eb, Fm7, Dbmaj7, Bbm7, C7],              // triads first, then the 7ths bloom
+    dropB: [Fm7, Gbmaj7, Dbmaj7, C7, Bbm7, Gbmaj7, Ab, C7],      // darker: the Gb (bII) colour
+    outro: [Fm7, Dbmaj7, Bbm7, C7, Fm7, Dbmaj7, Bbm7, Fm],       // finally resolves to a bare F minor
+  };
+  // melodies: [16th step, midi, length in 16ths]; question / answer phrases with rests to breathe
+  const MEL_CALM = [
+    [[0, 72, 4], [4, 75, 2], [6, 72, 2], [8, 68, 6]], [[0, 72, 6], [6, 68, 2], [8, 65, 4], [12, 68, 4]],
+    [[0, 73, 4], [4, 72, 2], [6, 70, 2], [8, 68, 4], [12, 65, 4]], [[0, 67, 6], [8, 64, 8]],
+    [[0, 77, 4], [4, 75, 2], [6, 72, 2], [8, 75, 6]], [[0, 80, 4], [4, 77, 4], [8, 72, 8]],
+    [[0, 73, 4], [4, 70, 4], [8, 68, 4], [12, 70, 4]], [[0, 72, 4], [4, 67, 4], [8, 64, 6]],
+  ];
+  const MEL_OUTRO = MEL_CALM.slice(0, 7).concat([[[0, 65, 16]]]);
+  const MEL_A = [
+    [[0, 77, 3], [3, 77, 3], [6, 75, 2], [8, 72, 4], [12, 75, 2], [14, 77, 2]], [[0, 80, 3], [3, 77, 3], [6, 73, 2], [8, 77, 6]],
+    [[0, 75, 3], [3, 72, 3], [6, 68, 2], [8, 72, 4], [12, 75, 4]], [[0, 70, 6], [6, 67, 2], [8, 70, 4]],
+    [[0, 77, 3], [3, 77, 3], [6, 75, 2], [8, 72, 4], [12, 80, 2], [14, 77, 2]], [[0, 80, 3], [3, 84, 3], [6, 80, 2], [8, 77, 8]],
+    [[0, 82, 4], [4, 80, 4], [8, 77, 4], [12, 73, 4]], [[0, 76, 4], [4, 79, 4], [8, 82, 6]],
+  ];
+  const MEL_B = [
+    [[0, 72, 2], [2, 75, 2], [4, 77, 4], [8, 80, 4], [12, 75, 4]], [[0, 78, 4], [4, 77, 4], [8, 73, 4], [12, 70, 4]],
+    [[0, 72, 4], [4, 77, 4], [8, 80, 6]], [[0, 76, 6], [6, 79, 2], [8, 82, 4], [12, 79, 4]],
+    [[0, 77, 4], [4, 73, 4], [8, 70, 4], [12, 73, 4]], [[0, 70, 4], [4, 73, 4], [8, 77, 4], [12, 78, 4]],
+    [[0, 80, 6], [6, 75, 2], [8, 72, 4], [12, 75, 4]], [[0, 76, 8], [8, 72, 4]],
+  ];
+  // the lead: detuned saws with a touch of vibrato, darkened so it never rings
+  const leadBus = ctx.createGain(); const leadLP = ctx.createBiquadFilter(); leadLP.type = 'lowpass'; leadLP.frequency.value = 1900; leadLP.Q.value = 1.2;
+  leadBus.connect(leadLP); leadLP.connect(dry); const leadSend = ctx.createGain(); leadSend.gain.value = 0.3; leadLP.connect(leadSend); leadSend.connect(delay); leadSend.connect(verb);
+  function lead(t, midi, len, vol, pan) {
+    const d = len * step;
+    for (const det of [-8, 8]) {
+      const o = ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.value = mtof(midi); o.detune.value = det;
+      const vib = ctx.createOscillator(); vib.frequency.value = 5.2; const va = ctx.createGain(); va.gain.setValueAtTime(0, t); va.gain.linearRampToValueAtTime(9, t + Math.min(d, 0.35));
+      vib.connect(va); va.connect(o.detune);
+      const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(vol, t + 0.012); g.gain.setValueAtTime(vol * 0.85, t + d * 0.6); g.gain.linearRampToValueAtTime(0.0001, t + d + 0.08);
+      const p = ctx.createStereoPanner(); p.pan.value = (pan || 0) + det / 40;
+      o.connect(g); g.connect(p); p.connect(leadBus); o.start(t); vib.start(t); o.stop(t + d + 0.1); vib.stop(t + d + 0.1);
+    }
+  }
+  const below = (m, notes) => { for (let k = m - 1; k > m - 6; k--) if (notes.some(n => (n - k) % 12 === 0)) return k; return m - 3; }; // harmony a chord tone below
+  // silence as an instrument: duck the dry mix while reverb and delay tails keep ringing
+  function hush(t0, t1) { dry.gain.setValueAtTime(1, t0); dry.gain.linearRampToValueAtTime(0, t0 + 0.012); dry.gain.setValueAtTime(0, t1 - 0.006); dry.gain.linearRampToValueAtTime(1, t1); }
 
   let barI = 0;
   for (const [sec, nb] of S) {
     for (let b = 0; b < nb; b++, barI++) {
-      const t0 = barI * bar, tNext = t0 + bar, darkSec = sec === 'dropB' || sec === 'build2';
-      const chords = darkSec ? chordsB : chordsA, ci = barI % 4, ch = chords[ci], notes = notesOf(ch);
+      const t0 = barI * bar, tNext = t0 + bar;
+      const progKey = sec === 'intro' || sec === 'breakdown' ? 'calm' : sec === 'build' || sec === 'build2' ? 'build' : sec;
+      const P = PROG[progKey], ci = b % P.length, ch = P[ci], notes = notesOf(ch), nextCh = P[(ci + 1) % P.length];
       const drop = sec === 'dropA' || sec === 'dropB', prog = b / nb, phraseEnd4 = b % 4 === 3, phraseEnd8 = b % 8 === 7;
-      // ---- modified piano: motif + rolled chord, carries the intro, breakdown and outro ----
-      const pianoOn = sec === 'intro' || sec === 'build' || sec === 'breakdown' || sec === 'outro' || (drop && b % 8 >= 4);
-      if (pianoOn) {
-        const pv = drop ? 0.45 : sec === 'outro' ? 0.8 * (1 - prog * 0.6) : 0.85;
-        piano(t0, ch[0] - 12, pv * 0.9, -0.2); notes.slice(1).forEach((n, i) => piano(t0 + (i + 1) * 0.03, n, pv * 0.45, 0.15 * (i - 1)));
-        (darkSec ? MOTIF_B : MOTIF)[ci].forEach(([s, m]) => piano(t0 + s * step, m + (drop ? 12 : 0), pv * (s === 0 ? 0.9 : 0.7), 0.25));
+      // ---- the four silences ----
+      if (sec === 'build' && b === nb - 1) hush(t0 + 12 * step, tNext);        // one beat of air before Drop A
+      if (sec === 'dropA' && b === 15) hush(t0 + 12 * step, tNext);            // stop-time between phrases
+      if (sec === 'breakdown' && b === 0) hush(t0, t0 + 4 * step);             // let the drop's tail hang
+      if (sec === 'build2' && b === nb - 1) hush(t0 + 8 * step, tNext);        // two beats of silence before Drop B
+      // ---- piano: rolled chord voicings + the calm melody in the quiet sections; stabs in the drops ----
+      const voicing = [ch[0] - 12].concat(notes.map(n => n + (n < 55 ? 12 : 0)));
+      if (sec === 'intro' || sec === 'breakdown' || sec === 'outro' || sec === 'build' || sec === 'build2') {
+        const pv = sec === 'outro' ? 0.85 * (1 - prog * 0.55) : 0.85;
+        voicing.forEach((n, i) => piano(t0 + i * 0.035, n, pv * (i ? 0.42 : 0.8), 0.12 * (i - 2)));
+        if (sec === 'build' || sec === 'build2') voicing.slice(1).forEach((n, i) => piano(t0 + 8 * step + i * 0.02, n, pv * 0.3, 0.1 * (i - 1)));
+        const mel = sec === 'outro' ? MEL_OUTRO : sec === 'intro' && b < 4 ? null : (sec === 'breakdown' && b >= 8) ? null : MEL_CALM;
+        if (mel && !(sec === 'breakdown' && b === 0)) mel[ci].forEach(([s, m, l]) => piano(t0 + s * step, m, pv * (s === 0 ? 0.8 : 0.65), 0.25));
+      } else if (drop) { // offbeat chord stabs under the lead
+        for (const s of [0, 6, 10]) voicing.slice(1).forEach((n, i) => piano(t0 + s * step + i * 0.01, n, 0.28, 0.1 * (i - 1)));
       }
-      // ---- analog synth arp: enters in bar 5 of the intro, opens through the builds ----
-      const arpOn = (sec === 'intro' && b >= 4) || sec === 'build' || sec === 'build2' || drop || (sec === 'breakdown' && b >= 6);
+      // ---- the lead melody in the drops ----
+      if (drop) {
+        const phrase = Math.floor(b / 8), mel = sec === 'dropA' ? MEL_A : MEL_B;
+        mel[ci].forEach(([s, m, l]) => {
+          const mm = sec === 'dropB' && phrase === 1 ? m - 12 : m;              // Drop B, phrase 2: the hook drops an octave, darker
+          lead(t0 + s * step, mm, l, 0.05, 0.1);
+          if (phrase === 2) lead(t0 + s * step, below(mm, notes), l, 0.032, -0.25); // last phrase: a harmony line joins
+        });
+      }
+      // ---- mellow arp (filtered saws, no high octave) ----
+      const arpOn = (sec === 'intro' && b >= 4) || sec === 'build' || sec === 'build2' || drop || (sec === 'breakdown' && b >= 8);
       if (arpOn) {
-        const seq = [0, 2, 1, 3, 2, 1, 3, 0];
-        for (let i = 0; i < 16; i += (drop ? 1 : 2)) tone(t0 + i * step, mtof(notes[seq[(i / (drop ? 1 : 2)) % 8]] + 12), step * 0.8, { type: i % 4 ? 'sawtooth' : 'square', vol: drop ? 0.03 : 0.045, release: 0.12, pan: i % 4 < 2 ? -0.35 : 0.35, dest: arpBus });
-        const cut = sec === 'intro' ? 400 + (b - 4) * 220 : sec === 'build' || sec === 'build2' ? 1200 + b * 700 : sec === 'breakdown' ? 700 : 2400;
+        const seq = [0, 1, 2, 3, 2, 1, 3, 1];
+        for (let i = 0; i < 16; i += 2) tone(t0 + i * step, mtof(notes[seq[(i / 2) % 8] % notes.length] + 12), step * 1.4, { type: 'sawtooth', vol: drop ? 0.022 : 0.034, release: 0.15, pan: i % 4 ? 0.3 : -0.3, dest: arpBus });
+        const cut = sec === 'intro' ? 350 + (b - 4) * 180 : sec === 'build' || sec === 'build2' ? 900 + b * 450 : sec === 'breakdown' ? 650 : 1500;
         arpLP.frequency.setValueAtTime(arpLP.frequency.value, t0); arpLP.frequency.linearRampToValueAtTime(cut, t0 + bar);
       }
-      // ---- soft pad underneath (quiet; ducks with the kick in the drops) ----
-      const padVol = sec === 'intro' ? 0.008 + 0.012 * prog : sec === 'breakdown' ? 0.022 : drop ? 0.03 : sec === 'outro' ? 0.02 * (1 - prog) : 0.025;
-      for (let i = 0; i < 4; i++) for (const det of [-9, 9]) tone(t0, mtof(notes[i]), bar, { type: 'sawtooth', vol: padVol * 0.5, attack: bar * 0.35, release: bar * 0.6, cutoff: 1100, detune: det, dest: padBus });
+      // ---- soft pad underneath (ducks with the kick in the drops) ----
+      const padVol = sec === 'intro' ? 0.008 + 0.012 * prog : sec === 'breakdown' ? 0.022 : drop ? 0.028 : sec === 'outro' ? 0.02 * (1 - prog) : 0.025;
+      for (const n of notes) for (const det of [-9, 9]) tone(t0, mtof(n), bar, { type: 'sawtooth', vol: padVol * 0.5, attack: bar * 0.35, release: bar * 0.6, cutoff: 1000, detune: det, dest: padBus });
       if (drop) for (let q = 0; q < 4; q++) { const tq = t0 + q * step * 4; padBus.gain.setValueAtTime(0.25, tq); padBus.gain.linearRampToValueAtTime(1, tq + step * 3); }
       // ---- wind ----
       if (b % 4 === 0 && !drop) {
         const src = ctx.createBufferSource(); src.buffer = noise; src.loop = true;
-        const f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.Q.value = 2; f.frequency.setValueAtTime(300, t0); f.frequency.exponentialRampToValueAtTime(1300, t0 + bar * 3);
-        const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t0); g.gain.linearRampToValueAtTime(0.03, t0 + bar * 2); g.gain.exponentialRampToValueAtTime(0.0001, t0 + bar * 4);
+        const f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.Q.value = 2; f.frequency.setValueAtTime(300, t0); f.frequency.exponentialRampToValueAtTime(1100, t0 + bar * 3);
+        const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t0); g.gain.linearRampToValueAtTime(0.025, t0 + bar * 2); g.gain.exponentialRampToValueAtTime(0.0001, t0 + bar * 4);
         src.connect(f); f.connect(g); g.connect(padBus); src.start(t0); src.stop(t0 + bar * 4 + 0.1);
       }
-      // ---- reese bass + sub, locked to the kicks ----
+      // ---- reese bass + sub following the chord roots, sliding into the next chord at phrase ends ----
       if (drop || sec === 'build2' || (sec === 'breakdown' && b >= 8)) {
-        const root = ch[0] - 24, bv = drop ? 1 : 0.6;
+        const root = ch[0] - 24 + (ch[0] > 52 ? 0 : 12), bv = drop ? 1 : 0.6, nroot = nextCh[0] - 24 + (nextCh[0] > 52 ? 0 : 12);
         for (const det of [-14, 0, 14]) tone(t0, mtof(root), bar * 0.95, { type: 'sawtooth', vol: 0.042 * bv, attack: 0.02, release: 0.08, cutoff: 600, q: 4, detune: det, dest: bassBus });
         for (const s of [0, 10]) tone(t0 + s * step, mtof(root), s ? step * 5 : step * 9, { type: 'sine', vol: 0.24 * bv, attack: 0.008, release: 0.06, dest: bassBus });
-        if (phraseEnd4) tone(t0 + step * 12, mtof(root + 12), step * 4, { type: 'sawtooth', to: mtof(chords[(ci + 1) % 4][0] - 24), glide: step * 4, vol: 0.05 * bv, cutoff: 900, q: 3, dest: bassBus });
+        if (phraseEnd4) tone(t0 + step * 12, mtof(root + 12), step * 4, { type: 'sawtooth', to: mtof(nroot), glide: step * 4, vol: 0.05 * bv, cutoff: 900, q: 3, dest: bassBus });
       }
       // ---- drums ----
       if (sec === 'intro') { // the break creeps in, muffled, for the last two bars
@@ -226,7 +289,8 @@ async function renderSong() {
       if (sec === 'build' || sec === 'build2') { // groove with the filter opening, then a roll and a reversed swell into the drop
         drumLP.frequency.setValueAtTime(700, t0); drumLP.frequency.exponentialRampToValueAtTime(b === nb - 1 ? 18000 : 2500 + b * 3500, t0 + bar);
         if (b < nb - 1) groove(t0, b % 2, 0.85);
-        else { for (let i = 0; i < 8; i++) slice(t0 + i * step, i, 1, R, { vol: 0.85 }); roll(t0 + 8 * step, 8, 16, 1, 1.6, 0.4, 1); reverseSwell(tNext, 1); }
+        else if (sec === 'build') { for (let i = 0; i < 8; i++) slice(t0 + i * step, i, 1, R, { vol: 0.85 }); roll(t0 + 8 * step, 4, 12, 1, 1.5, 0.4, 1); reverseSwell(tNext, 1); }
+        else { for (let i = 0; i < 4; i++) slice(t0 + i * step, i, 1, R, { vol: 0.85 }); roll(t0 + 4 * step, 4, 12, 1, 1.5, 0.4, 1); reverseSwell(tNext, 1.1); }
         continue;
       }
       if (sec === 'breakdown') { // half-time: the break at half speed, a single reversed snare pulling into each phrase
