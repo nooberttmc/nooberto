@@ -104,7 +104,7 @@ async function renderSong() {
       o.connect(f); f.connect(g); g.connect(dry); send(g, 0.4); o.start(t); o.stop(t + len + 0.2);
     });
   }
-  const bassBus = ctx.createGain(); bassBus.connect(dry);
+  const bassBus = ctx.createGain(); bassBus.gain.value = 0.62; bassBus.connect(dry); // sits under the guitars, not over them
   function bass(t, m, len, vol, grit) {
     const o = ctx.createOscillator(); o.type = 'sine'; o.frequency.value = mtof(m);
     const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(vol, t + 0.01); g.gain.setValueAtTime(vol, t + len - 0.05); g.gain.linearRampToValueAtTime(0.0001, t + len);
