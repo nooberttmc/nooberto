@@ -1,10 +1,11 @@
-"""Record a song's guitar parts: notes -> MIDI -> FluidSynth (sampled electric guitar DI) -> re-amp.
+"""Record a song's instrument parts: notes -> MIDI -> FluidSynth (sampled instruments) -> optional re-amp.
 
 usage: python3 guitar_stems.py events.json outdir
 events.json (from the song's guitarEvents()):
   {"parts": {name: {"sf": "musescore"|"fluid", "amp": "rhythm"|"lead"|"none", "humanize": ms,
                     "notes": [[t_sec, midi, dur_sec, velocity, "open"|"mute"|"lead"], ...]}}}
-Open notes use GM program 27 (clean electric), palm mutes 28 (muted electric). Lead notes slide in and get vibrato.
+Open notes use the part's "program" (default GM 27, clean electric guitar), palm mutes "mute_program" (default 28).
+Lead notes slide in and get vibrato. amp "none" leaves orchestral parts (piano, strings, organ...) as recorded.
 """
 import sys, os, json, random, subprocess
 import mido
@@ -19,8 +20,8 @@ def write_midi(part, path, seed):
     rnd = random.Random(seed)
     mid = mido.MidiFile(ticks_per_beat=TPB); tr = mido.MidiTrack(); mid.tracks.append(tr)
     tr.append(mido.MetaMessage('set_tempo', tempo=mido.bpm2tempo(BPM)))
-    tr.append(mido.Message('program_change', channel=0, program=27, time=0))
-    tr.append(mido.Message('program_change', channel=1, program=28, time=0))
+    tr.append(mido.Message('program_change', channel=0, program=part.get('program', 27), time=0))
+    tr.append(mido.Message('program_change', channel=1, program=part.get('mute_program', 28), time=0))
     tr.append(mido.Message('control_change', channel=0, control=101, value=0, time=0))   # pitch-bend range: 2 semitones
     tr.append(mido.Message('control_change', channel=0, control=100, value=0, time=0))
     tr.append(mido.Message('control_change', channel=0, control=6, value=2, time=0))

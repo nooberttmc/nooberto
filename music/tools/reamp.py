@@ -32,15 +32,21 @@ def main(inp, out, mode='rhythm'):
     x = x.astype(np.float32) / (32768.0 if x.dtype == np.int16 else 1.0)
     if x.ndim > 1: x = x.mean(axis=1)
     # tighten the low end before distortion (keeps palm mutes from going flubby)
+    if mode == 'bass':  # bass guitar: gentle grit, keep the lows, no guitar cabinet
+        x = x / (np.max(np.abs(x)) + 1e-9) * 0.8
+        y = np.tanh(2.5 * x) * 0.6 + 0.4 * x
+        y = signal.sosfilt(signal.butter(4, 2200, 'lowpass', fs=fs, output='sos'), y)
+        y = signal.sosfilt(signal.butter(2, 32, 'highpass', fs=fs, output='sos'), y)
+        wavfile.write(out, fs, (y / (np.max(np.abs(y)) + 1e-9) * 0.9).astype(np.float32)); return
     x = signal.sosfilt(signal.butter(2, 90 if mode == 'rhythm' else 130, 'highpass', fs=fs, output='sos'), x)
     pad = int(0.6 * fs)  # the plugins click as they start up: let that happen in silence, then trim it away
     x = np.concatenate([np.zeros(pad), x / (np.max(np.abs(x)) + 1e-9) * 0.5])
     with tempfile.TemporaryDirectory() as d:
         a, c, e = [os.path.join(d, n) for n in ('a.wav', 'c.wav', 'e.wav')]
         wavfile.write(a, fs, (x * 32767).astype(np.int16))  # the JCM800 plugin needs 16-bit input
-        lv2(a, c, 'gx_jcm800pre_#_jcm800pre_', {'P6v': 0.9 if mode == 'rhythm' else 1.0, 'Bass': 0.6, 'Middle': 0.7 if mode == 'rhythm' else 0.75,
+        lv2(a, c, 'gx_jcm800pre_#_jcm800pre_', {'P6v': 1.0, 'Bass': 0.6, 'Middle': 0.7 if mode == 'rhythm' else 0.75,
                                                 'Treble': 0.42, 'WET_DRY': 100, 'GAIN': -16})
-        lv2(c, e, 'gx_bossds1_#_bossds1_', {'DRIVE': 0.42 if mode == 'rhythm' else 0.58, 'TONE': 0.22, 'LEVEL': -8, 'BYPASS': 1})  # BYPASS 1 = pedal on; dark tone, less fizz
+        lv2(c, e, 'gx_bossds1_#_bossds1_', {'DRIVE': 0.7 if mode == 'rhythm' else 0.75, 'TONE': 0.2, 'LEVEL': -8, 'BYPASS': 1})  # BYPASS 1 = pedal on; dark tone, less fizz
         fs2, y = wavfile.read(e)
     y = y.astype(np.float32)
     if y.ndim > 1: y = y.mean(axis=1)
