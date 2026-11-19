@@ -34,9 +34,19 @@ const SFX = (() => {
     musicGain.gain.setTargetAtTime(vol.music * 0.55, ctx.currentTime, 0.05);
     sfxGain.gain.setTargetAtTime(vol.sfx * 0.7, ctx.currentTime, 0.05);
   }
-  function setVolumes(m, s) { vol.music = m; vol.sfx = s; apply(); }
-  function suspend() { if (ctx && ctx.state === 'running') ctx.suspend(); }
-  function resume() { if (ctx && ctx.state === 'suspended') ctx.resume(); }
+  // Pre-rendered songs (played from the APK's assets): loop the middle section, skipping intro and outro
+  const FILE_TRACKS = { sun: { src: 'the_drowned_sun.mp3', loopStart: 12, loopEnd: 96 } };
+  let fileEl = null, fileName = '';
+  function playFile(name) {
+    const ft = FILE_TRACKS[name];
+    if (fileName === name && fileEl) { if (fileEl.paused) fileEl.play().catch(() => {}); return; }
+    stopFile();
+    try { fileEl = new Audio(ft.src); fileEl.volume = Math.min(1, vol.music); fileEl.play().catch(() => {}); fileName = name; } catch (e) { fileEl = null; }
+  }
+  function stopFile() { if (fileEl) { try { fileEl.pause(); } catch (e) { } } fileEl = null; fileName = ''; }
+  function setVolumes(m, s) { vol.music = m; vol.sfx = s; apply(); if (fileEl) fileEl.volume = Math.min(1, m); }
+  function suspend() { if (ctx && ctx.state === 'running') ctx.suspend(); if (fileEl) fileEl.pause(); }
+  function resume() { if (ctx && ctx.state === 'suspended') ctx.resume(); if (fileEl && fileEl.paused) fileEl.play().catch(() => {}); }
   const mtof = m => 440 * Math.pow(2, (m - 69) / 12);
 
   function tone(t, freq, dur, o) {
@@ -202,6 +212,12 @@ const SFX = (() => {
     M.motif = m;
   }
   function music(name) {
+    if (FILE_TRACKS[name]) { // hand over to the pre-rendered song; the synth sequencer rests
+      if (M.name !== name) { M.name = name; M.track = null; }
+      playFile(name); if (!M.timer) M.timer = setInterval(tick, 30);
+      return;
+    }
+    stopFile();
     if (!TRACKS[name]) name = 'menu';
     if (!ctx) { M.name = name; return; }
     if (M.name === name && M.track) return;
@@ -213,6 +229,7 @@ const SFX = (() => {
   }
   function setIntensity(i) { M.intensity = i; }
   function tick() {
+    if (fileEl && fileName) { const ft = FILE_TRACKS[fileName]; if (fileEl.currentTime >= ft.loopEnd) fileEl.currentTime = ft.loopStart; }
     if (!ctx || !M.track || ctx.state !== 'running') return;
     const tr = M.track, spb = 60 / tr.bpm / 4; // seconds per 16th
     if (M.next < ctx.currentTime - 0.3) M.next = ctx.currentTime + 0.05;

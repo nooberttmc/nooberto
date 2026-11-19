@@ -65,9 +65,11 @@ async function renderSong() {
   const delay = ctx.createDelay(2); delay.delayTime.value = step * 3; const fb = ctx.createGain(); fb.gain.value = 0.36;
   const dlp = ctx.createBiquadFilter(); dlp.type = 'lowpass'; dlp.frequency.value = 2200;
   delay.connect(dlp); dlp.connect(fb); fb.connect(delay); dlp.connect(master); dlp.connect(verb);
-  const drumBus = ctx.createGain(); drumBus.gain.value = 1.35;
-  const drumLP = ctx.createBiquadFilter(); drumLP.type = 'lowpass'; drumLP.frequency.value = 18000; drumLP.Q.value = 0.8;
-  drumBus.connect(drumLP); drumLP.connect(dry);
+  const drumBus = ctx.createGain(); drumBus.gain.value = 0.82;
+  const drumLP = ctx.createBiquadFilter(); drumLP.type = 'lowpass'; drumLP.frequency.value = 18000; drumLP.Q.value = 0.6;
+  const drumDip = ctx.createBiquadFilter(); drumDip.type = 'peaking'; drumDip.frequency.value = 1300; drumDip.Q.value = 0.8; drumDip.gain.value = -5; // make room for lead and piano
+  drumBus.connect(drumDip); drumDip.connect(drumLP); drumLP.connect(dry);
+  let dCut = 18000, aCut = 500; // filter positions, so automation always continues from where it is
   const drumVerb = ctx.createGain(); drumVerb.gain.value = 0.1; drumLP.connect(drumVerb); drumVerb.connect(verb);
   const padBus = ctx.createGain(); padBus.connect(dry); const padSend = ctx.createGain(); padSend.gain.value = 0.6; padBus.connect(padSend); padSend.connect(verb);
   const bassBus = ctx.createGain(); bassBus.connect(dry);
@@ -150,29 +152,24 @@ async function renderSong() {
     for (let k = 0; k < n; k++) { const f = k / Math.max(1, n - 1); slice(t + k * steps * step / n, idx == null ? SNARE : idx, steps / n, R * (pitchFrom + (pitchTo - pitchFrom) * f), { vol: volFrom + (volTo - volFrom) * f }); }
   }
   // jungle fills (last bar of a 4-bar phrase), growing in size
-  function fillSmall(t0) { for (let i = 0; i < 12; i++) slice(t0 + i * step, 16 + i, 1, R); slice(t0 + 12 * step, SNARE2, 1, R); slice(t0 + 13 * step, 13, 1, R); roll(t0 + 14 * step, 2, 4, 1, 1.15, 0.6, 0.9); }
-  function fillMedium(t0) { for (let i = 0; i < 8; i++) slice(t0 + i * step, i, 1, R); [KICK, KICK, SNARE, GHOST].forEach((s, i) => slice(t0 + (8 + i) * step, s, 1, R)); roll(t0 + 12 * step, 4, 12, 1, 1.4, 0.5, 1); }
-  function fillBig(t0, tNext) { for (let i = 0; i < 8; i++) slice(t0 + i * step, 16 + i, 1, R); roll(t0 + 8 * step, 4, 8, 1, 1.2, 0.5, 0.8); reverseSwell(tNext, 0.9); slice(t0 + 12 * step, SNARE, 4, R, { reverse: true, vol: 0.9 }); }
+  function fillSmall(t0) { for (let i = 0; i < 12; i++) slice(t0 + i * step, 16 + i, 1, R); slice(t0 + 12 * step, SNARE2, 1, R); slice(t0 + 13 * step, 13, 1, R); slice(t0 + 14 * step, GHOST, 1, R, { vol: 0.7 }); slice(t0 + 15 * step, SNARE, 1, R, { vol: 0.75 }); }
+  function fillMedium(t0) { for (let i = 0; i < 8; i++) slice(t0 + i * step, i, 1, R); [KICK, KICK, SNARE, GHOST].forEach((s, i) => slice(t0 + (8 + i) * step, s, 1, R)); roll(t0 + 12 * step, 4, 6, 1, 1.25, 0.55, 0.9); }
+  function fillBig(t0, tNext) { for (let i = 0; i < 8; i++) slice(t0 + i * step, 16 + i, 1, R); roll(t0 + 8 * step, 4, 4, 1, 1.15, 0.6, 0.85); reverseSwell(tNext, 0.9); slice(t0 + 12 * step, SNARE, 4, R, { reverse: true, vol: 0.9 }); }
   // breakcore bars
-  function bcEdit(t0) { // groove first half, then a drill that still lands the snare on 4
+  function bcEdit(t0) { // groove, then a re-ordered second half: same hits, new order, snare still on 4
     for (let i = 0; i < 8; i++) slice(t0 + i * step, i, 1, R);
-    roll(t0 + 8 * step, 1, 2, 1, 1, 0.9, 0.9, KICK); roll(t0 + 9 * step, 1, 2, 1.1, 1.1, 0.8, 0.8, KICK);
-    roll(t0 + 10 * step, 2, 4, 1, 1.2, 0.6, 0.8); slice(t0 + 12 * step, SNARE2, 1, R); roll(t0 + 13 * step, 3, 6, 1.1, 1.6, 0.6, 1);
+    [KICK, GHOST, SNARE, 1, SNARE2, 9, 14, 15].forEach((s2, i) => slice(t0 + (8 + i) * step, s2, 1, R * (i === 2 ? 0.9 : 1)));
   }
-  function bcHalftime(t0) { // the floor drops out: second half plays the break at half speed
+  function bcReverse(t0) { // the third beat plays backwards, pulling into beat 4
     for (let i = 0; i < 8; i++) slice(t0 + i * step, 16 + i, 1, R);
-    for (let i = 0; i < 4; i++) slice(t0 + (8 + i * 2) * step, [KICK, 1, SNARE, GHOST][i], 1, R / 2);
+    slice(t0 + 8 * step, 8, 4, R, { reverse: true, vol: 0.85 }); for (let i = 12; i < 16; i++) slice(t0 + i * step, 16 + i, 1, R);
   }
-  function bcDrill(t0) { // machine-gun 32nds over a kept backbeat, pitch climbing through the bar
-    for (let i = 0; i < 16; i++) {
-      const t = t0 + i * step, p = 1 + i / 24;
-      if (i === 0 || i === 10) slice(t, KICK, 1, R);
-      else if (i === 4 || i === 12) slice(t, SNARE, 1, R * p);
-      else { slice(t, i % 2 ? GHOST : 1, 0.5, R * p, { vol: 0.65 }); slice(t + step / 2, i % 2 ? GHOST : 1, 0.5, R * p, { vol: 0.5 }); }
-    }
+  function bcHalftime(t0) { // half-time at normal speed: kick on 1, snare on 3, space in between
+    [[0, KICK, 2], [2, 1, 1], [3, 3, 1], [6, 2, 2], [8, SNARE, 2], [10, 1, 1], [12, KICK, 1], [14, GHOST, 2]].forEach(([at, s2, l]) => slice(t0 + at * step, s2, l, R));
   }
-  function bcRoll(t0) { // a full-bar snare roll that accelerates and rises, resolving on the next downbeat
-    let t = t0; for (let k = 0; k < 4; k++) { const n = [4, 8, 8, 16][k]; roll(t, 4, n, 1 + k * 0.15, 1.15 + k * 0.2, 0.45 + k * 0.1, 0.6 + k * 0.12); t += 4 * step; }
+  function bcRoll(t0) { // groove, then one rising roll on the last beats that resolves on the next downbeat
+    for (let i = 0; i < 8; i++) slice(t0 + i * step, i, 1, R);
+    roll(t0 + 8 * step, 4, 4, 1, 1.1, 0.6, 0.7); roll(t0 + 12 * step, 4, 8, 1.15, 1.45, 0.65, 0.95);
   }
   // ---- harmony: F minor, mixing triads and 7th chords; C7 (the dominant) pulls back home ----
   const Q = { m: [0, 3, 7], M: [0, 4, 7], m7: [0, 3, 7, 10], M7: [0, 4, 7, 11], '7': [0, 4, 7, 10] };
@@ -251,8 +248,8 @@ async function renderSong() {
         const phrase = Math.floor(b / 8), mel = sec === 'dropA' ? MEL_A : MEL_B;
         mel[ci].forEach(([s, m, l]) => {
           const mm = sec === 'dropB' && phrase === 1 ? m - 12 : m;              // Drop B, phrase 2: the hook drops an octave, darker
-          lead(t0 + s * step, mm, l, 0.05, 0.1);
-          if (phrase === 2) lead(t0 + s * step, below(mm, notes), l, 0.032, -0.25); // last phrase: a harmony line joins
+          lead(t0 + s * step, mm, l, 0.068, 0.1);
+          if (phrase === 2) lead(t0 + s * step, below(mm, notes), l, 0.042, -0.25); // last phrase: a harmony line joins
         });
       }
       // ---- mellow arp (filtered saws, no high octave) ----
@@ -261,14 +258,14 @@ async function renderSong() {
         const seq = [0, 1, 2, 3, 2, 1, 3, 1];
         for (let i = 0; i < 16; i += 2) tone(t0 + i * step, mtof(notes[seq[(i / 2) % 8] % notes.length] + 12), step * 1.4, { type: 'sawtooth', vol: drop ? 0.022 : 0.034, release: 0.15, pan: i % 4 ? 0.3 : -0.3, dest: arpBus });
         const cut = sec === 'intro' ? 350 + (b - 4) * 180 : sec === 'build' || sec === 'build2' ? 900 + b * 450 : sec === 'breakdown' ? 650 : 1500;
-        arpLP.frequency.setValueAtTime(arpLP.frequency.value, t0); arpLP.frequency.linearRampToValueAtTime(cut, t0 + bar);
+        arpLP.frequency.setValueAtTime(aCut, t0); arpLP.frequency.linearRampToValueAtTime(cut, t0 + bar); aCut = cut;
       }
       // ---- soft pad underneath (ducks with the kick in the drops) ----
       const padVol = sec === 'intro' ? 0.008 + 0.012 * prog : sec === 'breakdown' ? 0.022 : drop ? 0.028 : sec === 'outro' ? 0.02 * (1 - prog) : 0.025;
       for (const n of notes) for (const det of [-9, 9]) tone(t0, mtof(n), bar, { type: 'sawtooth', vol: padVol * 0.5, attack: bar * 0.35, release: bar * 0.6, cutoff: 1000, detune: det, dest: padBus });
-      if (drop) for (let q = 0; q < 4; q++) { const tq = t0 + q * step * 4; padBus.gain.setValueAtTime(0.25, tq); padBus.gain.linearRampToValueAtTime(1, tq + step * 3); }
+      if (drop) for (let q = 0; q < 4; q++) { const tq = t0 + q * step * 4; padBus.gain.setValueAtTime(0.6, tq); padBus.gain.linearRampToValueAtTime(1, tq + step * 3); }
       // ---- wind ----
-      if (b % 4 === 0 && !drop) {
+      if (b % 4 === 0 && (sec === 'intro' || sec === 'outro')) {
         const src = ctx.createBufferSource(); src.buffer = noise; src.loop = true;
         const f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.Q.value = 2; f.frequency.setValueAtTime(300, t0); f.frequency.exponentialRampToValueAtTime(1100, t0 + bar * 3);
         const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t0); g.gain.linearRampToValueAtTime(0.025, t0 + bar * 2); g.gain.exponentialRampToValueAtTime(0.0001, t0 + bar * 4);
@@ -283,33 +280,33 @@ async function renderSong() {
       }
       // ---- drums ----
       if (sec === 'intro') { // the break creeps in, muffled, for the last two bars
-        if (b >= 6) { groove(t0, b % 2, 0.35); drumLP.frequency.setValueAtTime(350 + (b - 6) * 250, t0); }
+        if (b >= 6) { if (b === 6) dCut = 400; groove(t0, b % 2, 0.35); drumLP.frequency.setValueAtTime(dCut, t0); drumLP.frequency.linearRampToValueAtTime(dCut = 400 + (b - 5) * 300, t0 + bar); }
         continue;
       }
       if (sec === 'build' || sec === 'build2') { // groove with the filter opening, then a roll and a reversed swell into the drop
-        drumLP.frequency.setValueAtTime(700, t0); drumLP.frequency.exponentialRampToValueAtTime(b === nb - 1 ? 18000 : 2500 + b * 3500, t0 + bar);
+        if (b === 0) dCut = 1000; drumLP.frequency.setValueAtTime(dCut, t0); drumLP.frequency.exponentialRampToValueAtTime(dCut = (b === nb - 1 ? 18000 : 2000 + b * 3000), t0 + bar);
         if (b < nb - 1) groove(t0, b % 2, 0.85);
-        else if (sec === 'build') { for (let i = 0; i < 8; i++) slice(t0 + i * step, i, 1, R, { vol: 0.85 }); roll(t0 + 8 * step, 4, 12, 1, 1.5, 0.4, 1); reverseSwell(tNext, 1); }
-        else { for (let i = 0; i < 4; i++) slice(t0 + i * step, i, 1, R, { vol: 0.85 }); roll(t0 + 4 * step, 4, 12, 1, 1.5, 0.4, 1); reverseSwell(tNext, 1.1); }
+        else if (sec === 'build') { for (let i = 0; i < 8; i++) slice(t0 + i * step, i, 1, R, { vol: 0.85 }); roll(t0 + 8 * step, 4, 8, 1, 1.4, 0.45, 0.95); reverseSwell(tNext, 1); }
+        else { for (let i = 0; i < 4; i++) slice(t0 + i * step, i, 1, R, { vol: 0.85 }); roll(t0 + 4 * step, 4, 8, 1, 1.4, 0.45, 0.95); reverseSwell(tNext, 1.1); }
         continue;
       }
       if (sec === 'breakdown') { // half-time: the break at half speed, a single reversed snare pulling into each phrase
-        drumLP.frequency.setValueAtTime(1500, t0);
-        for (let i = 0; i < 8; i++) slice(t0 + i * 2 * step, (b % 2) * 16 + i * 2, 2, R / 2, { vol: 0.5 });
+        drumLP.frequency.setValueAtTime(dCut, t0); drumLP.frequency.linearRampToValueAtTime(dCut = 3000, t0 + 0.05);
+        if (b > 0) { drumBus.gain.setValueAtTime(0.5, t0); bcHalftime(t0); drumBus.gain.setValueAtTime(0.82, tNext - 0.001); }
         if (phraseEnd4) slice(t0 + 12 * step, SNARE, 4, R, { reverse: true, vol: 0.6 });
         continue;
       }
-      if (sec === 'outro') { if (b < 4) { drumLP.frequency.setValueAtTime(2500 - b * 500, t0); groove(t0, b % 2, 0.6 - b * 0.12); } if (b === nb - 1) reverseSwell(tNext + bar * 0.5, 0.6); continue; }
-      drumLP.frequency.setValueAtTime(18000, t0);
+      if (sec === 'outro') { if (b < 4) { drumLP.frequency.setValueAtTime(dCut, t0); drumLP.frequency.linearRampToValueAtTime(dCut = 3000 - b * 650, t0 + bar); groove(t0, b % 2, 0.6 - b * 0.12); } if (b === nb - 1) reverseSwell(tNext + bar * 0.5, 0.6); continue; }
+      drumLP.frequency.setValueAtTime(dCut = 18000, t0);
       if (b % 8 === 0) impact(t0, b === 0 ? 1 : 0.7); // every 8-bar phrase starts with an impact
       if (sec === 'dropA') { // jungle: groove, groove, rolling groove, then a fill whose size grows with the phrase
         const p = b % 4;
         if (p === 0) groove(t0, 0); else if (p === 1) groove(t0, 1); else if (p === 2) rolling(t0);
         else if (phraseEnd8 && b === nb - 1) fillBig(t0, tNext); else if (phraseEnd8) fillMedium(t0); else fillSmall(t0);
       } else { // breakcore: an 8-bar arc that escalates and resolves on the next downbeat
-        const plan = ['g0', 'edit', 'g1', 'half', 'g0', 'edit', 'drill', 'roll'], k = plan[b % 8];
+        const plan = ['g0', 'g1', 'g0', 'edit', 'g0', 'half', 'rev', 'roll'], k = plan[b % 8];
         if (k === 'g0') groove(t0, 0); else if (k === 'g1') groove(t0, 1);
-        else if (k === 'edit') bcEdit(t0); else if (k === 'half') bcHalftime(t0); else if (k === 'drill') bcDrill(t0);
+        else if (k === 'edit') bcEdit(t0); else if (k === 'half') bcHalftime(t0); else if (k === 'rev') bcReverse(t0);
         else { bcRoll(t0); if (b === nb - 1) reverseSwell(tNext, 0.8); }
       }
     }

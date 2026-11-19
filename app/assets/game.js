@@ -363,7 +363,7 @@ for (let i = 0; i < 60; i++) motes.push({ x: rand(400), y: rand(900), v: rand(8,
 function currentMusic() {
   if (scene !== 'run' || !R) return 'menu';
   if (R.overlay === 'over') return 'over';
-  if (R.boss && R.boss.final) return 'f' + R.boss.phase;
+  if (R.boss && R.boss.final) return 'sun'; // the final boss has its own song
   return 'd' + R.di + (R.boss ? 'b' : '');
 }
 function go(s) { scene = s; SFX.play('click'); SFX.music(currentMusic()); }
@@ -587,7 +587,7 @@ function spawnSun() {
   e.maxHp = e.hp; e.spawnT = 1.2;
   R.boss = e; hint('boss');
   R.banner = { text: 'THE DROWNED SUN', sub: 'The last light of the deep', t: 4, color: '#ffb040' };
-  SFX.play('bossroar'); SFX.music('f1'); addShake(6);
+  SFX.play('bossroar'); SFX.music('sun'); addShake(6);
   R.ebul.length = 0;
 }
 function sunPhase(e) { // dramatic phase change: brief invulnerability, bullets cleared
@@ -595,7 +595,7 @@ function sunPhase(e) { // dramatic phase change: brief invulnerability, bullets 
   R.ebul.length = 0; R.hazards.length = 0; R.gravity = null;
   R.fx.push({ k: 'ring', x: e.x, y: e.y, r: e.r, max: 700, life: 1, c: e.phase === 3 ? '#c060ff' : '#ff6030' });
   R.banner = e.phase === 2 ? { text: 'PHASE II', sub: 'The corona breaks loose', t: 3, color: '#ff6030' } : { text: 'PHASE III', sub: 'Eclipse. The sun goes dark', t: 3, color: '#c060ff' };
-  SFX.play('bossroar'); SFX.music('f' + e.phase); addShake(6);
+  SFX.play('bossroar'); addShake(6);
 }
 function sunAI(e, dt, d, ux, uy) {
   const p = R.p, ph = e.phase, dens = R.depth.bullets, bd = e.dmg * 0.55;
