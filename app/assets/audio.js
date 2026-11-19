@@ -67,9 +67,11 @@ const SFX = (() => {
     const f = ctx.createBiquadFilter(); f.type = o.ftype || 'bandpass'; f.frequency.value = o.freq || 3000; f.Q.value = o.q || 1;
     if (o.to) f.frequency.exponentialRampToValueAtTime(o.to, t + dur);
     const gn = ctx.createGain(); const v = o.vol == null ? 0.2 : o.vol;
-    gn.gain.setValueAtTime(v, t); gn.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    if (o.attack) { gn.gain.setValueAtTime(0.0001, t); gn.gain.linearRampToValueAtTime(v, t + o.attack); }
+    else gn.gain.setValueAtTime(v, t);
+    gn.gain.exponentialRampToValueAtTime(0.0001, t + Math.max(dur, (o.attack || 0) + 0.05));
     src.connect(f); f.connect(gn); gn.connect(o.dest || sfxGain);
-    src.start(t, Math.random() * 0.5); src.stop(t + dur + 0.02);
+    src.loop = true; src.start(t, Math.random() * 0.5); src.stop(t + Math.max(dur, (o.attack || 0) + 0.05) + 0.02);
   }
 
   // ---------- sound effects ----------
@@ -112,19 +114,63 @@ const SFX = (() => {
   }
 
   // ---------- music ----------
-  // chords: [root midi, 'm'|'M'|'s'(sus)|'d'(dim)]
+  // chords: [root midi, quality]. m, M, m7, M7, s (sus2), d (dim)
+  // Every Depth has its own song; boss fights play a heavier remix of it.
+  const RUN_BASS = [1,0,1,0,1,0,2,0,1,0,1,0,1,2,1,0];
   const TRACKS = {
-    menu: { bpm: 72, chords: [[57, 'm'], [53, 'M'], [48, 'M'], [55, 'M']], bass: [1,0,0,0,0,0,0,0,2,0,0,0,0,0,0,0], kick: null, hat: null, snare: null, arpRate: 2, lead: 0.25, padCut: 1400, scale: [0, 2, 3, 5, 7, 8, 10] },
-    run: { bpm: 112, chords: [[50, 'm'], [46, 'M'], [53, 'M'], [48, 'M']], bass: [1,0,1,0,1,0,2,0,1,0,1,0,1,2,1,0], kick: [1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,1], hat: [0,0,1,0,0,0,1,0,0,0,1,0,0,0,1,1], snare: [0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0], arpRate: 1, lead: 0.4, padCut: 1800, scale: [0, 2, 3, 5, 7, 8, 10] },
-    deep: { bpm: 120, chords: [[45, 'm'], [41, 'M'], [43, 'M'], [40, 's']], bass: [1,1,0,1,1,0,1,0,1,1,0,1,2,0,1,0], kick: [1,0,0,1,0,0,1,0,1,0,0,0,1,0,0,0], hat: [1,0,1,1,1,0,1,0,1,0,1,1,1,0,1,1], snare: [0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0], arpRate: 1, lead: 0.5, padCut: 2000, scale: [0, 2, 3, 5, 7, 8, 10] },
-    boss: { bpm: 136, chords: [[40, 'm'], [41, 'M'], [40, 'm'], [38, 'M']], bass: [1,1,1,1,2,1,1,1,1,1,1,1,2,1,2,1], kick: [1,0,0,0,1,0,0,0,1,0,0,0,1,0,1,0], hat: [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1], snare: [0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,1], arpRate: 1, lead: 0.55, padCut: 2400, scale: [0, 1, 3, 5, 7, 8, 10] },
-    over: { bpm: 60, chords: [[45, 'm'], [41, 'M'], [38, 'm'], [40, 'M']], bass: [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0], kick: null, hat: null, snare: null, arpRate: 4, lead: 0, padCut: 900, scale: [0, 2, 3, 5, 7, 8, 10] },
+    menu: { bpm: 72, chords: [[57, 'm'], [53, 'M'], [48, 'M'], [55, 'M']], bass: [1,0,0,0,0,0,0,0,2,0,0,0,0,0,0,0], arp: { rate: 2, type: 'square', vol: 0.02 }, lead: 0.25, padCut: 1400, scale: [0, 2, 3, 5, 7, 8, 10], bells: 0.04 },
+    over: { bpm: 60, chords: [[45, 'm'], [41, 'M'], [38, 'm'], [40, 'M']], bass: [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0], arp: { rate: 4, type: 'triangle', vol: 0.02 }, lead: 0, padCut: 900, scale: [0, 2, 3, 5, 7, 8, 10], drone: 33, wind: true },
+    // 1. The Glimmering Shallows: hopeful minor, sparkling arps
+    d0: { bpm: 108, chords: [[50, 'm'], [46, 'M'], [53, 'M'], [48, 'M']], bass: RUN_BASS, kick: [1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,1], hat: [0,0,1,0,0,0,1,0,0,0,1,0,0,0,1,1], snare: [0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0],
+      arp: { rate: 1, type: 'square', vol: 0.022 }, lead: 0.4, padCut: 1800, scale: [0, 2, 3, 5, 7, 8, 10], bells: 0.05 },
+    // 2. Coralveil Reef: warm dorian groove, swung, with bubbling sines
+    d1: { bpm: 98, swing: 0.16, chords: [[52, 'm7'], [57, 'M'], [55, 'M7'], [50, 'M']], bass: [1,0,0,1,0,0,1,0,1,0,0,1,0,1,0,0], bassType: 'sine', bassCut: 900,
+      kick: [1,0,0,0,0,0,1,0,1,0,0,0,0,0,0,0], hat: [0,0,1,0,0,0,1,0,0,0,1,0,0,0,1,0], snare: [0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0],
+      arp: { rate: 2, type: 'triangle', vol: 0.03, seq: [0, 1, 2, 3, 2, 1, 0, 2] }, lead: 0.35, leadType: 'sine', padType: 'triangle', padCut: 2200, scale: [0, 2, 3, 5, 7, 9, 10], bubbles: 0.18 },
+    // 3. The Lanternlit Shelf: glassy, slow and luminous, far-off chimes in the dark
+    d2: { bpm: 86, chords: [[53, 'M7'], [55, 'M'], [52, 'm7'], [57, 'm']], bass: [1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0], bassType: 'sine', bassCut: 600,
+      kick: [1,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0], hat: [0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0],
+      arp: { rate: 2, type: 'sine', vol: 0.03, oct: 36 }, lead: 0.3, leadType: 'sine', padType: 'triangle', padCut: 2600, scale: [0, 2, 4, 5, 7, 9, 11], bells: 0.28, wind: true },
+    // 4. Cinderwake Trench: phrygian, driving, smouldering low drone
+    d3: { bpm: 118, chords: [[52, 'm'], [53, 'M'], [52, 'm'], [50, 'm']], bass: [1,0,1,1,0,1,1,0,1,0,1,1,0,1,2,0], bassCut: 650, drone: 40,
+      kick: [1,0,0,1,0,0,1,0,1,0,0,1,0,0,1,0], hat: [1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0], snare: [0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0],
+      arp: { rate: 1, type: 'square', vol: 0.016 }, lead: 0.4, leadType: 'sawtooth', padCut: 1300, scale: [0, 1, 3, 5, 7, 8, 10] },
+    // 5. The Ossuary Depths: desolate. Heartbeat, drone, wind and lonely bells
+    d4: { bpm: 64, chords: [[47, 'm'], [48, 'M'], [45, 'm'], [47, 's']], bass: [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0], bassType: 'sine', bassCut: 400, drone: 35,
+      kick: [1,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0],
+      arp: { rate: 4, type: 'triangle', vol: 0.025 }, lead: 0.25, leadType: 'sine', padType: 'triangle', padCut: 1100, scale: [0, 1, 3, 5, 6, 8, 10], bells: 0.32, wind: true },
+    // 6. The Gilded Rift: exotic harmonic minor, plucked shimmer
+    d5: { bpm: 104, chords: [[57, 'm'], [50, 'm'], [52, 'M'], [57, 'm']], bass: [1,0,1,1,0,1,1,0,1,0,1,1,0,1,1,0], bassCut: 800,
+      kick: [1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0], hat: [0,1,0,1,0,1,0,1,0,1,0,1,0,1,1,1], snare: [0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0],
+      arp: { rate: 1, type: 'square', vol: 0.02, oct: 36, seq: [0, 2, 1, 2, 0, 2, 1, 3] }, lead: 0.4, leadType: 'triangle', padCut: 2000, scale: [0, 2, 3, 5, 7, 8, 11], bells: 0.14 },
+    // 7. Leviathan's Hollow: vast and slow; sub drone and whale song
+    d6: { bpm: 78, chords: [[42, 'm'], [38, 'M'], [47, 'm'], [40, 'M']], bass: [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0], bassType: 'sine', bassCut: 300, drone: 30,
+      kick: [1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0], hat: [0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0],
+      arp: { rate: 3, type: 'sine', vol: 0.026 }, lead: 0.3, leadType: 'sine', padCut: 900, scale: [0, 2, 3, 5, 7, 8, 10], whale: true, wind: true, bells: 0.08 },
+    // 8. The Starless Abyss: dissonant and relentless
+    d7: { bpm: 126, chords: [[48, 'm'], [54, 'd'], [48, 'm'], [49, 'M']], bass: [1,1,0,1,1,0,1,1,1,1,0,1,2,0,1,1], bassCut: 600, drone: 36,
+      kick: [1,0,0,0,1,0,0,1,1,0,0,0,1,0,1,0], hat: [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1], snare: [0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,1],
+      arp: { rate: 1, type: 'sawtooth', vol: 0.014 }, lead: 0.45, leadType: 'square', padCut: 1200, scale: [0, 1, 3, 5, 6, 8, 10], bells: 0.07, wind: true },
   };
+  // Boss remix of every Depth song: faster, full drums, busier bass, louder lead
+  for (let i = 0; i < 8; i++) {
+    const b = Object.assign({}, TRACKS['d' + i]);
+    b.bpm = Math.min(150, Math.round(b.bpm * (b.bpm < 90 ? 1.35 : 1.15)));
+    if (b.bass.filter(x => x).length < 8) b.bass = [1,0,1,0,1,0,1,1,1,0,1,0,1,0,2,0];
+    b.kick = [1,0,0,0,1,0,0,0,1,0,0,0,1,0,1,0];
+    b.hat = b.hat && b.hat.filter(x => x).length > 6 ? b.hat : [1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,1];
+    b.snare = [0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,1];
+    b.lead = Math.min(0.6, (b.lead || 0.3) + 0.15); b.padCut = (b.padCut || 1500) + 500; b.bassType = 'sawtooth'; b.bassCut = (b.bassCut || 600) + 200;
+    b.swing = 0; b.bubbles = 0; b.bells = (b.bells || 0) * 0.4; b.boss = true;
+    TRACKS['d' + i + 'b'] = b;
+  }
   const M = { track: null, name: '', step: 0, next: 0, intensity: 0, timer: null, motif: [] };
   function chordNotes(c) {
     const r = c[0], q = c[1];
     if (q === 'm') return [r, r + 3, r + 7];
-    if (q === 's') return [r, r + 5, r + 7];
+    if (q === 'm7') return [r, r + 3, r + 7, r + 10];
+    if (q === 'M7') return [r, r + 4, r + 7, r + 11];
+    if (q === 's') return [r, r + 2, r + 7];
     if (q === 'd') return [r, r + 3, r + 6];
     return [r, r + 4, r + 7];
   }
@@ -138,12 +184,13 @@ const SFX = (() => {
     M.motif = m;
   }
   function music(name) {
+    if (!TRACKS[name]) name = 'menu';
     if (!ctx) { M.name = name; return; }
     if (M.name === name && M.track) return;
     M.name = name; M.track = TRACKS[name]; M.step = 0; M.next = ctx.currentTime + 0.12; makeMotif();
     musicBus.gain.cancelScheduledValues(ctx.currentTime);
     musicBus.gain.setValueAtTime(0.0001, ctx.currentTime);
-    musicBus.gain.linearRampToValueAtTime(1, ctx.currentTime + 0.8);
+    musicBus.gain.linearRampToValueAtTime(1, ctx.currentTime + 1.2);
     if (!M.timer) M.timer = setInterval(tick, 30);
   }
   function setIntensity(i) { M.intensity = i; }
@@ -153,43 +200,61 @@ const SFX = (() => {
     if (M.next < ctx.currentTime - 0.3) M.next = ctx.currentTime + 0.05;
     while (M.next < ctx.currentTime + 0.15) { scheduleStep(M.next, M.step, tr, spb); M.next += spb; M.step++; }
   }
-  function scheduleStep(t, step, tr, spb) {
-    const s16 = step % 16, bar = Math.floor(step / 16);
+  function bell(t, f, vol) {
+    tone(t, f, 0.02, { type: 'sine', vol: vol, attack: 0.004, release: 2.4, dest: musicBus });
+    tone(t, f * 2.76, 0.02, { type: 'sine', vol: vol * 0.25, attack: 0.004, release: 1.2, dest: musicBus });
+  }
+  function scheduleStep(t0, step, tr, spb) {
+    const t = t0 + (tr.swing && step % 2 === 1 ? spb * tr.swing : 0);
+    const s16 = step % 16, bar = Math.floor(step / 16), barLen = spb * 16;
     const chord = tr.chords[bar % tr.chords.length];
     const notes = chordNotes(chord);
-    const I = M.name === 'run' || M.name === 'deep' ? M.intensity : 4;
-    const dest = musicBus;
+    // run songs build up in layers as the waves get harder; menus and bosses play in full
+    const I = /^d\d$/.test(M.name) ? M.intensity : 4;
+    const dest = musicBus, root = tr.chords[0][0];
     if (bar > 0 && bar % 8 === 0 && s16 === 0) makeMotif();
-    // pad
     if (s16 === 0) {
+      // pad
       notes.forEach((n, i) => {
-        tone(t, mtof(n + 12), spb * 15, { type: 'sawtooth', vol: 0.035, attack: spb * 4, release: spb * 4, cutoff: tr.padCut, detune: (i - 1) * 7, dest });
-        tone(t, mtof(n + 12), spb * 15, { type: 'triangle', vol: 0.03, attack: spb * 4, release: spb * 4, dest });
+        tone(t, mtof(n + 12), spb * 15, { type: tr.padType || 'sawtooth', vol: tr.padType === 'triangle' ? 0.04 : 0.032, attack: spb * 4, release: spb * 5, cutoff: tr.padCut, detune: (i - 1) * 7, dest });
+        if (!tr.padType) tone(t, mtof(n + 12), spb * 15, { type: 'triangle', vol: 0.026, attack: spb * 4, release: spb * 4, dest });
       });
+      // low drone
+      if (tr.drone) {
+        tone(t, mtof(tr.drone), barLen, { type: 'sine', vol: 0.08, attack: barLen * 0.3, release: barLen * 0.5, dest });
+        tone(t, mtof(tr.drone + 7), barLen, { type: 'triangle', vol: 0.018, attack: barLen * 0.4, release: barLen * 0.5, cutoff: 500, dest });
+      }
+      // wind swell
+      if (tr.wind && bar % 2 === 0) noise(t, barLen * 1.8, { ftype: 'bandpass', freq: 350, to: 1100, q: 2.5, vol: 0.045, attack: barLen * 0.7, dest });
+      // whale song: slow sliding calls
+      if (tr.whale && bar % 4 === 2) tone(t + spb * 2, mtof(notes[0] + 24), barLen * 0.9, { type: 'sine', to: mtof(notes[0] + 17), glide: barLen * 0.9, vol: 0.045, attack: 0.5, release: 1.5, cutoff: 1500, dest });
     }
     // bass
     const b = tr.bass[s16];
-    if (b) tone(t, mtof(chord[0] - 12 + (b === 2 ? 12 : 0)), spb * 0.9, { type: 'sawtooth', vol: 0.11, release: 0.06, cutoff: 500 + I * 120, q: 4, dest });
+    if (b) tone(t, mtof(chord[0] - 12 + (b === 2 ? 12 : 0)), spb * 0.9, { type: tr.bassType || 'sawtooth', vol: tr.bassType === 'sine' ? 0.16 : 0.11, release: 0.06, cutoff: (tr.bassCut || 500) + I * 120, q: 4, dest });
     // arpeggio
-    if (I >= 1 && step % tr.arpRate === 0) {
-      const seq = [0, 1, 2, 1, 0, 2, 1, 2];
-      const k = Math.floor(step / tr.arpRate) % 8;
-      const n = notes[seq[k]] + 24 + (k >= 6 ? 12 : 0);
-      tone(t, mtof(n), spb * 0.6, { type: 'square', vol: 0.022, release: 0.1, cutoff: 2500, dest });
+    const arp = tr.arp;
+    if (I >= 1 && arp && step % arp.rate === 0) {
+      const seq = arp.seq || [0, 1, 2, 1, 0, 2, 1, 2];
+      const k = Math.floor(step / arp.rate) % seq.length;
+      const n = notes[seq[k] % notes.length] + (arp.oct || 24) + (k >= 6 ? 12 : 0);
+      tone(t, mtof(n), spb * 0.6 * arp.rate, { type: arp.type, vol: arp.vol, release: arp.type === 'sine' ? 0.4 : 0.1, cutoff: arp.type === 'sine' ? null : 2500, dest });
     }
+    // distant bells and bubbles
+    if (tr.bells && s16 % 2 === 0 && Math.random() < tr.bells) bell(t, mtof(root + 36 + tr.scale[Math.floor(Math.random() * 7)]), 0.035);
+    if (tr.bubbles && Math.random() < tr.bubbles * 0.5) { const f = mtof(root + 31 + Math.floor(Math.random() * 10)); tone(t, f, 0.05, { type: 'sine', to: f * 1.6, glide: 0.06, vol: 0.03, release: 0.05, dest }); }
     // drums
-    if (I >= 2 && tr.kick && tr.kick[s16]) { tone(t, 150, 0.09, { type: 'sine', vol: 0.32, to: 40, glide: 0.09, release: 0.05, dest: musicGain }); }
-    if (I >= 2 && tr.hat && tr.hat[s16]) noise(t, 0.04, { freq: 8000, q: 1, vol: 0.035, ftype: 'highpass', dest: musicGain });
-    if (I >= 3 && tr.snare && tr.snare[s16]) { noise(t, 0.14, { freq: 1800, q: 0.8, vol: 0.12, dest: musicGain }); tone(t, 220, 0.06, { type: 'triangle', vol: 0.06, to: 160, dest: musicGain }); }
+    if (I >= 2 && tr.kick && tr.kick[s16]) { tone(t, 150, 0.09, { type: 'sine', vol: 0.3, to: 40, glide: 0.09, release: 0.05, dest: musicGain }); }
+    if (I >= 2 && tr.hat && tr.hat[s16]) noise(t, 0.04, { freq: 8000, q: 1, vol: 0.032, ftype: 'highpass', dest: musicGain });
+    if (I >= 3 && tr.snare && tr.snare[s16]) { noise(t, 0.14, { freq: 1800, q: 0.8, vol: 0.11, dest: musicGain }); tone(t, 220, 0.06, { type: 'triangle', vol: 0.06, to: 160, dest: musicGain }); }
     // lead melody
     if (I >= 3 && tr.lead > 0) {
       const deg = M.motif[(step % 32)];
       if (deg >= 0) {
-        const root = tr.chords[0][0];
-        // nudge melody toward chord tones on strong beats
         let semis = tr.scale[deg % 7];
-        if (s16 % 4 === 0) { const ct = notes.map(x => (x - root + 120) % 12); semis = ct[deg % 3]; }
-        tone(t, mtof(root + 24 + semis), spb * 1.6, { type: 'triangle', vol: 0.05 * tr.lead * 2, attack: 0.01, release: 0.18, dest });
+        if (s16 % 4 === 0) { const ct = notes.map(x => (x - root + 120) % 12); semis = ct[deg % ct.length]; }
+        const lt = tr.leadType || 'triangle';
+        tone(t, mtof(root + 24 + semis), spb * 1.6, { type: lt, vol: 0.1 * tr.lead * (lt === 'sawtooth' || lt === 'square' ? 0.55 : 1), attack: 0.01, release: 0.22, cutoff: lt === 'sine' || lt === 'triangle' ? null : 2200, dest });
       }
     }
   }

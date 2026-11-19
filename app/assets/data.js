@@ -3,21 +3,21 @@
 // Each Depth has its own look: enemy palette (pal), boss colours, a decoration style and an epithet for wardens.
 // fire: how fast ranged foes shoot / how fast their bullets fly.
 const DEPTHS = [
-  { name: 'The Shallows', hp: 1.0, dmg: 1.0, count: 1.0, fire: 1.0, embers: 1.0, bg: [8, 18, 38], tint: '#2a6cff', style: 'plain', epithet: '',
+  { name: 'The Glimmering Shallows', hp: 1.0, dmg: 1.0, count: 1.0, fire: 1.0, embers: 1.0, bg: [8, 18, 38], tint: '#2a6cff', style: 'plain', epithet: '',
     pal: null, boss: null },
-  { name: 'Twilight Reef', hp: 1.4, dmg: 1.2, count: 1.08, fire: 1.1, embers: 1.5, bg: [22, 10, 40], tint: '#c050ff', style: 'coral', epithet: 'Coral',
+  { name: 'Coralveil Reef', hp: 1.4, dmg: 1.2, count: 1.08, fire: 1.1, embers: 1.5, bg: [22, 10, 40], tint: '#c050ff', style: 'coral', epithet: 'Coral',
     pal: ['#ff6ad5', '#c86bff', '#ff8f6b', '#ff4f8b', '#e0a0ff', '#ffb0d0'], boss: ['#ff6ad5', '#ff8f6b', '#c86bff', '#ff4f8b'] },
-  { name: 'Abyssal Shelf', hp: 1.9, dmg: 1.4, count: 1.16, fire: 1.2, embers: 2.1, bg: [4, 24, 30], tint: '#20e0c0', style: 'lure', epithet: 'Luminous',
+  { name: 'The Lanternlit Shelf', hp: 1.9, dmg: 1.4, count: 1.16, fire: 1.2, embers: 2.1, bg: [4, 24, 30], tint: '#20e0c0', style: 'lure', epithet: 'Luminous',
     pal: ['#2ef0d0', '#30a8ff', '#7cf05a', '#00d0ff', '#a0ffe0', '#5a8cff'], boss: ['#2ef0d0', '#30a8ff', '#7cf05a', '#00e0ff'] },
-  { name: 'Midnight Trench', hp: 2.5, dmg: 1.65, count: 1.24, fire: 1.3, embers: 2.8, bg: [30, 6, 16], tint: '#ff3060', style: 'spiked', epithet: 'Crimson',
+  { name: 'Cinderwake Trench', hp: 2.5, dmg: 1.65, count: 1.24, fire: 1.3, embers: 2.8, bg: [30, 6, 16], tint: '#ff3060', style: 'spiked', epithet: 'Crimson',
     pal: ['#ff3040', '#ff6a20', '#d01060', '#ff9050', '#ff2080', '#c04040'], boss: ['#ff3040', '#ff6a20', '#ff2080', '#ff9050'] },
-  { name: 'The Hadal Deep', hp: 3.2, dmg: 1.9, count: 1.32, fire: 1.4, embers: 3.6, bg: [6, 6, 12], tint: '#e8e8ff', style: 'bone', epithet: 'Bone',
+  { name: 'The Ossuary Depths', hp: 3.2, dmg: 1.9, count: 1.32, fire: 1.4, embers: 3.6, bg: [6, 6, 12], tint: '#e8e8ff', style: 'bone', epithet: 'Bone',
     pal: ['#e8e4d8', '#b8c0d8', '#f0d8b0', '#d0d0e8', '#ffffff', '#c8b8a0'], boss: ['#e8e4d8', '#f0d8b0', '#b8c0d8', '#ffffff'] },
-  { name: 'Sunless Rift', hp: 4.0, dmg: 2.2, count: 1.4, fire: 1.5, embers: 4.6, bg: [26, 18, 4], tint: '#ffc030', style: 'crystal', epithet: 'Gilded',
+  { name: 'The Gilded Rift', hp: 4.0, dmg: 2.2, count: 1.4, fire: 1.5, embers: 4.6, bg: [26, 18, 4], tint: '#ffc030', style: 'crystal', epithet: 'Gilded',
     pal: ['#ffc030', '#ffe070', '#ff9a20', '#fff0a0', '#e8b040', '#ffd050'], boss: ['#ffc030', '#ff9a20', '#ffe070', '#fff0a0'] },
-  { name: "Leviathan's Grave", hp: 5.0, dmg: 2.5, count: 1.48, fire: 1.6, embers: 5.8, bg: [6, 8, 30], tint: '#6070ff', style: 'tentacle', epithet: 'Drowned',
+  { name: "Leviathan's Hollow", hp: 5.0, dmg: 2.5, count: 1.48, fire: 1.6, embers: 5.8, bg: [6, 8, 30], tint: '#6070ff', style: 'tentacle', epithet: 'Drowned',
     pal: ['#6070ff', '#40c0ff', '#9060ff', '#3090c0', '#80a0ff', '#5050d0'], boss: ['#6070ff', '#40c0ff', '#9060ff', '#80a0ff'] },
-  { name: 'The Endless Maw', hp: 6.2, dmg: 2.9, count: 1.56, fire: 1.75, embers: 7.2, bg: [2, 0, 4], tint: '#ff1030', style: 'void', epithet: 'Void',
+  { name: 'The Starless Abyss', hp: 6.2, dmg: 2.9, count: 1.56, fire: 1.75, embers: 7.2, bg: [2, 0, 4], tint: '#ff1030', style: 'void', epithet: 'Void',
     pal: ['#ff1030', '#ff3070', '#c00040', '#ff5050', '#ff0090', '#d02020'], boss: ['#ff1030', '#ff0090', '#ff3070', '#ff5050'] },
 ];
 const FINAL_WAVE = 20;
@@ -43,7 +43,7 @@ const SPIRITS = [
   { id: 'gloom', name: 'Gloom', color: '#8070ff', weapon: 'lance', hp: 110, speed: 1, dmg: 1.1, armor: 0.05,
     trait: 'Abilities recharge 25% faster.', abil: 0.75, unlock: { text: 'Clear Depth 6', check: s => s.depthCleared >= 6 } },
   { id: 'aurora', name: 'Aurora', color: '#ff90f0', weapon: 'ricochet', hp: 120, speed: 1.08, dmg: 1.25, armor: 0.1,
-    trait: 'Tidebreaker. Starts with a Legendary relic.', legendary: true, unlock: { text: 'Survive wave 40 in The Endless Maw', check: s => !!s.tidebreaker } },
+    trait: 'Tidebreaker. Starts with a Legendary relic.', legendary: true, unlock: { text: 'Survive wave 40 in The Starless Abyss', check: s => !!s.tidebreaker } },
 ];
 
 // Weapons: s(l) returns stats at level l (1..5)
@@ -185,16 +185,16 @@ const forgeCost = r => Math.round(2500 * Math.pow(1.28, r));
 const ENEMIES = {
   drifter:  { hp: 12, spd: 56, dmg: 9,  r: 11, xp: 1,   color: '#9a5cff', shape: 0, pi: 0, from: 1, w: 10 },
   dart:     { hp: 8,  spd: 112, dmg: 7, r: 8,  xp: 1,   color: '#ff4fa8', shape: 1, pi: 1, from: 3, w: 5 },
-  spitter:  { hp: 22, spd: 44, dmg: 8,  r: 12, xp: 2,   color: '#5cff9a', shape: 2, pi: 2, from: 3, w: 4, ranged: 'spit' },
+  spitter:  { hp: 22, spd: 44, dmg: 8,  r: 12, xp: 2,   color: '#5cff9a', shape: 2, pi: 2, from: 3, w: 3.5, ranged: 'spit' },
   brute:    { hp: 75, spd: 30, dmg: 18, r: 19, xp: 4,   color: '#ff3b3b', shape: 3, pi: 3, from: 6, w: 2.5 },
-  gunner:   { hp: 26, spd: 46, dmg: 8,  r: 12, xp: 2,   color: '#ffa040', shape: 7, pi: 4, from: 6, w: 3, ranged: 'burst' },
+  gunner:   { hp: 26, spd: 46, dmg: 8,  r: 12, xp: 2,   color: '#ffa040', shape: 7, pi: 4, from: 7, w: 3, ranged: 'burst' },
   splitter: { hp: 34, spd: 46, dmg: 10, r: 14, xp: 2,   color: '#3be0d0', shape: 4, pi: 5, from: 8, w: 2.5, split: true },
-  sprayer:  { hp: 44, spd: 30, dmg: 8,  r: 15, xp: 3,   color: '#ff70c0', shape: 8, pi: 1, from: 9, w: 2.5, ranged: 'ring' },
+  sprayer:  { hp: 44, spd: 30, dmg: 8,  r: 15, xp: 3,   color: '#ff70c0', shape: 8, pi: 1, from: 9, minDepth: 1, w: 2.5, ranged: 'ring' },
   bloater:  { hp: 55, spd: 34, dmg: 12, r: 17, xp: 3,   color: '#c0ff60', shape: 9, pi: 2, from: 10, w: 2, pop: true },
   charger:  { hp: 42, spd: 42, dmg: 16, r: 13, xp: 3,   color: '#ffd23b', shape: 5, pi: 4, from: 11, w: 2.5, charge: true },
-  sniper:   { hp: 22, spd: 40, dmg: 14, r: 11, xp: 3,   color: '#ff5050', shape: 10, pi: 3, from: 12, w: 2, ranged: 'snipe' },
+  sniper:   { hp: 22, spd: 40, dmg: 14, r: 11, xp: 3,   color: '#ff5050', shape: 10, pi: 3, from: 12, minDepth: 1, w: 2, ranged: 'snipe' },
   wraith:   { hp: 30, spd: 62, dmg: 12, r: 12, xp: 3,   color: '#c8e8ff', shape: 6, pi: 5, from: 14, w: 2.5, blink: true },
-  beacon:   { hp: 110, spd: 12, dmg: 10, r: 16, xp: 6,  color: '#ff8030', shape: 11, pi: 0, from: 15, w: 0.8, ranged: 'spiral' },
+  beacon:   { hp: 110, spd: 12, dmg: 10, r: 16, xp: 6,  color: '#ff8030', shape: 11, pi: 0, from: 15, minDepth: 2, w: 0.8, ranged: 'spiral' },
   mini:     { hp: 6,  spd: 76, dmg: 5,  r: 7,  xp: 0.5, color: '#3be0d0', shape: 0, pi: 5, from: 999, w: 0 },
   gleamer:  { hp: 60, spd: 108, dmg: 0, r: 11, xp: 4,   color: '#ffd040', shape: 12, pi: -1, from: 999, w: 0 },
 };
