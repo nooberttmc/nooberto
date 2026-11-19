@@ -121,18 +121,16 @@ function guitarEvents() {
       pat(t0, r, b % 8 === 7 ? CHUG_END : (sec === 'a2' ? DRIVE : CHUG), sec === 'a2');
       if (b % 8 === 7 && b === 15) { melody(t0, THEME_A[7].slice(0, 2), tr, notes, twin); scaleDown(t0, 85 + tr, tr, 8, 8); }
       else melody(t0, THEME_A[b % 8], tr, notes, twin);
-      chord(P.organ, t0, low, BAR, sec === 'a1' ? 82 : 92); strings(sec === 'a1' ? 80 : 90, true);
-      if (sec !== 'a1') lowStr(100);
-      if (b % 2 === 0) timp(t0, ch, tr, 108); if (b % 2 === 1) chord(P.brass, t0, str, STEP * 3, 104);
-      if (sec === 'a2') pianoBar(t0, notes, ch, tr, 74, true);
+      // drops stay lean: guitars, bass, lead and drums carry them; strings sit an octave up, brass only marks phrases
+      chord(P.strings, t0, str.map(n => n + 12), BAR, 72);
+      if (b % 4 === 0) { timp(t0, ch, tr, 108); chord(P.brass, t0, str, STEP * 3, 104); }
     } else if (sec === 'b1' || sec === 'b3') { // flowing 16th runs over the gallop
       pat(t0, r, GALLOP, true);
       if (b % 4 === 3) melody(t0, [[0, voicing(notes, 73)[2], 16]], 0, notes, true);
       else runBar(t0, notes, b, sec === 'b3' || b >= 8);
-      chord(P.organ, t0, low, BAR, 86); strings(84, sec === 'b3');
-      for (const s of [0, 6, 10]) chord(P.brass, at(s), str, STEP * 2, sec === 'b3' ? 112 : 100);
+      chord(P.strings, t0, str.map(n => n + 12), BAR, 70);
+      if (b % 2 === 0) chord(P.brass, t0, str, STEP * 2, sec === 'b3' ? 110 : 100);
       if (b % 4 === 0) timp(t0, ch, tr, 112);
-      if (sec === 'b3') lowStr(104);
       if (sec === 'b3' && b === 15) for (let s = 8; s < 16; s++) note(P.timp, at(s), 31, STEP, 90 + s * 3);
     } else if (sec === 'brk') { // half-time breakdown, low and heavy
       pat(t0, b < 2 ? 42 : r, BREAKDOWN); melody(t0, BRK_LEAD[b % 4], 0, notes, true);
@@ -143,10 +141,9 @@ function guitarEvents() {
       pat(t0, r, STABS, true);
       const top = CLX_TOP[b % 8];
       STAB.forEach((s, i) => { const m = top[i] + tr + LO; note(P.lead, at(s), m, STEP * 1.6, 118, 'open'); note(P.harm, at(s), below(m, notes), STEP * 1.6, 108, 'open');
-        chord(P.brass, at(s), str, STEP * 1.5, 112); });
-      chord(P.organ, t0, low, BAR, 96); strings(96, true); lowStr(108);
+        if (i === 0 || i === 3) chord(P.brass, at(s), str, STEP * 1.5, 112); });
+      chord(P.strings, t0, str.map(n => n + 12), BAR, 76);
       if (b % 2 === 0) timp(t0, ch, tr, 118);
-      if (b >= 8) pianoBar(t0, notes, ch, tr, 80, true);
     } else if (sec === 'inter') { // the storm drops to piano and muted guitars, then climbs into G minor
       pianoBar(t0, notes, ch, tr, 96, true);
       pat(t0, r, b === 7 ? DRIVE : EIGHTHS);
@@ -187,7 +184,7 @@ async function renderSong() {
   const rand = (() => { let s = 5050; return () => (s = (s * 16807) % 2147483647) / 2147483647; })();
   const BARS = bars(), totalBars = BARS.length, dur = totalBars * BAR + 1.5;
   const ctx = new OfflineAudioContext(2, Math.ceil(SR * dur), SR);
-  const comp = ctx.createDynamicsCompressor(); comp.threshold.value = -16; comp.ratio.value = 4; comp.attack.value = 0.004; comp.release.value = 0.12;
+  const comp = ctx.createDynamicsCompressor(); comp.threshold.value = -12; comp.ratio.value = 2.5; comp.attack.value = 0.015; comp.release.value = 0.15; // gentle glue: lets drum hits through
   const master = ctx.createGain(); master.gain.value = 0.8;
   const lowShelf = ctx.createBiquadFilter(); lowShelf.type = 'lowshelf'; lowShelf.frequency.value = 80; lowShelf.gain.value = -3;
   const dark = ctx.createBiquadFilter(); dark.type = 'highshelf'; dark.frequency.value = 6000; dark.gain.value = -5;
@@ -204,33 +201,50 @@ async function renderSong() {
   const has = n => (window.ASSET_NAMES || []).indexOf(n) >= 0;
 
   // ---- recorded stems, each levelled to a target loudness (dB RMS while playing) ----
-  async function stem(name, pan, targetDb, verbAmt, useDelay) {
+  // every part gets its own frequency slot (EQ), and the low end ducks under each kick (sidechain-style)
+  const ducks = [];   // [gainNode, depth]
+  function eqChain(src, eq) {
+    let n = src;
+    for (const [type, f, g, q] of eq || []) { const b = ctx.createBiquadFilter(); b.type = type; b.frequency.value = f; if (g != null) b.gain.value = g; b.Q.value = q || 0.7; n.connect(b); n = b; }
+    return n;
+  }
+  async function stem(name, pan, targetDb, verbAmt, useDelay, eq, duck) {
     if (!has('stem/' + name)) return;
     const buf = await loadAsset('stem/' + name, ctx), d = buf.getChannelData(0);
     let sum = 0, n = 0; for (let i = 0; i < d.length; i += 4) { const a = Math.abs(d[i]); if (a > 1e-3) { sum += a * a; n++; } }
     const rms = Math.sqrt(sum / Math.max(1, n)) || 1e-3, src = ctx.createBufferSource(); src.buffer = buf;
     const g = ctx.createGain(); g.gain.value = Math.pow(10, targetDb / 20) / rms; const p = ctx.createStereoPanner(); p.pan.value = pan;
-    src.connect(g); g.connect(p); p.connect(dry); send(p, verbAmt, useDelay); src.start(0);
+    src.connect(g); let out = eqChain(g, eq);
+    if (duck) { const dg = ctx.createGain(); out.connect(dg); out = dg; ducks.push([dg, duck]); }
+    out.connect(p); p.connect(dry); send(p, verbAmt, useDelay); src.start(0);
   }
-  await stem('rhythmL', -0.7, -16, 0.02);
-  await stem('rhythmR', 0.7, -16, 0.02);
-  await stem('bass', 0, -20, 0);
-  await stem('lead', 0.0, -18, 0.24, true);
-  await stem('harmony', 0.2, -23, 0.22, true);
-  await stem('piano', -0.15, -21, 0.4);
-  await stem('strings', 0.2, -26, 0.45);
-  await stem('low', 0, -24, 0.2);
-  await stem('brass', 0.15, -24, 0.3);
-  await stem('organ', -0.1, -27, 0.45);
-  await stem('timp', 0, -21, 0.3);
+  const HP = f => ['highpass', f, null, 0.7], LP = f => ['lowpass', f, null, 0.7], PK = (f, g, q) => ['peaking', f, g, q || 1];
+  // rhythm guitars: 100 Hz up, scooped where bass/snare live (350) and where the lead sings (1.8-2.5k)
+  const GTR = [HP(100), PK(350, -3.5, 1.1), PK(2200, -3, 1.2), LP(5500)];
+  await stem('rhythmL', -0.75, -17.5, 0.02, false, GTR, 0.3);
+  await stem('rhythmR', 0.75, -17.5, 0.02, false, GTR, 0.3);
+  // bass: owns 45-250 Hz under the guitars; the sub synth owns the very bottom
+  await stem('bass', 0, -20, 0, false, [HP(45), PK(350, -3, 1), PK(900, 2, 1), LP(2600)], 0.5);
+  // lead: on top, with presence where the rhythm guitars were scooped
+  await stem('lead', 0.0, -16, 0.2, true, [HP(170), PK(450, -2, 1), PK(2000, 2, 0.9), LP(6000)]);
+  await stem('harmony', 0.22, -23, 0.2, true, [HP(260), PK(2000, 1.5, 0.9), LP(6000)]);
+  await stem('piano', -0.15, -21, 0.4, false, [HP(110)]);
+  await stem('strings', 0.25, -27, 0.45, false, [HP(320), LP(8000)]);
+  await stem('low', 0, -24, 0.2, false, [LP(500)], 0.4);
+  await stem('brass', 0.15, -24, 0.3, false, [HP(180)]);
+  await stem('organ', -0.1, -27, 0.45, false, [HP(120)]);
+  await stem('timp', 0, -21, 0.3, false, [HP(45), PK(300, -2, 1)]);
 
   // ---- breaks: one per section (two at most, when a snare layer is added) ----
   const BRK = {}; for (const k of ['amen_yki', 'amen_df', 'steppin1', 'steppin2', 'bloodfire', 'think']) if (has('break/' + k)) BRK[k] = await loadAsset('break/' + k, ctx);
   const INFO = window.BREAK_INFO || {}, bStep = 60 / 160 / 4, R = BPM / 160;
   const drumBus = ctx.createGain(); drumBus.gain.value = 0.9;
-  const drumDip = ctx.createBiquadFilter(); drumDip.type = 'peaking'; drumDip.frequency.value = 1400; drumDip.Q.value = 0.8; drumDip.gain.value = -3;
+  const drumBus2 = ctx.createGain(); drumBus.gain.value = 1.05;
+  // drums: no boxiness at 300-400 Hz (that's the guitars' and bass's space), snap at 4-5 kHz to cut through the wall
+  const drumDip = eqChain(drumBus2, [HP(35), PK(380, -4, 1), PK(4500, 1.5, 0.9), ['highshelf', 8000, -4, 0.7]]);
   const drumLP = ctx.createBiquadFilter(); drumLP.type = 'lowpass'; drumLP.frequency.value = 18000;
-  drumBus.connect(drumDip); drumDip.connect(drumLP); drumLP.connect(dry); send(drumLP, 0.05);
+  const drumLow = ctx.createBiquadFilter(); drumLow.type = 'lowshelf'; drumLow.frequency.value = 110; drumLow.gain.value = 0;
+  drumBus.connect(drumLow); drumLow.connect(drumBus2); drumDip.connect(drumLP); drumLP.connect(dry); send(drumLP, 0.05);
   function slice(name, t, idx, len, rate, vol) {
     const buf = BRK[name]; if (!buf) return;
     const src = ctx.createBufferSource(); src.buffer = buf; src.playbackRate.value = rate;
@@ -248,11 +262,14 @@ async function renderSong() {
   function nz(t, d, type, f, q, v, dest, attack) { const s = ctx.createBufferSource(); s.buffer = noise; s.loop = true; const fl = ctx.createBiquadFilter(); fl.type = type; fl.frequency.value = f; fl.Q.value = q;
     const g = ctx.createGain(); if (attack) { g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(v, t + attack); } else g.gain.setValueAtTime(v, t);
     g.gain.exponentialRampToValueAtTime(0.0008, t + d); s.connect(fl); fl.connect(g); g.connect(dest || drumBus); s.start(t, rand()); s.stop(t + d + 0.02); return fl; }
-  const kick = (t, v) => { hit(t, 150, 50, 0.2, 0.7 * v); nz(t, 0.01, 'highpass', 3000, 0.7, 0.18 * v); };
+  const kick = (t, v) => { hit(t, 150, 50, 0.2, 0.7 * v); hit(t, 70, 42, 0.32, 0.45 * v); nz(t, 0.01, 'highpass', 3000, 0.7, 0.18 * v); duck(t, v); };
+  function duck(t, v) { // the bass, sub and rhythm guitars dip for ~120 ms so every kick lands clean
+    for (const [g, depth] of ducks) { const k = 1 - depth * Math.min(1, v); g.gain.setTargetAtTime(k, t, 0.003); g.gain.setTargetAtTime(1, t + 0.03, 0.06); }
+  }
   const crash = (t, v) => nz(t, 2.2, 'highpass', 4800, 0.5, 0.14 * v);
   function impact(t, v) { crash(t, v); hit(t, 90, 28, 1.0, 0.6 * v, master); nz(t, 0.4, 'lowpass', 300, 0.7, 0.3 * v, master); }
   function riser(tEnd, len, v) { const f = nz(tEnd - len, len, 'bandpass', 400, 2, v, master, len * 0.95); f.frequency.setValueAtTime(250, tEnd - len); f.frequency.exponentialRampToValueAtTime(6000, tEnd); }
-  const subBus = ctx.createGain(); subBus.gain.value = 0.35; subBus.connect(dry);
+  const subBus = ctx.createGain(); subBus.gain.value = 0.5; const subDuck = ctx.createGain(); subBus.connect(subDuck); subDuck.connect(dry); ducks.push([subDuck, 0.45]);
   function sub(t, m, len, v) { const o = ctx.createOscillator(); o.frequency.value = 440 * Math.pow(2, (m - 69) / 12); const g = ctx.createGain();
     g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(v, t + 0.01); g.gain.setValueAtTime(v, t + len - 0.04); g.gain.linearRampToValueAtTime(0.0001, t + len); o.connect(g); g.connect(subBus); o.start(t); o.stop(t + len + 0.05); }
 
@@ -278,6 +295,8 @@ async function renderSong() {
       sub(t0, 30, STEP * 6, 0.42); sub(at(10), subN, STEP * 5, 0.4);
       continue;
     }
+    // the Amen and Bloodfire breaks are thin below 120 Hz next to Hard Steppin: give them the same floor
+    if (b === 0) drumLow.gain.setValueAtTime(sec === 'a1' || sec === 'a2' || sec === 'clx' ? 6 : 0, t0);
     const brk = { a1: 'amen_yki', b1: 'steppin2', a2: 'amen_df', clx: 'bloodfire', inter: 'think', a3: 'amen_yki', b3: 'steppin2' }[sec];
     if (sec === 'inter') { // a lighter break; opens up over the last two bars
       if (b < 6) { drumLP.frequency.setValueAtTime(b < 4 ? 2500 : 6000, t0); groove(brk, t0, b, 0.85); }

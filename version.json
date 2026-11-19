@@ -1,8 +1,8 @@
 {
-  "versionCode": 15,
-  "versionName": "2.3",
+  "versionCode": 16,
+  "versionName": "2.4",
   "apk": "https://raw.githubusercontent.com/nooberttmc/nooberto/claude/android-game-apk-w2q4io/Emberwake.apk",
   "notes": [
-    "Final boss music: lead guitar pitch bends (bend-ups and releases)"
+    "Final boss music remixed: every instrument has its own space, punchier drums, clearer lead"
   ]
 }
