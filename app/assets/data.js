@@ -1,23 +1,24 @@
 'use strict';
 // ---------- static game data ----------
-// Each Depth has its own look: enemy palette (pal), boss colours, a decoration style and an epithet for wardens.
+// Each Depth has its own look (enemy palette, boss colours, decoration style), its own Warden names,
+// introduces new features (intro) and may add a twist. bullets: how many projectiles foes and Wardens fire.
 // fire: how fast ranged foes shoot / how fast their bullets fly.
 const DEPTHS = [
-  { name: 'The Glimmering Shallows', hp: 1.0, dmg: 1.0, count: 1.0, fire: 1.0, embers: 1.0, bg: [8, 18, 38], tint: '#2a6cff', style: 'plain', epithet: '',
+  { name: 'The Glimmering Shallows', hp: 1.0, dmg: 1.0, count: 1.0, fire: 1.0, embers: 1.0, bullets: 0.55, intro: 'The basics: weapons, upgrades, relics and Wardens', twists: [], bg: [8, 18, 38], tint: '#2a6cff', style: 'plain', epithet: '',
     pal: null, boss: null },
-  { name: 'Coralveil Reef', hp: 1.4, dmg: 1.2, count: 1.08, fire: 1.1, embers: 1.5, bg: [22, 10, 40], tint: '#c050ff', style: 'coral', epithet: 'Coral',
+  { name: 'Coralveil Reef', hp: 1.4, dmg: 1.2, count: 1.08, fire: 1.1, embers: 1.5, bullets: 0.65, intro: 'New: Abilities and Shrines', twists: [], bg: [22, 10, 40], tint: '#c050ff', style: 'coral', epithet: 'Coral',
     pal: ['#ff6ad5', '#c86bff', '#ff8f6b', '#ff4f8b', '#e0a0ff', '#ffb0d0'], boss: ['#ff6ad5', '#ff8f6b', '#c86bff', '#ff4f8b'] },
-  { name: 'The Lanternlit Shelf', hp: 1.9, dmg: 1.4, count: 1.16, fire: 1.2, embers: 2.1, bg: [4, 24, 30], tint: '#20e0c0', style: 'lure', epithet: 'Luminous',
+  { name: 'The Lanternlit Shelf', hp: 1.9, dmg: 1.4, count: 1.16, fire: 1.2, embers: 2.1, bullets: 0.75, intro: 'New: Bounties, Gleamers. Twist: Darkness', twists: ['dark'], bg: [4, 24, 30], tint: '#20e0c0', style: 'lure', epithet: 'Luminous',
     pal: ['#2ef0d0', '#30a8ff', '#7cf05a', '#00d0ff', '#a0ffe0', '#5a8cff'], boss: ['#2ef0d0', '#30a8ff', '#7cf05a', '#00e0ff'] },
-  { name: 'Cinderwake Trench', hp: 2.5, dmg: 1.65, count: 1.24, fire: 1.3, embers: 2.8, bg: [30, 6, 16], tint: '#ff3060', style: 'spiked', epithet: 'Crimson',
+  { name: 'Cinderwake Trench', hp: 2.5, dmg: 1.65, count: 1.24, fire: 1.3, embers: 2.8, bullets: 0.85, intro: 'New: Trials, Legendary relics. Twist: Eruptions', twists: ['erupt'], bg: [30, 6, 16], tint: '#ff3060', style: 'spiked', epithet: 'Crimson',
     pal: ['#ff3040', '#ff6a20', '#d01060', '#ff9050', '#ff2080', '#c04040'], boss: ['#ff3040', '#ff6a20', '#ff2080', '#ff9050'] },
-  { name: 'The Ossuary Depths', hp: 3.2, dmg: 1.9, count: 1.32, fire: 1.4, embers: 3.6, bg: [6, 6, 12], tint: '#e8e8ff', style: 'bone', epithet: 'Bone',
+  { name: 'The Ossuary Depths', hp: 3.2, dmg: 1.9, count: 1.32, fire: 1.4, embers: 3.6, bullets: 0.95, intro: 'Twist: the dead rise again', twists: ['restless'], bg: [6, 6, 12], tint: '#e8e8ff', style: 'bone', epithet: 'Bone',
     pal: ['#e8e4d8', '#b8c0d8', '#f0d8b0', '#d0d0e8', '#ffffff', '#c8b8a0'], boss: ['#e8e4d8', '#f0d8b0', '#b8c0d8', '#ffffff'] },
-  { name: 'The Gilded Rift', hp: 4.0, dmg: 2.2, count: 1.4, fire: 1.5, embers: 4.6, bg: [26, 18, 4], tint: '#ffc030', style: 'crystal', epithet: 'Gilded',
+  { name: 'The Gilded Rift', hp: 4.0, dmg: 2.2, count: 1.4, fire: 1.5, embers: 4.6, bullets: 1.05, intro: 'Twist: golden fever (riches and elites)', twists: ['gold'], bg: [26, 18, 4], tint: '#ffc030', style: 'crystal', epithet: 'Gilded',
     pal: ['#ffc030', '#ffe070', '#ff9a20', '#fff0a0', '#e8b040', '#ffd050'], boss: ['#ffc030', '#ff9a20', '#ffe070', '#fff0a0'] },
-  { name: "Leviathan's Hollow", hp: 5.0, dmg: 2.5, count: 1.48, fire: 1.6, embers: 5.8, bg: [6, 8, 30], tint: '#6070ff', style: 'tentacle', epithet: 'Drowned',
+  { name: "Leviathan's Hollow", hp: 5.0, dmg: 2.5, count: 1.48, fire: 1.6, embers: 5.8, bullets: 1.15, intro: 'Twist: drifting currents', twists: ['current'], bg: [6, 8, 30], tint: '#6070ff', style: 'tentacle', epithet: 'Drowned',
     pal: ['#6070ff', '#40c0ff', '#9060ff', '#3090c0', '#80a0ff', '#5050d0'], boss: ['#6070ff', '#40c0ff', '#9060ff', '#80a0ff'] },
-  { name: 'The Starless Abyss', hp: 6.2, dmg: 2.9, count: 1.56, fire: 1.75, embers: 7.2, bg: [2, 0, 4], tint: '#ff1030', style: 'void', epithet: 'Void',
+  { name: 'The Starless Abyss', hp: 6.2, dmg: 2.9, count: 1.56, fire: 1.75, embers: 7.2, bullets: 1.25, intro: 'Twist: darkness and eruptions', twists: ['dark', 'erupt'], bg: [2, 0, 4], tint: '#ff1030', style: 'void', epithet: 'Void',
     pal: ['#ff1030', '#ff3070', '#c00040', '#ff5050', '#ff0090', '#d02020'], boss: ['#ff1030', '#ff0090', '#ff3070', '#ff5050'] },
 ];
 const FINAL_WAVE = 20;
@@ -154,32 +155,33 @@ const LEGEND_IDS = Object.keys(LEGENDS);
 const relicDef = k => RELICS[k] || LEGENDS[k];
 
 const HEARTH = [
-  { id: 'vit',   name: 'Vitality',    max: 10, base: 18, grow: 1.42, desc: r => `+${10 * r} max HP` },
-  { id: 'might', name: 'Might',       max: 10, base: 25, grow: 1.45, desc: r => `+${4 * r}% damage` },
-  { id: 'haste', name: 'Haste',       max: 5,  base: 22, grow: 1.6,  desc: r => `+${3 * r}% move speed` },
-  { id: 'cel',   name: 'Celerity',    max: 8,  base: 30, grow: 1.5,  desc: r => `-${3 * r}% cooldowns` },
-  { id: 'mag',   name: 'Magnetism',   max: 5,  base: 15, grow: 1.6,  desc: r => `+${12 * r}% pickup radius` },
-  { id: 'wis',   name: 'Insight',     max: 8,  base: 25, grow: 1.5,  desc: r => `+${5 * r}% XP gain` },
-  { id: 'arm',   name: 'Carapace',    max: 6,  base: 35, grow: 1.55, desc: r => `-${3 * r}% damage taken` },
-  { id: 'fort',  name: 'Fortune',     max: 8,  base: 40, grow: 1.5,  desc: r => `+${8 * r}% Embers earned` },
-  { id: 'reroll',name: 'Second Sight',max: 3,  base: 70, grow: 2.0,  desc: r => `${r} reroll${r === 1 ? '' : 's'} per run` },
-  { id: 'regen', name: 'Kindling',    max: 5,  base: 40, grow: 1.6,  desc: r => `+${(0.2 * r).toFixed(1)} HP/s regen` },
-  { id: 'wind',  name: 'Second Wind', max: 1,  base: 300, grow: 1,   desc: r => r ? 'Revive once at 50% HP' : 'Revive once per run' },
-  { id: 'choice',name: 'Foresight',   max: 1,  base: 260, grow: 1,   desc: r => r ? '4 choices on level up' : 'Get a 4th level-up choice' },
+  { id: 'vit', req: 0,   name: 'Vitality',    max: 10, base: 18, grow: 1.42, desc: r => `+${10 * r} max HP` },
+  { id: 'might', req: 0, name: 'Might',       max: 10, base: 25, grow: 1.45, desc: r => `+${4 * r}% damage` },
+  { id: 'haste', req: 0, name: 'Haste',       max: 5,  base: 22, grow: 1.6,  desc: r => `+${3 * r}% move speed` },
+  { id: 'cel', req: 0,   name: 'Celerity',    max: 8,  base: 30, grow: 1.5,  desc: r => `-${3 * r}% cooldowns` },
+  { id: 'mag', req: 0,   name: 'Magnetism',   max: 5,  base: 15, grow: 1.6,  desc: r => `+${12 * r}% pickup radius` },
+  { id: 'wis', req: 0,   name: 'Insight',     max: 8,  base: 25, grow: 1.5,  desc: r => `+${5 * r}% XP gain` },
+  { id: 'arm', req: 1,   name: 'Carapace',    max: 6,  base: 35, grow: 1.55, desc: r => `-${3 * r}% damage taken` },
+  { id: 'fort', req: 1,  name: 'Fortune',     max: 8,  base: 40, grow: 1.5,  desc: r => `+${8 * r}% Embers earned` },
+  { id: 'reroll', req: 1,name: 'Second Sight',max: 3,  base: 70, grow: 2.0,  desc: r => `${r} reroll${r === 1 ? '' : 's'} per run` },
+  { id: 'regen', req: 2, name: 'Kindling',    max: 5,  base: 40, grow: 1.6,  desc: r => `+${(0.2 * r).toFixed(1)} HP/s regen` },
+  { id: 'wind', req: 2,  name: 'Second Wind', max: 1,  base: 300, grow: 1,   desc: r => r ? 'Revive once at 50% HP' : 'Revive once per run' },
+  { id: 'choice', req: 2,name: 'Foresight',   max: 1,  base: 260, grow: 1,   desc: r => r ? '4 choices on level up' : 'Get a 4th level-up choice' },
 ];
 // The Deep Hearth: expensive second tier.
 const HEARTH2 = [
-  { id: 'abil',  name: 'Attunement',    max: 5, base: 1200, grow: 1.65, desc: r => `-${6 * r}% ability cooldowns` },
-  { id: 'lucky', name: 'Relic Sense',   max: 5, base: 2000, grow: 1.7,  desc: r => `+${2 * r}% Legendary relic chance` },
-  { id: 'crit',  name: 'Keen Edge',     max: 5, base: 1000, grow: 1.6,  desc: r => `+${3 * r}% critical chance` },
-  { id: 'chest', name: 'Treasure Hunter', max: 4, base: 1400, grow: 1.7, desc: r => `+${10 * r}% chest chance from elites` },
-  { id: 'start', name: 'Kindled Start', max: 3, base: 3000, grow: 2.2,  desc: r => `${r} free upgrade${r === 1 ? '' : 's'} at the start` },
-  { id: 'banish',name: 'Banishment',    max: 3, base: 1600, grow: 2.0,  desc: r => `Banish ${r} level-up choice${r === 1 ? '' : 's'} per run` },
-  { id: 'shrine',name: 'Shrine Keeper', max: 4, base: 1500, grow: 1.6,  desc: r => `Shrine blessings last +${25 * r}%` },
-  { id: 'heart', name: 'Ember Heart',   max: 5, base: 1600, grow: 1.6,  desc: r => `+${5 * r}% max HP` },
+  { id: 'abil', req: 3,  name: 'Attunement',    max: 5, base: 1200, grow: 1.65, desc: r => `-${6 * r}% ability cooldowns` },
+  { id: 'lucky', req: 5, name: 'Relic Sense',   max: 5, base: 2000, grow: 1.7,  desc: r => `+${r}% Legendary relic chance` },
+  { id: 'crit', req: 3,  name: 'Keen Edge',     max: 5, base: 1000, grow: 1.6,  desc: r => `+${3 * r}% critical chance` },
+  { id: 'chest', req: 4, name: 'Treasure Hunter', max: 4, base: 1400, grow: 1.7, desc: r => `+${10 * r}% chest chance from elites` },
+  { id: 'start', req: 6, name: 'Kindled Start', max: 3, base: 3000, grow: 2.2,  desc: r => `${r} free upgrade${r === 1 ? '' : 's'} at the start` },
+  { id: 'banish', req: 5,name: 'Banishment',    max: 3, base: 1600, grow: 2.0,  desc: r => `Banish ${r} level-up choice${r === 1 ? '' : 's'} per run` },
+  { id: 'shrine', req: 4,name: 'Shrine Keeper', max: 4, base: 1500, grow: 1.6,  desc: r => `Shrine blessings last +${25 * r}%` },
+  { id: 'heart', req: 3, name: 'Ember Heart',   max: 5, base: 1600, grow: 1.6,  desc: r => `+${5 * r}% max HP` },
 ];
 const hearthCost = (h, r) => Math.round(h.base * Math.pow(h.grow, r));
 // Soul Forge: endless rank, each +2% damage and +2% max HP.
+const FORGE_REQ = 5; // Depths cleared to open the Soul Forge
 const forgeCost = r => Math.round(2500 * Math.pow(1.28, r));
 
 const ENEMIES = {
@@ -200,6 +202,16 @@ const ENEMIES = {
 };
 const ENEMY_IDS = Object.keys(ENEMIES).filter(k => ENEMIES[k].w > 0);
 
+const BOSS_NAMES = [
+  ['The Hollow Eye', 'Maw of Ash', 'The Tidecaller', 'Heart of the Deep'],
+  ['The Polypwatcher', 'The Brinecrusher', 'Siren of the Reef', 'The Coral Matriarch'],
+  ['The Lurking Lantern', 'Glowjaw', 'The Wisp Shepherd', 'The Lightdrinker'],
+  ['The Smoldering Gaze', 'Magmamaw', 'The Ashen Herald', 'Heart of Cinders'],
+  ['The Marrow Watcher', 'Gravejaw', 'The Ossuary Choir', 'The Bone Sovereign'],
+  ['The Prism Oracle', 'Avarice', 'The Golden Tempest', 'The Hoardheart'],
+  ['Eye of the Leviathan', 'The Drowned Colossus', 'The Undertow', "Leviathan's Heart"],
+  ['The Unblinking Void', 'The Devourer', 'The Starless Choir', 'Heart of Nothing'],
+];
 const BOSSES = [
   { name: 'The Hollow Eye',   hp: 2400,  r: 34, color: '#b06cff', spd: 45, dmg: 20, kind: 'eye',   sig: 'laser' },
   { name: 'Maw of Ash',       hp: 5200,  r: 40, color: '#ff5030', spd: 48, dmg: 22, kind: 'maw',   sig: 'zones' },

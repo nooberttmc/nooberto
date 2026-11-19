@@ -1,5 +1,5 @@
-Every Depth has its own soundtrack, plus a boss remix of it. Deeper Depths sound bleaker
-Depths renamed: Glimmering Shallows, Coralveil Reef, Cinderwake Trench and more
-New mechanics now arrive gradually and come with short one-time hints
-Less clutter: fewer events at once, fewer numbers on busy screens
-Faster on phones: 60 fps cap, lighter drawing, new Graphics setting in Settings
+Each Depth brings something new: Abilities, Shrines, Bounties and more, plus unique twists
+Hearth upgrades unlock as you clear Depths (ranks you own stay active)
+Chests give a burst of XP. Leveling slows at high levels. Legendaries rarer, with own icons
+Every Warden has its own name. Far fewer bullets early, more in deep Depths
+On-screen messages, banners and hints stay up longer
