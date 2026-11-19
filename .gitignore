@@ -2,3 +2,4 @@ app/build/
 *.idsig
 music/breaks/*.mp3
 music/stems/
+__pycache__/
