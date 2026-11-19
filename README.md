@@ -18,7 +18,7 @@ To publish an update: bump `versionCode`/`versionName` in `app/AndroidManifest.x
 ## Progression
 - **Embers** are earned on every run, win or lose. Spend them at **The Hearth** on 12 permanent upgrades.
 - **6 Spirits** unlock through milestones. Each has its own starting weapon and trait.
-- **8 Depths** of rising difficulty, each with its own look and soundtrack. Higher Depths pay out more Embers.
+- **10 Depths** of rising difficulty, ending with The Drowned Sun, each with its own look and soundtrack. Higher Depths pay out more Embers.
 - 7 weapons, 11 passives, 12 relics and 7 enemy types, plus elites with treasure chests and 4 Warden bosses.
 - The music is generated live: layers build up as the waves get harder, and bosses have their own track.
 

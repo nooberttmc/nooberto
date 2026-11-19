@@ -1,5 +1,5 @@
-Each Depth brings something new: Abilities, Shrines, Bounties and more, plus unique twists
-Hearth upgrades unlock as you clear Depths (ranks you own stay active)
-Chests give a burst of XP. Leveling slows at high levels. Legendaries rarer, with own icons
-Every Warden has its own name. Far fewer bullets early, more in deep Depths
-On-screen messages, banners and hints stay up longer
+Depths 9 and 10. Wave 20 of the last one: The Drowned Sun, a 3-phase final boss
+Beat it to unlock Boss Raids: Pearls buy multipliers and Luck at the Pearl Altar
+Mythic upgrades: a rare 1 in 25 level-up card (one per run) with huge buffs
+Far fewer bullets, far less screen shake. Extra projectiles aim at different enemies
+"Foes" are now "enemies". Banish is explained on the level-up screen

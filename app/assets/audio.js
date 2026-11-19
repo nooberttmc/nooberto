@@ -151,9 +151,27 @@ const SFX = (() => {
     d7: { bpm: 126, chords: [[48, 'm'], [54, 'd'], [48, 'm'], [49, 'M']], bass: [1,1,0,1,1,0,1,1,1,1,0,1,2,0,1,1], bassCut: 600, drone: 36,
       kick: [1,0,0,0,1,0,0,1,1,0,0,0,1,0,1,0], hat: [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1], snare: [0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,1],
       arp: { rate: 1, type: 'sawtooth', vol: 0.014 }, lead: 0.45, leadType: 'square', padCut: 1200, scale: [0, 1, 3, 5, 6, 8, 10], bells: 0.07, wind: true },
+    // 9. The Drowned Spire: ancient and cavernous; organ pads, choir-like drones, tolling bells
+    d8: { bpm: 84, chords: [[43, 'm'], [51, 'M'], [46, 'M'], [41, 'M']], bass: [1,0,0,0,0,0,1,0,1,0,0,0,0,0,0,0], bassType: 'sine', bassCut: 500, drone: 31,
+      kick: [1,0,0,0,0,0,0,0,1,0,0,1,0,0,0,0], hat: [0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0], snare: [0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0],
+      arp: { rate: 2, type: 'square', vol: 0.014, oct: 24, seq: [0, 2, 1, 2, 0, 3, 1, 2] }, lead: 0.3, leadType: 'triangle', padType: 'square', padCut: 1100, scale: [0, 2, 3, 5, 7, 9, 10], bells: 0.18, wind: true, whale: true },
+    // 10. The Ember's End: the last stand. Epic harmonic minor, war drums
+    d9: { bpm: 132, chords: [[45, 'm'], [41, 'M'], [38, 'm'], [40, 'M']], bass: [1,0,1,1,1,0,1,1,1,0,1,1,2,0,1,1], bassCut: 700, drone: 33,
+      kick: [1,0,0,1,1,0,0,0,1,0,0,1,1,0,1,0], hat: [1,0,1,1,1,0,1,0,1,0,1,1,1,0,1,1], snare: [0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,1],
+      arp: { rate: 1, type: 'square', vol: 0.016, oct: 36 }, lead: 0.5, leadType: 'sawtooth', padCut: 1600, scale: [0, 2, 3, 5, 7, 8, 11], bells: 0.08, wind: true },
+    // The Drowned Sun: three phases that grow ever more desperate
+    f1: { bpm: 122, chords: [[45, 'm'], [41, 'M7'], [43, 'M'], [40, 's']], bass: [1,0,1,0,1,0,1,1,1,0,1,0,1,0,2,0], bassCut: 700, drone: 33,
+      kick: [1,0,0,0,1,0,0,0,1,0,0,0,1,0,1,0], hat: [1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,1], snare: [0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0],
+      arp: { rate: 1, type: 'triangle', vol: 0.02, oct: 36 }, lead: 0.5, leadType: 'triangle', padCut: 2200, scale: [0, 2, 3, 5, 7, 8, 11], bells: 0.12, boss: true },
+    f2: { bpm: 138, chords: [[45, 'm'], [46, 'M'], [43, 'M'], [44, 'd']], bass: [1,1,0,1,1,0,1,1,1,1,0,1,2,0,1,1], bassCut: 800, drone: 33,
+      kick: [1,0,0,1,1,0,0,1,1,0,0,1,1,0,1,0], hat: [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1], snare: [0,0,0,0,1,0,0,0,0,0,0,0,1,0,1,1],
+      arp: { rate: 1, type: 'square', vol: 0.018, oct: 36 }, lead: 0.55, leadType: 'sawtooth', padCut: 2400, scale: [0, 1, 3, 5, 7, 8, 11], bells: 0.06, wind: true, boss: true },
+    f3: { bpm: 150, chords: [[45, 'm'], [51, 'd'], [46, 'M'], [44, 'd']], bass: [1,1,1,1,2,1,1,1,1,1,1,1,2,1,2,1], bassCut: 900, drone: 33,
+      kick: [1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,1], hat: [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1], snare: [0,0,0,0,1,0,0,1,0,0,0,0,1,0,1,1],
+      arp: { rate: 1, type: 'sawtooth', vol: 0.016, oct: 24 }, lead: 0.6, leadType: 'square', padCut: 2000, scale: [0, 1, 3, 4, 6, 8, 10], bells: 0.1, wind: true, whale: true, boss: true },
   };
   // Boss remix of every Depth song: faster, full drums, busier bass, louder lead
-  for (let i = 0; i < 8; i++) {
+  for (let i = 0; i < 10; i++) {
     const b = Object.assign({}, TRACKS['d' + i]);
     b.bpm = Math.min(150, Math.round(b.bpm * (b.bpm < 90 ? 1.35 : 1.15)));
     if (b.bass.filter(x => x).length < 8) b.bass = [1,0,1,0,1,0,1,1,1,0,1,0,1,0,2,0];

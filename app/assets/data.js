@@ -1,26 +1,32 @@
 'use strict';
 // ---------- static game data ----------
 // Each Depth has its own look (enemy palette, boss colours, decoration style), its own Warden names,
-// introduces new features (intro) and may add a twist. bullets: how many projectiles foes and Wardens fire.
-// fire: how fast ranged foes shoot / how fast their bullets fly.
+// introduces new features (intro) and may add a twist. bullets: how many projectiles enemies and Wardens fire.
+// fire: how fast ranged enemies shoot / how fast their bullets fly.
 const DEPTHS = [
-  { name: 'The Glimmering Shallows', hp: 1.0, dmg: 1.0, count: 1.0, fire: 1.0, embers: 1.0, bullets: 0.55, intro: 'The basics: weapons, upgrades, relics and Wardens', twists: [], bg: [8, 18, 38], tint: '#2a6cff', style: 'plain', epithet: '',
+  { name: 'The Glimmering Shallows', hp: 1.0, dmg: 1.0, count: 1.0, fire: 1.0, embers: 1.0, bullets: 0.4, intro: 'The basics: weapons, upgrades, relics and Wardens', twists: [], bg: [8, 18, 38], tint: '#2a6cff', style: 'plain', epithet: '',
     pal: null, boss: null },
-  { name: 'Coralveil Reef', hp: 1.4, dmg: 1.2, count: 1.08, fire: 1.1, embers: 1.5, bullets: 0.65, intro: 'New: Abilities and Shrines', twists: [], bg: [22, 10, 40], tint: '#c050ff', style: 'coral', epithet: 'Coral',
+  { name: 'Coralveil Reef', hp: 1.4, dmg: 1.2, count: 1.08, fire: 1.1, embers: 1.5, bullets: 0.47, intro: 'New: Abilities and Shrines', twists: [], bg: [22, 10, 40], tint: '#c050ff', style: 'coral', epithet: 'Coral',
     pal: ['#ff6ad5', '#c86bff', '#ff8f6b', '#ff4f8b', '#e0a0ff', '#ffb0d0'], boss: ['#ff6ad5', '#ff8f6b', '#c86bff', '#ff4f8b'] },
-  { name: 'The Lanternlit Shelf', hp: 1.9, dmg: 1.4, count: 1.16, fire: 1.2, embers: 2.1, bullets: 0.75, intro: 'New: Bounties, Gleamers. Twist: Darkness', twists: ['dark'], bg: [4, 24, 30], tint: '#20e0c0', style: 'lure', epithet: 'Luminous',
+  { name: 'The Lanternlit Shelf', hp: 1.9, dmg: 1.4, count: 1.16, fire: 1.2, embers: 2.1, bullets: 0.55, intro: 'New: Bounties, Gleamers. Twist: Darkness', twists: ['dark'], bg: [4, 24, 30], tint: '#20e0c0', style: 'lure', epithet: 'Luminous',
     pal: ['#2ef0d0', '#30a8ff', '#7cf05a', '#00d0ff', '#a0ffe0', '#5a8cff'], boss: ['#2ef0d0', '#30a8ff', '#7cf05a', '#00e0ff'] },
-  { name: 'Cinderwake Trench', hp: 2.5, dmg: 1.65, count: 1.24, fire: 1.3, embers: 2.8, bullets: 0.85, intro: 'New: Trials, Legendary relics. Twist: Eruptions', twists: ['erupt'], bg: [30, 6, 16], tint: '#ff3060', style: 'spiked', epithet: 'Crimson',
+  { name: 'Cinderwake Trench', hp: 2.5, dmg: 1.65, count: 1.24, fire: 1.3, embers: 2.8, bullets: 0.63, intro: 'New: Trials, Legendary relics. Twist: Eruptions', twists: ['erupt'], bg: [30, 6, 16], tint: '#ff3060', style: 'spiked', epithet: 'Crimson',
     pal: ['#ff3040', '#ff6a20', '#d01060', '#ff9050', '#ff2080', '#c04040'], boss: ['#ff3040', '#ff6a20', '#ff2080', '#ff9050'] },
-  { name: 'The Ossuary Depths', hp: 3.2, dmg: 1.9, count: 1.32, fire: 1.4, embers: 3.6, bullets: 0.95, intro: 'Twist: the dead rise again', twists: ['restless'], bg: [6, 6, 12], tint: '#e8e8ff', style: 'bone', epithet: 'Bone',
+  { name: 'The Ossuary Depths', hp: 3.2, dmg: 1.9, count: 1.32, fire: 1.4, embers: 3.6, bullets: 0.72, intro: 'Twist: the dead rise again', twists: ['restless'], bg: [6, 6, 12], tint: '#e8e8ff', style: 'bone', epithet: 'Bone',
     pal: ['#e8e4d8', '#b8c0d8', '#f0d8b0', '#d0d0e8', '#ffffff', '#c8b8a0'], boss: ['#e8e4d8', '#f0d8b0', '#b8c0d8', '#ffffff'] },
-  { name: 'The Gilded Rift', hp: 4.0, dmg: 2.2, count: 1.4, fire: 1.5, embers: 4.6, bullets: 1.05, intro: 'Twist: golden fever (riches and elites)', twists: ['gold'], bg: [26, 18, 4], tint: '#ffc030', style: 'crystal', epithet: 'Gilded',
+  { name: 'The Gilded Rift', hp: 4.0, dmg: 2.2, count: 1.4, fire: 1.5, embers: 4.6, bullets: 0.8, intro: 'Twist: golden fever (riches and elites)', twists: ['gold'], bg: [26, 18, 4], tint: '#ffc030', style: 'crystal', epithet: 'Gilded',
     pal: ['#ffc030', '#ffe070', '#ff9a20', '#fff0a0', '#e8b040', '#ffd050'], boss: ['#ffc030', '#ff9a20', '#ffe070', '#fff0a0'] },
-  { name: "Leviathan's Hollow", hp: 5.0, dmg: 2.5, count: 1.48, fire: 1.6, embers: 5.8, bullets: 1.15, intro: 'Twist: drifting currents', twists: ['current'], bg: [6, 8, 30], tint: '#6070ff', style: 'tentacle', epithet: 'Drowned',
+  { name: "Leviathan's Hollow", hp: 5.0, dmg: 2.5, count: 1.48, fire: 1.6, embers: 5.8, bullets: 0.88, intro: 'Twist: drifting currents', twists: ['current'], bg: [6, 8, 30], tint: '#6070ff', style: 'tentacle', epithet: 'Drowned',
     pal: ['#6070ff', '#40c0ff', '#9060ff', '#3090c0', '#80a0ff', '#5050d0'], boss: ['#6070ff', '#40c0ff', '#9060ff', '#80a0ff'] },
-  { name: 'The Starless Abyss', hp: 6.2, dmg: 2.9, count: 1.56, fire: 1.75, embers: 7.2, bullets: 1.25, intro: 'Twist: darkness and eruptions', twists: ['dark', 'erupt'], bg: [2, 0, 4], tint: '#ff1030', style: 'void', epithet: 'Void',
+  { name: 'The Starless Abyss', hp: 6.2, dmg: 2.9, count: 1.56, fire: 1.75, embers: 7.2, bullets: 0.95, intro: 'Twist: darkness and eruptions', twists: ['dark', 'erupt'], bg: [2, 0, 4], tint: '#ff1030', style: 'void', epithet: 'Void',
     pal: ['#ff1030', '#ff3070', '#c00040', '#ff5050', '#ff0090', '#d02020'], boss: ['#ff1030', '#ff0090', '#ff3070', '#ff5050'] },
+  { name: 'The Drowned Spire', hp: 7.4, dmg: 3.3, count: 1.62, fire: 1.85, embers: 8.8, bullets: 1.0, intro: 'Twist: currents and restless dead', twists: ['current', 'restless'], bg: [4, 14, 20], tint: '#60f0e0', style: 'rune', epithet: '',
+    pal: ['#60f0e0', '#a0b0ff', '#40d0a0', '#d0f0ff', '#80ffd0', '#7090ff'], boss: ['#60f0e0', '#a0b0ff', '#80ffd0', '#d0f0ff'] },
+  { name: "The Ember's End", hp: 8.8, dmg: 3.8, count: 1.7, fire: 1.95, embers: 10.5, bullets: 1.05, intro: 'The final Depth. Wave 20: The Drowned Sun', twists: ['erupt', 'restless'], bg: [16, 4, 2], tint: '#ff9030', style: 'ember', epithet: '',
+    pal: ['#ff9030', '#ffd060', '#ff5020', '#ffb080', '#ff7040', '#ffe0a0'], boss: ['#ff9030', '#ff5020', '#ffd060', '#ff7040'] },
 ];
+const TB_DEPTH = 7;        // The Starless Abyss: survive wave 40 for the Tidebreaker reward
+const FINAL_DEPTH = 9;     // The Ember's End: wave 20 is The Drowned Sun
 const FINAL_WAVE = 20;
 const TIDEBREAKER_WAVE = 40;
 
@@ -34,7 +40,7 @@ const SPIRITS = [
   { id: 'nyx', name: 'Nyx', color: '#c890ff', weapon: 'orbit', hp: 105, speed: 1, dmg: 1, armor: 0.1,
     trait: 'Takes 10% less damage. Orbs +1.', orbs: 1, unlock: { text: 'Clear Depth 2', check: s => s.depthCleared >= 2 } },
   { id: 'pyre', name: 'Pyre', color: '#ff5a4a', weapon: 'nova', hp: 80, speed: 1.03, dmg: 1.2, armor: 0,
-    trait: 'Fragile but fierce. +20% damage.', unlock: { text: 'Slay 15,000 foes in total', check: s => s.stats.kills >= 15000 } },
+    trait: 'Fragile but fierce. +20% damage.', unlock: { text: 'Slay 15,000 enemies in total', check: s => s.stats.kills >= 15000 } },
   { id: 'sol', name: 'Sol', color: '#ffe9a8', weapon: 'seeker', hp: 100, speed: 1, dmg: 1, armor: 0,
     trait: 'Radiant. Starts with a random relic.', relic: true, unlock: { text: 'Clear Depth 4', check: s => s.depthCleared >= 4 } },
   { id: 'wisp', name: 'Wisp', color: '#a0fff0', weapon: 'crescent', hp: 95, speed: 1.08, dmg: 1, armor: 0,
@@ -50,13 +56,13 @@ const SPIRITS = [
 // Weapons: s(l) returns stats at level l (1..5)
 const WEAPONS = {
   bolt: { name: 'Spark Bolt', color: '#ffb050',
-    lv: ['', 'Fires bolts at the nearest foe.', '+40% damage, faster fire.', '+1 bolt per volley.', 'Bolts pierce one foe.', '+1 bolt, +30% damage.'],
+    lv: ['', 'Fires bolts at the nearest enemy.', '+40% damage, faster fire.', '+1 bolt per volley.', 'Bolts pierce one enemy.', '+1 bolt, +30% damage.'],
     s: l => ({ dmg: [0, 10, 14, 15, 17, 22][l], cd: [0, 0.6, 0.5, 0.48, 0.45, 0.42][l], count: l >= 5 ? 3 : l >= 3 ? 2 : 1, pierce: l >= 4 ? 1 : 0, speed: 440 }) },
   fan: { name: 'Frost Shards', color: '#8fe8ff',
     lv: ['', 'Sprays chilling shards in a cone.', '+1 shard, +damage.', 'Faster volleys.', '+2 shards.', 'Shards pierce, +damage.'],
     s: l => ({ dmg: [0, 7, 9, 9, 10, 13][l], cd: [0, 1.0, 0.95, 0.8, 0.78, 0.72][l], count: [0, 3, 4, 4, 6, 6][l], pierce: l >= 5 ? 1 : 0, speed: 380 }) },
   arc: { name: 'Chain Arc', color: '#f4f060',
-    lv: ['', 'Lightning leaps between foes.', '+1 chain, +damage.', 'Faster strikes.', '+2 chains.', 'Twin arcs, +damage.'],
+    lv: ['', 'Lightning leaps between enemies.', '+1 chain, +damage.', 'Faster strikes.', '+2 chains.', 'Twin arcs, +damage.'],
     s: l => ({ dmg: [0, 14, 18, 19, 21, 26][l], cd: [0, 1.15, 1.05, 0.85, 0.82, 0.75][l], chain: [0, 3, 4, 4, 6, 6][l], count: l >= 5 ? 2 : 1, range: 200 }) },
   orbit: { name: 'Orbit Orbs', color: '#c890ff',
     lv: ['', 'Orbs circle and guard you.', '+1 orb.', '+damage, wider orbit.', '+1 orb, faster spin.', '+1 orb, +damage.'],
@@ -68,22 +74,22 @@ const WEAPONS = {
     lv: ['', 'Homing sparks that explode.', '+1 seeker.', 'Bigger blasts, +damage.', '+1 seeker.', '+1 seeker, faster.'],
     s: l => ({ dmg: [0, 16, 17, 23, 24, 28][l], cd: [0, 1.6, 1.55, 1.5, 1.45, 1.25][l], count: [0, 1, 2, 2, 3, 4][l], aoe: [0, 38, 40, 52, 54, 58][l] }) },
   mine: { name: 'Cinder Mines', color: '#ff4a80',
-    lv: ['', 'Drop mines that erupt near foes.', '+damage, faster drops.', 'Bigger eruptions.', '+1 mine per drop.', 'Erupt twice.'],
+    lv: ['', 'Drop mines that erupt near enemies.', '+damage, faster drops.', 'Bigger eruptions.', '+1 mine per drop.', 'Erupt twice.'],
     s: l => ({ dmg: [0, 32, 42, 46, 48, 55][l], cd: [0, 1.6, 1.35, 1.3, 1.3, 1.2][l], aoe: [0, 56, 58, 74, 76, 80][l], count: l >= 4 ? 2 : 1, twice: l >= 5 }) },
   lance: { name: 'Ember Lance', color: '#ff9a60',
-    lv: ['', 'A piercing beam scorches every foe in a line.', '+damage, faster.', 'Wider beam.', 'Fires a second beam.', '+damage, much faster.'],
+    lv: ['', 'A piercing beam scorches every enemy in a line.', '+damage, faster.', 'Wider beam.', 'Fires a second beam.', '+damage, much faster.'],
     s: l => ({ dmg: [0, 22, 30, 32, 36, 46][l], cd: [0, 1.6, 1.4, 1.35, 1.3, 1.0][l], width: [0, 9, 9, 14, 14, 16][l], count: l >= 4 ? 2 : 1, len: 380 }) },
   crescent: { name: 'Moon Crescent', color: '#a0fff0',
     lv: ['', 'A spinning blade flies out and returns.', '+damage, faster throws.', '+1 crescent.', 'Bigger, longer reach.', '+1 crescent, +damage.'],
     s: l => ({ dmg: [0, 12, 16, 16, 19, 24][l], cd: [0, 1.8, 1.5, 1.5, 1.45, 1.3][l], count: [0, 1, 1, 2, 2, 3][l], size: [0, 10, 10, 11, 15, 16][l], reach: [0, 210, 210, 220, 270, 280][l] }) },
   aura: { name: 'Searing Aura', color: '#ff6a3a',
-    lv: ['', 'Burns every foe close to you.', '+damage.', 'Larger aura.', '+damage, burns faster.', 'Huge aura that also chills.'],
+    lv: ['', 'Burns every enemy close to you.', '+damage.', 'Larger aura.', '+damage, burns faster.', 'Huge aura that also chills.'],
     s: l => ({ dmg: [0, 5, 7, 8, 10, 12][l], tick: [0, 0.45, 0.45, 0.42, 0.33, 0.3][l], radius: [0, 62, 64, 78, 80, 96][l], chill: l >= 5 }) },
   meteor: { name: 'Starcaller', color: '#b0c8ff',
-    lv: ['', 'Calls falling stars onto foes.', '+1 star.', 'Bigger impacts, +damage.', '+1 star, faster.', '+1 star, +damage.'],
+    lv: ['', 'Calls falling stars onto enemies.', '+1 star.', 'Bigger impacts, +damage.', '+1 star, faster.', '+1 star, +damage.'],
     s: l => ({ dmg: [0, 30, 32, 42, 44, 52][l], cd: [0, 2.2, 2.1, 2.0, 1.7, 1.6][l], count: [0, 1, 2, 2, 3, 4][l], aoe: [0, 48, 50, 60, 62, 66][l] }) },
   ricochet: { name: 'Prism Shard', color: '#ff90f0',
-    lv: ['', 'A shard that bounces between foes.', '+2 bounces.', '+damage, faster.', '+2 bounces.', 'Fires twin shards.'],
+    lv: ['', 'A shard that bounces between enemies.', '+2 bounces.', '+damage, faster.', '+2 bounces.', 'Fires twin shards.'],
     s: l => ({ dmg: [0, 11, 13, 16, 17, 20][l], cd: [0, 1.1, 1.05, 0.9, 0.88, 0.8][l], bounces: [0, 3, 5, 5, 7, 7][l], count: l >= 5 ? 2 : 1 }) },
 };
 const WEAPON_IDS = Object.keys(WEAPONS);
@@ -107,19 +113,19 @@ const PASSIVE_IDS = Object.keys(PASSIVES);
 // Active abilities (max 2 equipped, 3 with Twin Soul). Levels 1..3.
 const ABILITIES = {
   purge:   { name: 'Purge', color: '#ffffff', cd: [0, 45, 38, 30],
-    lv: ['', 'Erase every enemy bullet and blast all foes on screen.', 'Recharges faster, blast hits harder.', 'Recharges much faster.'] },
+    lv: ['', 'Erase every enemy bullet and blast all enemies on screen.', 'Recharges faster, blast hits harder.', 'Recharges much faster.'] },
   dash:    { name: 'Phase Dash', color: '#a0fff0', cd: [0, 7, 5.5, 4],
-    lv: ['', 'Dash forward, untouchable, burning foes you pass.', 'Recharges faster, longer dash.', 'Recharges much faster, leaves a fire trail.'] },
+    lv: ['', 'Dash forward, untouchable, burning enemies you pass.', 'Recharges faster, longer dash.', 'Recharges much faster, leaves a fire trail.'] },
   warp:    { name: 'Time Warp', color: '#80b0ff', cd: [0, 35, 30, 25],
-    lv: ['', 'Slow all foes and bullets by 70% for 4s.', 'Lasts 5s.', 'Lasts 6s and recharges faster.'] },
+    lv: ['', 'Slow all enemies and bullets by 70% for 4s.', 'Lasts 5s.', 'Lasts 6s and recharges faster.'] },
   aegis:   { name: 'Aegis', color: '#ffe080', cd: [0, 32, 27, 22],
     lv: ['', 'Become invulnerable for 3s. Touching bullets are destroyed.', 'Lasts 4s.', 'Lasts 4s, recharges faster.'] },
   inferno: { name: 'Inferno', color: '#ff6a30', cd: [0, 26, 22, 18],
     lv: ['', 'A ring of fire surrounds you for 6s.', 'Bigger, hotter ring.', 'Huge ring, recharges faster.'] },
   hole:    { name: 'Singularity', color: '#c070ff', cd: [0, 28, 24, 20],
-    lv: ['', 'A black hole drags foes in, then detonates.', 'Stronger pull, bigger blast.', 'Recharges faster.'] },
+    lv: ['', 'A black hole drags enemies in, then detonates.', 'Stronger pull, bigger blast.', 'Recharges faster.'] },
   starfall:{ name: 'Starfall', color: '#b0c8ff', cd: [0, 30, 25, 20],
-    lv: ['', 'Call down 12 meteors on nearby foes.', '18 meteors.', '24 meteors, recharges faster.'] },
+    lv: ['', 'Call down 12 meteors on nearby enemies.', '18 meteors.', '24 meteors, recharges faster.'] },
 };
 const ABILITY_IDS = Object.keys(ABILITIES);
 
@@ -128,7 +134,7 @@ const RELICS = {
   crown:   { name: 'Tidal Crown', desc: '+1 projectile to every weapon.', color: '#60e0ff' },
   phoenix: { name: 'Phoenix Plume', desc: 'Revive once at full HP.', color: '#ffa030' },
   hourglass:{ name: 'Sunken Hourglass', desc: '-15% weapon cooldowns.', color: '#ffe080' },
-  leech:   { name: 'Leech Ember', desc: 'Heal 1 HP for every 6 foes slain.', color: '#ff4040' },
+  leech:   { name: 'Leech Ember', desc: 'Heal 1 HP for every 6 enemies slain.', color: '#ff4040' },
   lantern: { name: 'Storm Lantern', desc: '+10% crit chance, crits deal 3x.', color: '#f8ff80' },
   lode:    { name: 'Lodestone', desc: 'Double pickup radius, +15% XP.', color: '#80a0ff' },
   thorn:   { name: 'Thornshell', desc: 'Being hit unleashes a fiery nova.', color: '#ff6a30' },
@@ -211,6 +217,8 @@ const BOSS_NAMES = [
   ['The Prism Oracle', 'Avarice', 'The Golden Tempest', 'The Hoardheart'],
   ['Eye of the Leviathan', 'The Drowned Colossus', 'The Undertow', "Leviathan's Heart"],
   ['The Unblinking Void', 'The Devourer', 'The Starless Choir', 'Heart of Nothing'],
+  ['The Spire Warden', 'The Tidegate Jaw', 'The Drowned Cantor', 'The Sunken Crown'],
+  ['The Last Watcher', 'The Ashen Leviathan', 'The Ember Choir', 'The Drowned Sun'],
 ];
 const BOSSES = [
   { name: 'The Hollow Eye',   hp: 2400,  r: 34, color: '#b06cff', spd: 45, dmg: 20, kind: 'eye',   sig: 'laser' },
@@ -227,3 +235,34 @@ const SHRINES = {
   fortune: { name: 'Shrine of Fortune', desc: 'Treasure and Embers', color: '#ffd040' },
   trial:   { name: 'Shrine of Trials', desc: 'Defeat the champions for a reward', color: '#c070ff' },
 };
+
+// Mythic upgrades: 1 in 25 level-up popups (more with Luck) offers one. Only one per run.
+const MYTHICS = {
+  twin:    { name: 'Twin Barrage', desc: 'Double the projectiles of every weapon.' },
+  overdrive:{ name: 'Overdrive', desc: 'Weapons fire twice as fast.' },
+  titan:   { name: "Titan's Wrath", desc: 'Double all damage.' },
+  colossus:{ name: 'Colossus', desc: 'Double max HP and heal fully.' },
+  recall:  { name: 'Infinite Recall', desc: 'Abilities recharge three times faster.' },
+  horizon: { name: 'Event Horizon', desc: 'Double area and triple pickup radius.' },
+  midas:   { name: 'Midas Flame', desc: 'Triple Embers and double XP this run.' },
+};
+const MYTHIC_IDS = Object.keys(MYTHICS);
+
+// Boss Raids: unlocked by defeating The Drowned Sun. Back-to-back Enhanced Wardens for Pearls.
+const RAID_TIERS = [
+  { name: 'Tier I',   bosses: 4, depth: 5, luck: 2, pearls: 3 },
+  { name: 'Tier II',  bosses: 5, depth: 6, luck: 4, pearls: 5 },
+  { name: 'Tier III', bosses: 5, depth: 7, luck: 6, pearls: 8 },
+  { name: 'Tier IV',  bosses: 6, depth: 8, luck: 8, pearls: 12 },
+  { name: 'Tier V',   bosses: 6, depth: 9, luck: 10, pearls: 18, final: true },
+];
+// The Pearl Altar: multipliers and Luck, bought with Pearls.
+const ALTAR = [
+  { id: 'emult', name: 'Ember Tithe',     max: 10, base: 8,  grow: 1.45, desc: r => `x${(1 + 0.15 * r).toFixed(2)} Embers` },
+  { id: 'xmult', name: 'Deep Wisdom',     max: 8,  base: 10, grow: 1.5,  desc: r => `x${(1 + 0.06 * r).toFixed(2)} XP` },
+  { id: 'dmult', name: 'Pearl Edge',      max: 10, base: 12, grow: 1.55, desc: r => `x${Math.pow(1.04, r).toFixed(2)} damage` },
+  { id: 'hmult', name: 'Nacre Shell',     max: 10, base: 12, grow: 1.55, desc: r => `x${Math.pow(1.04, r).toFixed(2)} max HP` },
+  { id: 'luck',  name: 'Luck',            max: 10, base: 15, grow: 1.6,  desc: r => `+${r} Luck` },
+  { id: 'myth',  name: 'Mythic Affinity', max: 5,  base: 25, grow: 1.8,  desc: r => `+${15 * r}% Mythic chance` },
+  { id: 'pearl', name: 'Pearl Diver',     max: 5,  base: 20, grow: 1.7,  desc: r => `+${10 * r}% Pearls from raids` },
+];
