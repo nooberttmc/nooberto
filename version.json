@@ -1,9 +1,12 @@
 {
-  "versionCode": 3,
-  "versionName": "1.2",
+  "versionCode": 4,
+  "versionName": "1.3",
   "apk": "https://raw.githubusercontent.com/nooberttmc/nooberto/claude/android-game-apk-w2q4io/Emberwake.apk",
   "notes": [
-    "In-game updater: new versions download and install right from the game.",
-    "Check for updates any time from Settings."
+    "3 new Depths (8 total), each with its own foes and Wardens. Wave 40 of the last one = reward",
+    "Bullet-hell foes, new Warden attacks. Enemy bullets have red rims, XP is blue",
+    "7 abilities (2 slots) like Purge to clear bullets, 5 new weapons, Legendary relics",
+    "Shrines, Gleamers and Bounties in runs. Deep Hearth and endless Soul Forge",
+    "Embers are harder to earn and spirits harder to unlock (yours stay unlocked)"
   ]
 }
