@@ -1,2 +1,1 @@
-Fix: Seraph Halo, Tidal Crown and Multiplicity now add their full projectiles to every weapon
-Fix: Nova Pulse gains extra pulses from extra projectiles
+New music: "The Drowned Sun", a full orchestral metal theme with electric guitars, now plays during the final boss
