@@ -256,12 +256,7 @@ async function renderSong() {
         else { for (let i = 0; i < 4; i++) slice(t0 + i * step, i, 1, R, { vol: 0.85 }); roll(t0 + 4 * step, 4, 8, 1, 1.4, 0.45, 0.95); reverseSwell(tNext, 1.1); }
         continue;
       }
-      if (sec === 'breakdown') { // half-time: the break at half speed, a single reversed snare pulling into each phrase
-        drumLP.frequency.setValueAtTime(dCut, t0); drumLP.frequency.linearRampToValueAtTime(dCut = 3000, t0 + 0.05);
-        if (b > 0) { drumBus.gain.setValueAtTime(0.5, t0); bcHalftime(t0); drumBus.gain.setValueAtTime(0.82, tNext - 0.001); }
-        if (phraseEnd4) slice(t0 + 12 * step, SNARE, 4, R, { reverse: true, vol: 0.6 });
-        continue;
-      }
+      if (sec === 'breakdown') continue; // no drums here: piano, pads and bass carry the breakdown
       if (sec === 'outro') { if (b < 4) { drumLP.frequency.setValueAtTime(dCut, t0); drumLP.frequency.linearRampToValueAtTime(dCut = 3000 - b * 650, t0 + bar); groove(t0, b % 2, 0.6 - b * 0.12); } if (b === nb - 1) reverseSwell(tNext + bar * 0.5, 0.6); continue; }
       drumLP.frequency.setValueAtTime(dCut = 18000, t0);
       if (b % 8 === 0) impact(t0, b === 0 ? 1 : 0.7); // every 8-bar phrase starts with an impact

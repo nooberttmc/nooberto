@@ -25,6 +25,9 @@ def write_midi(part, path, seed):
     tr.append(mido.Message('control_change', channel=0, control=100, value=0, time=0))
     tr.append(mido.Message('control_change', channel=0, control=6, value=2, time=0))
     ev = []; hum = part.get('humanize', 0) / 1000.0
+    cents = part.get('cents', 0)
+    if cents:
+        for ch in (0, 1): tr.append(mido.Message('pitchwheel', channel=ch, pitch=int(8192 * cents / 200), time=0))
     for t, m, d, v, art in part['notes']:
         jt = rnd.uniform(-hum, hum) if hum else 0.0
         ch = 1 if art == 'mute' else 0

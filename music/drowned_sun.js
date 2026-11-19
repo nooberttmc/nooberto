@@ -79,10 +79,10 @@ function guitarEvents() {
     }
   }
   return { bpm: BPM, parts: {
-    rhythmL: { sf: 'musescore', amp: 'rhythm', humanize: 4, notes: rhythm },
-    rhythmR: { sf: 'fluid', amp: 'rhythm', humanize: 7, notes: rhythm },
+    rhythmL: { sf: 'musescore', amp: 'rhythm', humanize: 6, notes: rhythm },              // two takes of the same guitar and rig:
+    rhythmR: { sf: 'musescore', amp: 'rhythm', humanize: 6, cents: 6, notes: rhythm },     // own timing, own picking strength, a few cents apart
     lead: { sf: 'musescore', amp: 'lead', humanize: 0, notes: lead },
-    harmony: { sf: 'fluid', amp: 'lead', humanize: 3, notes: harm },
+    harmony: { sf: 'musescore', amp: 'lead', humanize: 4, cents: -5, notes: harm },
     clean: { sf: 'musescore', amp: 'none', humanize: 5, notes: clean },
   } };
 }
@@ -115,8 +115,8 @@ async function renderSong() {
     const g = ctx.createGain(); g.gain.value = vol; const p = ctx.createStereoPanner(); p.pan.value = pan;
     src.connect(g); g.connect(p); p.connect(dry); send(p, verbAmt, useDelay); src.start(0);
   }
-  await stem('rhythmL', -0.85, 0.52, 0.06);
-  await stem('rhythmR', 0.85, 0.52, 0.06);
+  await stem('rhythmL', -0.7, 0.62, 0.02);
+  await stem('rhythmR', 0.7, 0.62, 0.02);
   await stem('lead', 0.0, 0.46, 0.3, true);
   await stem('harmony', 0.3, 0.3, 0.25, true);
   await stem('clean', -0.1, 0.42, 0.7, true);
@@ -161,17 +161,6 @@ async function renderSong() {
       o.connect(g); g.connect(p); p.connect(strBus); o.start(t); o.stop(t + len + 0.45);
     } });
   }
-  const choirBus = ctx.createGain(); choirBus.connect(dry); send(choirBus, 0.9);
-  function choir(t, m, len, vol) {
-    for (const det of [-10, 0, 10]) {
-      const o = ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.value = mtof(m); o.detune.value = det;
-      const vib = ctx.createOscillator(); vib.frequency.value = 4.8 + rand(); const vd = ctx.createGain(); vd.gain.value = 12; vib.connect(vd); vd.connect(o.detune);
-      const f1 = ctx.createBiquadFilter(); f1.type = 'bandpass'; f1.frequency.value = 720; f1.Q.value = 6;
-      const f2 = ctx.createBiquadFilter(); f2.type = 'bandpass'; f2.frequency.value = 1150; f2.Q.value = 8;
-      const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(vol, t + 0.5); g.gain.setValueAtTime(vol, t + len); g.gain.linearRampToValueAtTime(0.0001, t + len + 0.8);
-      o.connect(f1); o.connect(f2); f1.connect(g); f2.connect(g); g.connect(choirBus); o.start(t); vib.start(t); o.stop(t + len + 0.85); vib.stop(t + len + 0.85);
-    }
-  }
   function brass(t, notes, len, vol) {
     notes.forEach(m => {
       const o = ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.value = mtof(m);
@@ -196,8 +185,7 @@ async function renderSong() {
     const { sec, b, t0, ch, tr, notes } = x, at = s => t0 + s * STEP, sub = 28 + ((ch[0] + tr - 28) % 12), last = b === SECTIONS.find(s => s[0] === sec)[1] - 1;
     const up = notes.map(n => n + 12);
     if (sec === 'intro') {
-      strings(t0, notes.map(n => n - 12 + (n < 52 ? 12 : 0)), BAR, 0.011 + 0.002 * b, 0.7);
-      choir(t0, [71, 72, 72, 71, 76, 76, 72, 75][b], BAR * 0.95, 0.02 + 0.002 * b);
+      strings(t0, notes.map(n => n - 12 + (n < 52 ? 12 : 0)), BAR, 0.013 + 0.002 * b, 0.7);
       if (b % 2 === 0) taiko(t0, 0.5 + b * 0.06);
       bass(t0, sub, BAR, 0.12 + 0.02 * b);
       if (b >= 6) { // the break fades in through a closing filter
@@ -225,7 +213,7 @@ async function renderSong() {
         [0, 6, 7, 10].forEach(s => { kick(at(s), 1); slice('steppin1', at(s), INFO.steppin1.kick, 1, R, 0.8); });
         slice('steppin1', at(8), INFO.steppin1.snare, 2, R * 0.92, 1.1); crash(at(8), 0.25);
         if (b === 11) snareRoll('steppin2', at(12), 4, 8, 1, 1.35, 0.5, 1);
-        strings(t0, notes.map(n => n - 12), BAR, 0.012, 0.05); choir(t0, notes[0] + 12, BAR, 0.02);
+        strings(t0, notes.map(n => n - 12), BAR, 0.012, 0.05);
         bass(t0, 28, STEP * 6, 0.4, true); bass(at(10), 28, STEP * 5, 0.38, true);
         continue;
       }
@@ -241,7 +229,7 @@ async function renderSong() {
     }
     if (sec === 'bridge') { // the calm before the end
       if (b === 0) { crash(t0, 0.6); dCut = 18000; }
-      strings(t0, notes, BAR, 0.01, 0.6); choir(t0, notes[0] + 12, BAR, 0.018); choir(t0, notes[2] + 12, BAR, 0.014);
+      strings(t0, notes, BAR, 0.013, 0.6);
       taiko(t0, 0.45); if (b >= 4) taiko(at(8), 0.35);
       if (b >= 6) groove('think', t0, b, 0.35 + (b - 6) * 0.2);
       bass(t0, sub, BAR, 0.18);
@@ -255,13 +243,13 @@ async function renderSong() {
       else groove(name, t0, b, 1);
       for (let s = 0; s < 16; s += 2) kick(at(s), s % 4 ? 0.45 : 0.7);
       brass(t0, up, STEP * 4, 0.036); brass(at(8), up, STEP * 3, 0.03);
-      strings(t0, notes.concat([notes[0] + 12]), BAR, 0.011); choir(t0, notes[0] + 12, BAR * 0.95, 0.022); choir(t0, notes[2] + 12, BAR * 0.95, 0.018);
+      strings(t0, notes.concat([notes[0] + 12]), BAR, 0.011);
       bass(t0, sub, BAR - 0.02, 0.36, true);
       continue;
     }
     if (sec === 'outro' && b === 0) {
       impact(t0, 1.4); kick(t0, 1);
-      strings(t0, [53, 60, 65, 68, 72], BAR * 2.5, 0.013); choir(t0, 65, BAR * 2.5, 0.022); choir(t0, 72, BAR * 2.5, 0.018);
+      strings(t0, [53, 60, 65, 68, 72], BAR * 2.5, 0.013);
       bass(t0, 29, BAR * 2.5, 0.4);
     }
   }
