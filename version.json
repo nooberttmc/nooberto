@@ -1,8 +1,8 @@
 {
-  "versionCode": 12,
-  "versionName": "2.0",
+  "versionCode": 13,
+  "versionName": "2.1",
   "apk": "https://raw.githubusercontent.com/nooberttmc/nooberto/claude/android-game-apk-w2q4io/Emberwake.apk",
   "notes": [
-    "Final boss music fully remade: darker, heavier guitars, organ, orchestra and breakbeats"
+    "Final boss music rewritten again: longer (3:10), heavier guitars, key change, ends on a low note"
   ]
 }

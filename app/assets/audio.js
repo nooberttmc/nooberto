@@ -35,7 +35,7 @@ const SFX = (() => {
     sfxGain.gain.setTargetAtTime(vol.sfx * 0.7, ctx.currentTime, 0.05);
   }
   // Pre-rendered songs (played from the APK's assets): loop the middle section, skipping intro and outro
-  const FILE_TRACKS = { sun: { src: 'the_drowned_sun.mp3', loopStart: 10.79, loopEnd: 86.29 } }; // Phase I start .. Phase III end (178 BPM)
+  const FILE_TRACKS = { sun: { src: 'the_drowned_sun.mp3', loopStart: 10.79, loopEnd: 161.8 } }; // first theme .. end of the G minor section (178 BPM)
   let fileEl = null, fileName = '';
   function playFile(name) {
     const ft = FILE_TRACKS[name];
