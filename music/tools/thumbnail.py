@@ -24,29 +24,32 @@ def arrangement(events, drums, audio, t=96.0):
         subprocess.run(['ffmpeg', '-loglevel', 'error', '-y', '-i', mp4, '-frames:v', '1', png], check=True)
         return Image.open(png).convert('RGB')
 
-def icon(grid=40):
-    """A winter sun setting into the sea: clean half disc, bold rays, three swells narrowing to the horizon,
-    with the sun's warm reflection running down their middle. Drawn on a small grid, scaled with hard edges."""
+def icon(grid=80):
+    """A sun setting into the sea: clean half disc, bold rays, four swells narrowing to the horizon with the sun's
+    warm reflection down their middle, and ember sparks. Drawn on an 80x80 grid, then scaled with hard pixel edges."""
     img = Image.new('RGBA', (grid, grid), (0, 0, 0, 0)); d = ImageDraw.Draw(img)
-    cx, hy, r = 20, 23, 10                                        # centre x, horizon y, sun radius
+    cx, hy, r = 40, 46, 20                                        # centre x, horizon y, sun radius
     d.pieslice([cx - r, hy - r, cx + r - 1, hy + r - 1], 180, 360, fill=CREAM)
     for k in range(1, 6):                                         # five rays over the upper half
-        ang = np.pi + (k + 0.5) * np.pi / 7; L = 5 if k % 2 == 0 else 3
-        x0, y0 = cx - 0.5 + np.cos(ang) * (r + 2), hy - 0.5 + np.sin(ang) * (r + 2)
-        x1, y1 = cx - 0.5 + np.cos(ang) * (r + 2 + L), hy - 0.5 + np.sin(ang) * (r + 2 + L)
-        d.line([(round(x0), round(y0)), (round(x1), round(y1))], fill=ORANGE, width=2)
-    d.line([(cx - 16, hy), (cx + 15, hy)], fill=CREAM)            # the horizon
-    for row, half in [(hy + 3, 13), (hy + 6, 10), (hy + 9, 7), (hy + 12, 4)]:   # swells, narrowing
+        ang = np.pi + (k + 0.5) * np.pi / 7; L = 10 if k % 2 == 1 else 7
+        x0, y0 = cx - 0.5 + np.cos(ang) * (r + 4), hy - 0.5 + np.sin(ang) * (r + 4)
+        x1, y1 = cx - 0.5 + np.cos(ang) * (r + 4 + L), hy - 0.5 + np.sin(ang) * (r + 4 + L)
+        d.line([(round(x0), round(y0)), (round(x1), round(y1))], fill=ORANGE, width=3)
+    d.rectangle([cx - 32, hy, cx + 31, hy + 1], fill=CREAM)       # the horizon
+    def wave_col(x, half):                                        # gold reflection in the middle -> orange -> red
+        f = min(1, abs(x - cx + 0.5) / half * 1.4)
+        a0, a1, k = (GOLD, ORANGE, f * 2) if f < 0.5 else (ORANGE, RED, f * 2 - 1)
+        return tuple(int(a0[i] + (a1[i] - a0[i]) * k) for i in range(3))
+    for n, (row, half) in enumerate([(hy + 6, 27), (hy + 12, 21), (hy + 18, 15), (hy + 24, 9)]):   # swells, narrowing
         for x in range(cx - half, cx + half):
-            if (x - cx) % 4 == 3: continue                        # little breaks between crests
-            near = abs(x - cx + 0.5) / half
-            f = min(1, near * 1.4); a0, a1, k = (GOLD, ORANGE, f * 2) if f < 0.5 else (ORANGE, RED, f * 2 - 1)
-            c = tuple(int(a0[i] + (a1[i] - a0[i]) * k) for i in range(3))
-            d.point((x, row), fill=c)
-            if (x - cx) % 4 == 1: d.point((x, row - 1), fill=c)   # a crest pixel above each wave
-    for fx, fy in [(4, 4), (35, 3), (3, 13), (36, 12), (10, 2), (29, 2)]:  # ember sparks (gold), in open sky
-        for dx, dy in [(0, 0), (1, 0), (-1, 0), (0, 1), (0, -1)]:
-            d.point((fx + dx, fy + dy), fill=GOLD + (200,))
+            ph = (x - cx + n * 3) % 8
+            if ph == 7: continue                                  # small breaks between crests
+            y = row - (1 if ph in (2, 3, 4) else 0)               # a rounded crest on every wave
+            d.rectangle([x, y, x, y + 1], fill=wave_col(x, half))
+    for fx, fy, big in [(8, 8, 1), (70, 7, 1), (6, 26, 0), (73, 24, 0), (20, 4, 0), (58, 4, 0)]:   # ember sparks: twinkles
+        a = 3 if big else 2
+        d.line([(fx - a, fy), (fx + a, fy)], fill=GOLD + (200,)); d.line([(fx, fy - a), (fx, fy + a)], fill=GOLD + (200,))
+        d.point((fx, fy), fill=CREAM + (230,))
     return img
 
 GLYPHS = {   # 5-wide pixel font, rows 0-6 + 2 descender rows
@@ -81,7 +84,7 @@ def main(events, drums, audio, out):
     arr += np.array([70, 34, 8], np.float32) * halo[..., None]
     img = Image.fromarray(np.clip(arr, 0, 255).astype(np.uint8)).convert('RGBA')
     # the icon, centred, with a glow
-    ic = icon(); s = 12; big = ic.resize((ic.width * s, ic.height * s), Image.NEAREST)
+    ic = icon(); s = 6; big = ic.resize((ic.width * s, ic.height * s), Image.NEAREST)
     ox, oy = (W - big.width) // 2, (H - big.height) // 2
     glow = Image.new('RGBA', (W, H), (0, 0, 0, 0)); glow.paste(big, (ox, oy), big)
     glow = glow.filter(ImageFilter.GaussianBlur(20))
