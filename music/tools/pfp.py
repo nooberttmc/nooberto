@@ -1,7 +1,7 @@
 """Profile picture for sunkensol: a sun sunk beneath the waterline, light rising from it to the surface.
 
 usage: python3 pfp.py out.png
-Pixel art on a 64x64 grid (same palette as the apricity. thumbnail), scaled 16x to 1024x1024.
+Everything (art, glow, gradients) is built on one 64x64 grid with stepped, dithered gradients, scaled 16x to 1024x1024.
 Everything important sits inside the central circle, so a round crop loses nothing.
 """
 import sys, os
@@ -56,9 +56,11 @@ def art():
         put(fx, fy, CREAM)
     return img
 
+BAYER = np.array([[0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [15, 7, 13, 5]], np.float32) / 16
+
 def main(out):
-    yy, xx = np.mgrid[0:SIZE, 0:SIZE] / SIZE
-    depth = np.clip((yy - 0.3) / 0.7, 0, 1)[..., None]
+    # everything is built on the 64x64 grid: background, glow and art share the same pixels
+    yy, xx = (np.mgrid[0:G, 0:G] + 0.5) / G
     sky_c, sea_top, sea_deep = np.array([14, 7, 7], np.float32), np.array([44, 14, 10], np.float32), np.array([12, 4, 6], np.float32)
     under = (yy >= 18.5 / 64)[..., None]
     d2 = np.clip((yy - 18.5 / 64) / (1 - 18.5 / 64), 0, 1)[..., None]
@@ -67,12 +69,17 @@ def main(out):
     arr += np.array([90, 40, 10], np.float32) * glow
     sky = np.exp(-(((xx - 0.5) ** 2 + (yy - 18 / 64) ** 2 * 6) / (2 * 0.2 ** 2)))[..., None]   # light at the surface
     arr += np.array([40, 22, 6], np.float32) * sky
-    img = Image.fromarray(np.clip(arr, 0, 255).astype(np.uint8)).convert('RGBA')
-    big = art().resize((SIZE, SIZE), Image.NEAREST)
-    halo = big.filter(ImageFilter.GaussianBlur(28))
-    img = Image.alpha_composite(img, Image.blend(Image.new('RGBA', img.size, (0, 0, 0, 0)), halo, 0.7))
-    img.alpha_composite(big)
-    img.convert('RGB').save(out)
+    a = art(); A = np.asarray(a, np.float32); alpha = A[..., 3:4] / 255
+    halo = np.asarray(a.filter(ImageFilter.GaussianBlur(1.75)), np.float32)                 # the glow, on the same grid
+    arr += halo[..., :3] * (halo[..., 3:4] / 255) * 0.7
+    # pixel-art gradients: the background and glow snap to colour steps, with an ordered (Bayer) dither between steps
+    q = 11.0; th = np.tile(BAYER, (G // 4, G // 4))[..., None]
+    bg = np.floor(arr / q + 0.5 + (th - 0.5) * 0.45) * q          # solid bands; dither only along the seams
+    # the art keeps its shapes; its own gradients (the sun) band into clean steps without dither
+    art_q = np.round(A[..., :3] / 8) * 8
+    out_arr = bg * (1 - alpha) + art_q * alpha
+    small = Image.fromarray(np.clip(out_arr, 0, 255).astype(np.uint8))
+    small.resize((SIZE, SIZE), Image.NEAREST).save(out)
     print('wrote', out)
 
 if __name__ == '__main__':
