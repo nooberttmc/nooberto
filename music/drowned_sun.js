@@ -199,11 +199,11 @@ function guitarEvents() {
   P.lead = P.lead.map(n => quick(n) ? [n[0], n[1], Math.min(n[2], STEP * 0.95), n[3], 'open'] : n); P.harm = P.harm.filter(n => !quick(n));
   const part = (notes, o) => Object.assign({ sf: 'musescore', amp: 'none', humanize: 3, notes }, o);
   return { bpm: BPM, parts: {
-    rhythmL: part(P.rhythm, { amp: 'rhythm', humanize: 6 }),
-    rhythmR: part(P.rhythm, { amp: 'rhythm', humanize: 6, cents: 6 }),
-    bass: part(P.bass, { program: 34, amp: 'bass', humanize: 3 }),
-    lead: part(P.lead, { amp: 'lead', humanize: 4, lag: 3, velvar: 6 }),   // human: -1..+7 ms, a little dynamic variation
-    harmony: part(P.harm, { amp: 'lead', humanize: 4, lag: 6, velvar: 6, cents: -5 }),
+    rhythmL: part(P.rhythm, { amp: 'rhythm', humanize: 6, release: -1400 }),   // release: ~45 ms tails (was ~200)
+    rhythmR: part(P.rhythm, { amp: 'rhythm', humanize: 6, cents: 6, release: -1400 }),
+    bass: part(P.bass, { program: 34, amp: 'bass', humanize: 3, release: -1400 }),
+    lead: part(P.lead, { amp: 'lead', humanize: 4, lag: 3, velvar: 6, release: -1800 }),   // ~25 ms tails: fast notes stay clean   // human: -1..+7 ms, a little dynamic variation
+    harmony: part(P.harm, { amp: 'lead', humanize: 4, lag: 6, velvar: 6, cents: -5, release: -1800 }),
     piano: part(P.piano, { program: 0, humanize: 6 }),
     strings: part(P.strings, { program: 48 }),
     low: part(P.low, { program: 43 }),

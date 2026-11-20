@@ -25,6 +25,12 @@ def write_midi(part, path, seed):
     tr.append(mido.Message('control_change', channel=0, control=101, value=0, time=0))   # pitch-bend range: 2 semitones
     tr.append(mido.Message('control_change', channel=0, control=100, value=0, time=0))
     tr.append(mido.Message('control_change', channel=0, control=6, value=2, time=0))
+    rel = part.get('release')   # shorter release envelope (SoundFont NRPN, generator 38) in timecents offset:
+    if rel is not None:         # the default ~200 ms tail makes fast notes overlap and intermodulate in the distortion
+        v = 8192 + int(rel)
+        for ch in (0, 1):
+            for c, val in ((99, 120), (98, 38), (6, v >> 7), (38, v & 127)):
+                tr.append(mido.Message('control_change', channel=ch, control=c, value=val, time=0))
     ev = []; hum = part.get('humanize', 0) / 1000.0
     lag = part.get('lag', 0) / 1000.0; velvar = part.get('velvar', 7)   # a player sits slightly behind the grid; small dynamics
     cents = part.get('cents', 0); base = int(8192 * cents / 200)   # constant detune, kept under every bend
