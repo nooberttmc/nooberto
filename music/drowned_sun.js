@@ -202,7 +202,9 @@ function guitarEvents() {
   const part = (notes, o) => Object.assign({ sf: 'musescore', amp: 'none', humanize: 3, notes }, o);
   return { bpm: BPM, parts: {
     rhythmL: part(P.rhythm, { amp: 'rhythm', humanize: 6, release: -1400 }),   // release: ~45 ms tails (was ~200)
-    rhythmR: part(P.rhythm, { amp: 'rhythm', humanize: 6, cents: 6, release: -1400 }),
+    // the right guitar is a different take: looser timing and dynamics, and a root-fifth voicing (no octave),
+    // so the two hard-panned guitars stay distinct and the mix opens up
+    rhythmR: part(P.rhythm.filter(n => !P.rhythm.some(o => o[0] === n[0] && o[1] === n[1] - 12)), { amp: 'rhythm', humanize: 9, velvar: 10, cents: 8, release: -1400 }),
     bass: part(P.bass, { program: 34, amp: 'bass', humanize: 3, release: -1400 }),
     lead: part(P.lead, { amp: 'lead', humanize: 4, lag: 3, velvar: 6, release: -1800 }),   // ~25 ms tails: fast notes stay clean   // human: -1..+7 ms, a little dynamic variation
     harmony: part(P.harm, { amp: 'lead', humanize: 4, lag: 6, velvar: 6, cents: -5, release: -1800 }),
@@ -221,18 +223,24 @@ async function renderSong() {
   const rand = (() => { let s = 5050; return () => (s = (s * 16807) % 2147483647) / 2147483647; })();
   const BARS = bars(), totalBars = BARS.length, dur = totalBars * BAR + 1.5;
   const ctx = new OfflineAudioContext(2, Math.ceil(SR * dur), SR);
-  const comp = ctx.createDynamicsCompressor(); comp.threshold.value = -12; comp.ratio.value = 2.5; comp.attack.value = 0.015; comp.release.value = 0.15; // gentle glue: lets drum hits through
+  const comp = ctx.createDynamicsCompressor(); comp.threshold.value = -9; comp.ratio.value = 1.6; comp.attack.value = 0.015; comp.release.value = 0.15; // gentle glue: lets drum hits through
   const master = ctx.createGain(); master.gain.value = 0.8;
   const lowShelf = ctx.createBiquadFilter(); lowShelf.type = 'lowshelf'; lowShelf.frequency.value = 80; lowShelf.gain.value = -3;
-  const dark = ctx.createBiquadFilter(); dark.type = 'highshelf'; dark.frequency.value = 6000; dark.gain.value = -5;
+  const dark = ctx.createBiquadFilter(); dark.type = 'highshelf'; dark.frequency.value = 6000; dark.gain.value = -3;
   master.connect(lowShelf); lowShelf.connect(dark); dark.connect(comp); comp.connect(ctx.destination);
   const dry = ctx.createGain(); dry.connect(master);
   const verb = ctx.createConvolver();
   { const len = SR * 3.2, ir = ctx.createBuffer(2, len, SR); for (let ch = 0; ch < 2; ch++) { const d = ir.getChannelData(ch); for (let i = 0; i < len; i++) d[i] = (rand() * 2 - 1) * Math.pow(1 - i / len, 2.4); } verb.buffer = ir; }
   const verbOut = ctx.createGain(); verbOut.gain.value = 0.4; const verbLP = ctx.createBiquadFilter(); verbLP.type = 'lowpass'; verbLP.frequency.value = 5000;
   verb.connect(verbLP); verbLP.connect(verbOut); verbOut.connect(master);
-  const delay = ctx.createDelay(2); delay.delayTime.value = STEP * 3; const fb = ctx.createGain(); fb.gain.value = 0.2;
-  const dlp = ctx.createBiquadFilter(); dlp.type = 'lowpass'; dlp.frequency.value = 2400; delay.connect(dlp); dlp.connect(fb); fb.connect(delay); dlp.connect(master);
+  // ping-pong echo: input -> left echo -> right echo -> (fed back, quieter) -> left ... ; one loop, gain 0.35 < 1
+  const delay = ctx.createDelay(2); delay.delayTime.value = STEP * 3;
+  const dlp = ctx.createBiquadFilter(); dlp.type = 'lowpass'; dlp.frequency.value = 2400; dlp.Q.value = 0;
+  const delay2 = ctx.createDelay(2); delay2.delayTime.value = STEP * 3; const fb = ctx.createGain(); fb.gain.value = 0.35;
+  const dL = ctx.createStereoPanner(); dL.pan.value = -0.8; const dR = ctx.createStereoPanner(); dR.pan.value = 0.8;
+  const dOut = ctx.createGain(); dOut.gain.value = 0.6;
+  delay.connect(dlp); dlp.connect(dL); dL.connect(dOut); dlp.connect(delay2); delay2.connect(dR); dR.connect(dOut); dOut.connect(master);
+  delay2.connect(fb); fb.connect(delay);
   const send = (node, v, alsoDelay) => { const g = ctx.createGain(); g.gain.value = v; node.connect(g); g.connect(verb); if (alsoDelay) g.connect(delay); };
   const noise = (() => { const b = ctx.createBuffer(1, SR * 2, SR), d = b.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = rand() * 2 - 1; return b; })();
   const has = n => (window.ASSET_NAMES || []).indexOf(n) >= 0;
@@ -245,7 +253,7 @@ async function renderSong() {
     for (const [type, f, g, q] of eq || []) { const b = ctx.createBiquadFilter(); b.type = type; b.frequency.value = f; if (g != null) b.gain.value = g; b.Q.value = q || 0.7; n.connect(b); n = b; }
     return n;
   }
-  const RIDE = {};   // per-part level riding (automation), on top of the static levels
+  const RIDE = {}; let DRUM_DB = () => 0;   // per-part level riding (automation), on top of the static levels
   const GUITARS = ['rhythmL', 'rhythmR', 'bass', 'lead', 'harmony'];
   async function stem(name, pan, targetDb, verbAmt, useDelay, eq, duck) {
     if (!has('stem/' + name)) return;
@@ -265,18 +273,18 @@ async function renderSong() {
   const HP = f => ['highpass', f, null, 0.7], LP = f => ['lowpass', f, null, 0.7], PK = (f, g, q) => ['peaking', f, g, q || 1];
   // rhythm guitars: 100 Hz up, scooped where bass/snare live (350) and where the lead sings (1.8-2.5k)
   const GTR = [HP(100), PK(350, -3, 1.1), PK(2000, -3.5, 1.4), PK(3500, 2.5, 1), LP(9000)];
-  await stem('rhythmL', -0.75, -17.5, 0.02, false, GTR, 0.3);
-  await stem('rhythmR', 0.75, -17.5, 0.02, false, GTR, 0.3);
+  await stem('rhythmL', -1, -13.5, 0.02, false, GTR, 0.3);
+  await stem('rhythmR', 1, -13.5, 0.02, false, GTR, 0.3);
   // bass: owns 45-250 Hz under the guitars; the sub synth owns the very bottom
   await stem('bass', 0, -20, 0, false, [HP(45), PK(350, -3, 1), PK(900, 2, 1), LP(2600)], 0.5);
   // lead: on top, with presence where the rhythm guitars were scooped
-  await stem('lead', 0.0, -13.5, 0.14, true, [HP(140), PK(700, 1.5, 0.9), PK(1900, 2, 1), LP(6000)]);   // body + presence, no shrill top
-  await stem('harmony', 0.3, -25.5, 0.2, true, [HP(260), PK(2000, 1.5, 0.9), LP(6000)]);
-  await stem('piano', -0.15, -21, 0.4, false, [HP(110)]);
-  await stem('strings', 0.25, -27, 0.45, false, [HP(320), LP(8000)]);
+  await stem('lead', 0.0, -12.5, 0.14, true, [HP(140), PK(700, 1.5, 0.9), PK(1900, 2, 1), LP(6000)]);   // body + presence, no shrill top
+  await stem('harmony', 0.55, -25.5, 0.2, true, [HP(260), PK(2000, 1.5, 0.9), LP(6000)]);
+  await stem('piano', -0.3, -21, 0.4, false, [HP(110)]);
+  await stem('strings', 0.65, -27, 0.45, false, [HP(320), ['highshelf', 6000, 3, 0.7], LP(14000)]);   // a little air
   await stem('low', 0, -24, 0.2, false, [LP(500)], 0.4);
-  await stem('brass', 0.15, -24, 0.3, false, [HP(180)]);
-  await stem('organ', -0.1, -27, 0.45, false, [HP(120)]);
+  await stem('brass', -0.55, -24, 0.3, false, [HP(180)]);
+  await stem('organ', -0.45, -27, 0.45, false, [HP(120)]);
   await stem('timp', 0, -21, 0.3, false, [HP(45), PK(300, -2, 1)]);
 
   // riding the faders, bar by bar:
@@ -288,9 +296,15 @@ async function renderSong() {
     for (const b in all) if ((quick[b] || 0) >= 5 && quick[b] / all[b] >= 0.6) fast.add(+b);
     const p3 = b => b >= 88 && b < 120, db = v => Math.pow(10, v / 20);
     const inter = b => b >= 80 && b < 88;
-    const adj = { rhythmL: b => (fast.has(b) ? -2.5 : 0) + (p3(b) ? -3 : 0) + (inter(b) ? -6 : 0), rhythmR: b => (fast.has(b) ? -2.5 : 0) + (p3(b) ? -3 : 0) + (inter(b) ? -6 : 0),
-                  lead: b => (p3(b) ? 2 : 0) + (fast.has(b) ? 1.5 : 0) + (inter(b) ? -4 : 0), harmony: b => p3(b) ? 1 : 0,
-                  piano: b => inter(b) ? 2 : 0, bass: b => inter(b) ? -3 : 0, low: b => inter(b) ? -3 : 0 };   // the interlude belongs to the piano: the band steps back around it
+    // energy contour: pull back before the big moments so they hit harder (0-indexed bars)
+    const verse = b => (b >= 24 && b < 32) || (b >= 48 && b < 56);   // run section 1st half; theme return 1st half
+    const tease = b => b >= 8 && b < 16;                               // first statement of the theme
+    const gtrPull = b => tease(b) ? -3 : verse(b) ? -6 : 0;
+    const adj = { rhythmL: b => (fast.has(b) ? -2.5 : 0) + (p3(b) ? -3 : 0) + (inter(b) ? -6 : 0) + gtrPull(b), rhythmR: b => (fast.has(b) ? -2.5 : 0) + (p3(b) ? -3 : 0) + (inter(b) ? -6 : 0) + gtrPull(b),
+                  lead: b => (p3(b) ? 2 : 0) + (fast.has(b) ? 1.5 : 0) + (inter(b) ? -4 : 0) + (verse(b) ? -2.5 : tease(b) ? -1.5 : 0), harmony: b => (p3(b) ? 1 : 0) + (verse(b) ? -2.5 : 0),
+                  piano: b => inter(b) ? 2 : 0, bass: b => (inter(b) ? -3 : 0) + (verse(b) ? -4 : 0), low: b => inter(b) ? -3 : 0,
+                  brass: b => verse(b) || b === 62 || b === 63 ? -60 : 0 };   // brass sits out the pull-backs   // the interlude belongs to the piano: the band steps back around it
+    DRUM_DB = b => inter(b) ? -3 : tease(b) ? -5 : verse(b) ? -9 : (b === 62 || b === 63) ? -60 : 0;   // drums drop out for the 2 bars before the climax
     for (const k in adj) if (RIDE[k]) for (let b = 1; b < BARS.length; b++) {
       const a = adj[k](b - 1), c = adj[k](b); if (a === c) continue;
       RIDE[k].gain.setValueAtTime(db(a), b * BAR - 0.06); RIDE[k].gain.linearRampToValueAtTime(db(c), b * BAR);
@@ -303,13 +317,14 @@ async function renderSong() {
   const drumBus = ctx.createGain(); drumBus.gain.value = 0.9;
   const drumBus2 = ctx.createGain(); drumBus.gain.value = 1.05;
   // drums: no boxiness at 300-400 Hz (that's the guitars' and bass's space), snap at 4-5 kHz to cut through the wall
-  const drumDip = eqChain(drumBus2, [HP(35), PK(380, -4, 1), PK(4500, 1.5, 0.9), ['highshelf', 8000, -4, 0.7]]);
+  const drumDip = eqChain(drumBus2, [HP(35), PK(380, -4, 1), PK(4500, 1.5, 0.9), ['highshelf', 8000, 1, 0.7]]);   // cymbals keep their air
   const drumLP = ctx.createBiquadFilter(); drumLP.type = 'lowpass'; drumLP.frequency.value = 18000;
   const drumLow = ctx.createBiquadFilter(); drumLow.type = 'lowshelf'; drumLow.frequency.value = 110; drumLow.gain.value = 0;
   drumBus.connect(drumLow); drumLow.connect(drumBus2); drumDip.connect(drumLP); drumLP.connect(dry); send(drumLP, 0.05);
-  { const d3 = Math.pow(10, -3 / 20);   // the drums step back 3 dB for the piano interlude (bars 81-88)
-    drumBus2.gain.setValueAtTime(1, 80 * BAR - 0.06); drumBus2.gain.linearRampToValueAtTime(d3, 80 * BAR);
-    drumBus2.gain.setValueAtTime(d3, 88 * BAR - 0.06); drumBus2.gain.linearRampToValueAtTime(1, 88 * BAR); }
+  for (let b = 1; b < BARS.length; b++) {   // drum level per bar (energy contour + the interlude)
+    const a = DRUM_DB(b - 1), c = DRUM_DB(b); if (a === c) continue;
+    drumBus2.gain.setValueAtTime(Math.pow(10, a / 20), b * BAR - 0.06); drumBus2.gain.linearRampToValueAtTime(Math.pow(10, c / 20), b * BAR);
+  }
   const DLOG = { break: [], layer: [], kick: [] };   // drum hits, for the visualizer
   function slice(name, t, idx, len, rate, vol, quiet) {
     const buf = BRK[name]; if (!buf) return;
@@ -372,6 +387,8 @@ async function renderSong() {
       continue;
     }
     if (sec === 'a1' && b === 0) drumLP.frequency.setValueAtTime(18000, t0);
+    if (sec === 'b1' && b === 0) drumLP.frequency.setValueAtTime(1800, t0);
+    if (sec === 'b1' && b === 8) drumLP.frequency.setValueAtTime(18000, t0);
     if (b % 8 === 7) fillBar(brk, t0, b, b === 15); else if (b % 4 === 3) fillBar(brk, t0, b, false); else groove(brk, t0, b, 1);
     if (sec === 'a3' || sec === 'b3' || sec === 'clx') { // second layer: Hard Steppin 1 snares on the backbeat
       if (b % 4 !== 3) { slice('steppin1', at(4), INFO.steppin1.snare, 1, R, 0.5); slice('steppin1', at(12), INFO.steppin1.snare, 1, R, 0.5); }
