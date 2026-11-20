@@ -5,7 +5,7 @@ Requiem" (atmospheric drum & bass, 172 BPM, F minor). Most of them came from lis
 listener actually hears.
 
 ## Contents
-1. Working from a reference
+1. Working from a reference (1b: reading its devices)
 2. Harmony and key
 3. Melody: write it, don't generate it
 4. Ornaments (grace notes, trills, bends)
@@ -13,7 +13,7 @@ listener actually hears.
 6. Endings
 7. Drums and breakbeats in the arrangement
 
-## 1. Working from a reference
+## 1. Working from a reference (1b: reading its devices)
 - Measure the reference first (`analyze.py REF`): tempo, key, loudness, tonal balance, width, section shape. These
   are facts you can match; "make it sound like X" is otherwise guesswork.
 - Take the *style*, not the notes: tempo, key, the chord *device* (e.g. an Andalusian descent i-VII-VI-V), textures
@@ -21,6 +21,18 @@ listener actually hears.
   the kind of ending. Do not transcribe another artist's melody into the song, even from sheet music the user sends,
   unless they say it's their own piece. Say so plainly and offer: "if it's yours, send the MIDI/MusicXML".
 - Beat trackers often report half time (89 for 178). Key detectors confuse relative keys (D major vs B minor).
+
+## 1b. Reading a reference's devices
+When asked to "pay attention to the notes" of a reference, find its devices with music theory, from the recording
+(chroma of the low band per 8th note shows the bass line; pyin on the centre shows the lead) or from a score the user
+sends, then write new material with them. From "Vessel To Be Fueled" (Vbuh), confirmed against the recording: a
+pedal-tone bass ostinato in 8ths with a 3+3+2 rhythm and a pickup run into each bar, alternating two chords a bar apart;
+long held octaves above it moving by step; a descending scale fill closing each 4-8 bar phrase; a chromatic descent in the
+bass; a theme in syncopated 8ths grouped 3+3+2; the harmonic-minor leading tone over the dominant. The song built from
+these used its own progression (i - bVI rocking, bVI - bVII - i, a long V7), its own lines, and passed check_notes.js.
+Typical mistakes the checker caught that a listener would hear: a power chord's fifth on a passing note (B or D natural
+in F minor), a timpani pitch formula off by a fourth, a held melody note a half step above a bass pickup, a held C over a
+Db chord, bells ringing into the next chord.
 
 ## 2. Harmony and key
 - Minor keys with a dark bII (Neapolitan, e.g. G over F# minor) before the dominant read as "final boss".

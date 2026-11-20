@@ -1,21 +1,37 @@
-// An original song in the style of "Vessel To Be Fueled" (Vbuh): measured from the reference, not copied from it.
-// 199 BPM, F minor with Phrygian colour (Gb) and the E leading tone. Constant, flat-out energy (the reference's level
-// stays within ~1-2 dB from 0:10 to the end); a pitched, distorted hardcore kick on every beat with 16th hats driving
-// into each kick; thick, dark, sustained, heavily distorted low guitars (F2/Eb2 region) hard-panned; a bright synth-brass
-// lead layered in octaves with no vibrato (long held notes and repeated high stabs); a "drop" around the 2-minute mark;
-// and an ending at full energy: one held chord, a cut, and a short tail.
-const BPM = 199, STEP = 60 / BPM / 4, BAR = STEP * 16;   // nominal tempo (the tempo map below bends it)
-const SECTIONS = [['intro', 8], ['A', 48], ['B', 40], ['drop', 24], ['C', 16], ['D', 24], ['end', 8], ['hold', 2]];
+// An original song in the style of "Vessel To Be Fueled" (Vbuh): its devices, measured and read, never its notes.
+// 200 BPM, F minor. Genre devices (hardcore / breakcore boss music): a pedal-tone bass ostinato in a 3+3+2 rhythm with a
+// pickup into each bar, rocking i - bVI; long held octaves above it; a theme in syncopated 8ths grouped 3+3+2; a wide brass
+// section for the drop (bVI - bVII - i, then a long V with the harmonic-minor E natural); constant energy to the very end,
+// then one held chord, a cut and a short tail.
+const BPM = 200, STEP = 60 / BPM / 4, BAR = STEP * 16;   // nominal tempo (the tempo map below bends it)
+// ---- harmony: F minor with the genre's devices (a pedal-tone ostinato, bVI and bVII, a harmonic-minor V with E natural) ----
+const F = 5, Gb = 6, Ab = 8, Bb = 10, Db = 1, Eb = 3, E = 4, C = 0;
+const QUAL = { 5: [0, 3, 7], 10: [0, 3, 7], 1: [0, 4, 7], 3: [0, 4, 7], 8: [0, 4, 7], 0: [0, 4, 7, 10] };   // Fm, Bbm minor; Db, Eb, Ab major; C7 (V)
+const chordPcs = pc => QUAL[pc].map(i => (pc + i) % 12);
+const SCALE = [5, 7, 8, 10, 0, 1, 3, 4];   // F harmonic + natural minor (F G Ab Bb C Db Eb, and E over C)
+const into = (m, lo, hi) => { while (m < lo) m += 12; while (m > hi) m -= 12; return m; };
+// one chord per bar, 8-bar phrases
+const PROG = {
+  pedal: [F, Db, F, Db, F, Db, Bb, C],     // i - bVI rocking over the ostinato, iv, V
+  q: [F, F, Db, Eb, F, F, Db, C],          // theme, first half (ends on V)
+  a: [Bb, Bb, Db, Eb, F, Db, C, C],        // theme, answer (ends on V, resolves into the next downbeat)
+  d: [Db, Eb, F, F, Db, Eb, C, C],         // the drop: bVI bVII i, then the long dominant
+  e: [Db, Eb, F, F, Db, Eb, C, F],         // the drop's answer: lands home
+};
+const SECTIONS = [['intro', 8], ['A', 16], ['B', 32], ['A2', 8], ['drop', 24], ['C', 16], ['D', 24], ['end', 8], ['hold', 2]];
+const PLAN = {   // which 8-bar phrase each section plays
+  intro: ['pedal'], A: ['pedal', 'pedal'], B: ['q', 'a', 'q', 'a'], A2: ['pedal'], drop: ['d', 'e', 'd'],
+  C: ['q', 'a'], D: ['d', 'e', 'd'], end: ['a'], hold: [] };
 const LEN = Object.fromEntries(SECTIONS), START = {}; { let g = 0; for (const [n, l] of SECTIONS) { START[n] = g; g += l; } }
 // Tempo effects (like the example "CHRONOPHOBIA"), only at pivotal moments: every bar has a start and end tempo.
-//  - a brake on the last bar before the drop (199 -> 60, with a closing filter and the kick bending down), then the drop slams
+//  - a brake on the last bar before the drop (200 -> 60, with a closing filter and the kick bending down), then the drop slams
 //  - a final brake into the held chord
 const TOTAL = SECTIONS.reduce((a, x) => a + x[1], 0);
 function barTempo(gi) {   // tempo changes only at the two pivotal moments
-  if (gi === START.drop - 1) return [199, 60];                                   // brake into the drop
-  if (gi === START.hold - 1) return [199, 110];                                  // final brake into the held chord
+  if (gi === START.drop - 1) return [200, 60];                                   // brake into the drop
+  if (gi === START.hold - 1) return [200, 110];                                  // final brake into the held chord
   if (gi >= START.hold) return [110, 110];
-  return [199, 199];
+  return [200, 200];
 }
 const BRAKES = [START.drop - 1, START.hold - 1];   // bars with the tape-stop treatment
 // cumulative time of every 16th: TT[gi][s] (s = 0..16); T(gi, s) handles fractional and overflowing steps
@@ -23,113 +39,141 @@ const TT = []; { let t = 0; for (let gi = 0; gi < TOTAL + 1; gi++) { const [a, b
   for (let k = 0; k < 16; k++) { const bpm = a + (b - a) * (k + 0.5) / 16; t += 60 / bpm / 4; row.push(t); } TT.push(row); } }
 function T(gi, s) { while (s >= 16 && gi < TOTAL) { s -= 16; gi++; } const k = Math.floor(s), f = s - k, row = TT[gi]; return row[k] + (k < 16 ? (row[k + 1] - row[k]) * f : 0); }
 const BAR_TIMES = TT.map(r => r[0]);
-const COLORS = { intro: '#ff6030', A: '#ff8a30', B: '#ff5030', drop: '#ffd060', C: '#c04030', D: '#ffb040', end: '#ffd060', hold: '#fff0c0' };
-// chord roots as pitch classes (F=5), one chord per 2 bars; the guitars play them as low power chords (C2..B2)
-const F = 5, Gb = 6, Ab = 8, Bb = 10, Db = 1, Eb = 3, E = 4;
-const PROG = {
-  A: [F, F, Db, Db, Eb, Eb, F, E],        // home, the dark VI, the VII, home, the leading-tone push
-  B: [Db, Db, Eb, Eb, F, F, Gb, Gb],      // lifts, then the Phrygian bII hangs over the turn
-  drop: [F, F, Ab, Ab, Db, Db, Eb, E],
-  C: [Bb, Bb, Db, Db, F, F, Gb, E],
+const COLORS = { intro: '#ff6030', A: '#ff8a30', A2: '#ff9a40', B: '#ff5030', drop: '#ffd060', C: '#c04030', D: '#ffb040', end: '#ffd060', hold: '#fff0c0' };
+
+// ---- the hand-written lines, in 8ths: [slot 0..7, midi, length in 8ths]. Every note checked against its chord (see check.py) ----
+const LONG = [   // the pedal sections' held octaves, one per bar over F Db F Db F Db Bbm C7: the C-Db-C sigh, then a climb and a fall to E
+  [[0, 72, 8]], [[0, 73, 8]], [[0, 72, 8]], [[0, 77, 8]], [[0, 80, 16]], [], [[0, 77, 8]], [[0, 76, 8]] ];
+const THEME = {
+  q: [ [[0, 68, 3], [3, 72, 3], [6, 77, 2]],                       // F   Ab C F: rising
+       [[0, 80, 3], [3, 79, 1], [4, 77, 2], [6, 72, 2]],           // F   Ab G F C
+       [[0, 77, 3], [3, 80, 3], [6, 77, 2]],                       // Db  F Ab F
+       [[0, 79, 3], [3, 82, 3], [6, 79, 2]],                       // Eb  G Bb G
+       [[0, 84, 3], [3, 80, 3], [6, 82, 1], [7, 80, 1]],           // F   C Ab (Bb passing) Ab
+       [[0, 77, 4], [4, 72, 2], [6, 68, 2]],                       // F   F C Ab
+       [[0, 77, 3], [3, 73, 3], [6, 77, 1], [7, 80, 1]],           // Db  F Db F Ab
+       [[0, 79, 3], [3, 76, 3], [6, 72, 2]] ],                     // C7  G E C
+  a: [ [[0, 73, 3], [3, 77, 3], [6, 82, 2]],                       // Bbm Db F Bb
+       [[0, 82, 3], [3, 77, 3], [6, 82, 2]],                       // Bbm Bb F Bb
+       [[0, 77, 3], [3, 80, 3], [6, 77, 2]],                       // Db  F Ab F
+       [[0, 79, 3], [3, 82, 3], [6, 82, 2]],                       // Eb  G Bb Bb
+       [[0, 84, 6], [6, 82, 1], [7, 80, 1]],                       // F   C (Bb passing) Ab
+       [[0, 77, 3], [3, 80, 3], [6, 77, 2]],                       // Db  F Ab F
+       [[0, 79, 3], [3, 76, 3], [6, 79, 2]],                       // C7  G E G
+       [[0, 82, 4], [4, 79, 2], [6, 76, 2]] ],                     // C7  Bb G E -> F
 };
-const root2 = pc => 36 + pc;               // C2..B2: tuned-down, heavy
-// chord quality for each root in F minor (for strings, piano, arps): F and Bb minor, the rest major
-const QUAL = { 5: [0, 3, 7], 10: [0, 3, 7], 1: [0, 4, 7], 3: [0, 4, 7], 4: [0, 4, 7], 8: [0, 4, 7], 6: [0, 4, 7] };
-const chordPcs = pc => (QUAL[pc] || [0, 3, 7]).map(i => (pc + i) % 12);
-const into = (m, lo, hi) => { while (m < lo) m += 12; while (m > hi) m -= 12; return m; };
-// the lead (synth brass), written bar by bar: [16th step, midi, length in 16ths]. A beat is 4 steps (0.3 s).
-const THEME_A = [   // F F Db Db Eb Eb F E
-  [[0, 72, 8], [8, 67, 8]], [[0, 68, 12], [12, 67, 4]], [[0, 65, 8], [8, 68, 4], [12, 72, 4]], [[0, 73, 12], [12, 72, 4]],
-  [[0, 70, 8], [8, 67, 4], [12, 70, 4]], [[0, 75, 12], [12, 73, 4]], [[0, 72, 16]], [[0, 71, 8], [8, 68, 8]],
-];
-const THEME_B = [   // Db Db Eb Eb F F Gb Gb: lower, call and answer
-  [[0, 68, 8], [8, 65, 8]], [[0, 61, 8], [8, 65, 8]], [[0, 67, 12], [12, 70, 4]], [[0, 63, 16]],
-  [[0, 65, 4], [4, 68, 4], [8, 72, 8]], [[0, 70, 8], [8, 68, 8]], [[0, 66, 8], [8, 70, 8]], [[0, 73, 12], [12, 72, 4]],
-];
-const DROP = [      // F F Ab Ab Db Db Eb E: long notes, then repeated high stabs
-  [[0, 65, 6], [6, 72, 6], [12, 68, 4]], [[0, 67, 16]],
-  [[0, 72, 4], [4, 75, 4], [8, 79, 2], [10, 79, 2], [12, 79, 2], [14, 79, 2]], [[0, 77, 12], [12, 75, 4]],
-  [[0, 73, 8], [8, 72, 4], [12, 68, 4]], [[0, 65, 16]],
-  [[0, 67, 4], [4, 70, 4], [8, 79, 2], [10, 79, 2], [12, 80, 4]], [[0, 78, 8], [8, 76, 8]],
-];
-const THEME_C = [   // Bb Bb Db Db F F Gb E: the dark answer
-  [[0, 70, 8], [8, 65, 8]], [[0, 68, 8], [8, 70, 8]], [[0, 73, 12], [12, 72, 4]], [[0, 68, 16]],
-  [[0, 72, 4], [4, 68, 4], [8, 65, 8]], [[0, 67, 8], [8, 68, 8]], [[0, 70, 8], [8, 73, 8]], [[0, 71, 16]],
-];
-function bars() {
+const DROP = {   // the brass section's line, in quarter and half notes (F4..Ab5)
+  d: [ [[0, 68, 2], [2, 73, 2], [4, 77, 4]],                       // Db  Ab Db F
+       [[0, 75, 2], [2, 79, 2], [4, 70, 2], [6, 75, 2]],           // Eb  Eb G Bb Eb
+       [[0, 77, 6], [6, 75, 1], [7, 77, 1]],                       // F   F (Eb neighbour) F
+       [[0, 72, 2], [2, 68, 2], [4, 72, 2], [6, 77, 2]],           // F   C Ab C F
+       [[0, 77, 4], [4, 73, 2], [6, 68, 2]],                       // Db  F Db Ab
+       [[0, 70, 2], [2, 75, 2], [4, 79, 4]],                       // Eb  Bb Eb G
+       [[0, 79, 4], [4, 76, 2], [6, 72, 2]],                       // C7  G E C
+       [[0, 70, 2], [2, 72, 2], [4, 76, 2], [6, 79, 2]] ],         // C7  Bb C E G
+  e: [ [[0, 68, 2], [2, 73, 2], [4, 77, 4]],
+       [[0, 75, 2], [2, 79, 2], [4, 70, 2], [6, 75, 2]],
+       [[0, 77, 6], [6, 75, 1], [7, 77, 1]],
+       [[0, 72, 2], [2, 68, 2], [4, 72, 2], [6, 77, 2]],
+       [[0, 73, 2], [2, 77, 2], [4, 80, 4]],                       // Db  Db F Ab: higher
+       [[0, 79, 4], [4, 75, 2], [6, 70, 2]],                       // Eb  G Eb Bb
+       [[0, 76, 4], [4, 79, 2], [6, 72, 2]],                       // C7  E G C
+       [[0, 77, 8]] ],                                             // F   home
+};
+function bars() {   // every bar: section, bar in section, global bar, phrase name, chord, next chord
   const out = []; let gi = 0;
   for (const [sec, n] of SECTIONS) for (let b = 0; b < n; b++, gi++) {
-    const p = PROG[sec === 'intro' ? 'A' : sec === 'D' ? 'A' : sec === 'end' ? 'drop' : sec] || [F];
-    const pc = sec === 'hold' ? F : p[Math.floor(b / 2) % p.length];
-    out.push({ sec, b, gi, t0: T(gi, 0), pc });
+    const ph = PLAN[sec].length ? PLAN[sec][Math.floor(b / 8) % PLAN[sec].length] : null;
+    out.push({ sec, b, gi, t0: T(gi, 0), ph, k: b % 8, pc: ph ? PROG[ph][b % 8] : F });
   }
+  out.forEach((x, i) => x.next = (out[i + 1] || { pc: F }).pc);
   return out;
+}
+const ARP_ON = (sec, b) => (sec === 'A' && b >= 8) || sec === 'B' || sec === 'D';
+// the bass ostinato (8ths): root, root, octave + a pickup that steps into the next chord; a scale fill on each phrase's V
+function bassBar(pc, next, k) {
+  const r2 = 36 + ((pc - 36) % 12 + 12) % 12;   // C2..B2: Db and Eb sit just below F, C a fourth below
+  if (pc === C && k === 7) {   // the scale fill, ending on a step into the next chord
+    const head = [[0, 48, 1], [1, 46, 1], [2, 44, 1], [3, 43, 1], [4, 40, 1], [5, 41, 1]];   // C Bb Ab G E F
+    return head.concat(next === F ? [[6, 43, 1], [7, 40, 1]]        // G E -> F
+                     : next === Bb ? [[6, 43, 1], [7, 44, 1]]       // G Ab -> Bb
+                     : [[6, 43, 1], [7, 48, 1]]); }                 // G C -> Db
+  const tgt = 36 + ((next - 36) % 12 + 12) % 12 + 12, ct = chordPcs(pc), sc = m => { const q = ((m % 12) + 12) % 12; return SCALE.includes(q) && (pc === C ? q !== Eb : q !== E); };   // E only over the V, Eb never over it
+  let pick = null; for (const d of [-1, 2, -2, 1, -4, 3, -3, 4]) { const m = tgt + d; if (m !== r2 + 12 && sc(m) && ct.includes(((m % 12) + 12) % 12)) { pick = m; break; } }   // a chord tone that steps (or leaps a 3rd) into the next root
+  if (pick === null) for (const d of [-1, 2, -2, 1]) if (sc(tgt + d)) { pick = tgt + d; break; }
+  if (next === pc) pick = r2 + 7;   // same chord next: the fifth
+  return [[0, r2, 3], [3, r2, 3], [6, r2 + 12, 1], [7, pick, 1]];
 }
 
 // ---------------- the parts (notes) ----------------
 function guitarEvents() {
   const P = { rhythm: [], bass: [], lead: [], bells: [], brass: [], strings: [], piano: [], timp: [] };
-  const pc5 = (t, r, len, art, vel) => { for (const n of [r, r + 7, r + 12]) P.rhythm.push([t, n, len, vel, art]); };
-  // riffs on the 16th grid: [step, length, articulation, interval above the root]. Sustained chords re-picked on 8ths,
-  // with a chromatic neighbour (b2 above or the leading tone below) to end the bar, like the reference's F-F#-E-Eb motion
-  const RIFF = [[0, 3, 'open', 0], [3, 1, 'mute', 0], [4, 2, 'open', 0], [6, 2, 'open', 0], [8, 3, 'open', 0], [11, 1, 'mute', 0], [12, 2, 'open', 0], [14, 2, 'open', 1]];
-  const RIFF2 = [[0, 3, 'open', 0], [3, 1, 'mute', 0], [4, 2, 'open', 0], [6, 2, 'open', 0], [8, 3, 'open', 0], [11, 1, 'mute', 0], [12, 2, 'open', 0], [14, 2, 'open', -1]];
-  const HOLD = [[0, 8, 'open', 0], [8, 6, 'open', 0], [14, 2, 'mute', 0]];            // ringing chords (the drop)
-  const DRIVE = [0, 2, 4, 6, 8, 10, 12, 14].map(s => [s, 2, s % 4 === 0 ? 'open' : 'mute', 0]);   // 8th chugs (the finale)
-  let gi = 0;   // the bar being written (all timing goes through the tempo map T)
-  const dt = (s, l, k) => (T(gi, s + l) - T(gi, s)) * k;
-  const play = (t0, r, PT) => PT.forEach(([s, l, art, iv]) => { const rr = r + iv;
-    pc5(T(gi, s), rr, dt(s, l, 0.96), art, art === 'open' ? 122 : 108); P.bass.push([T(gi, s), rr - 12, dt(s, l, 0.96), art === 'open' ? 114 : 100, 'open']); });
-  // the 2:15-style lead: a wide brass section (two sampled takes, L/R) doubled by a round synth brass, same line
-  const lead = (t0, line, up) => line.forEach(([s, m, l]) => { P.lead.push([T(gi, s), m + (up || 0), dt(s, l, 0.97), 112, 'open']);
-    P.brass.push([T(gi, s), into(m + (up || 0), 53, 79), dt(s, l, 0.95), l >= 8 ? 112 : 104, 'open']); });
-  // more instruments: strings hold the chord, piano octaves hit the downbeats, timpani mark the big moments
-  const chordBar = (pc, opts) => { const t = T(gi, 0), len = T(gi + 1, 0) - t, cp = chordPcs(pc);
-    if (opts.strings) cp.forEach(c => P.strings.push([t, into(60 + c, 60, 76), len * 0.98, 84, 'open']));
-    if (opts.piano) { P.piano.push([t, into(29 + pc, 29, 40), len * 0.5, 112, 'open'], [t, into(41 + pc, 41, 52), len * 0.5, 104, 'open']); cp.forEach(c => P.piano.push([t, into(60 + c, 60, 72), len * 0.45, 92, 'open'])); }
-    if (opts.timp) P.timp.push([t, into(41 + pc, 41, 53), 0.6, 118, 'open']); };
-  // Calamity-style bells (FreePats tubular bells, CC0): tolls on strong downbeats, doubling the drop's long notes, never on
-  // fast notes; each strike rings out naturally (long note, the sample decays on its own). Range A3..C6.
-  const inRange = m => { while (m < 57) m += 12; while (m > 84) m -= 12; return m; };
-  const bell = (s, m, vel, len) => P.bells.push([T(gi, s), inRange(m), len || 3.5, vel, 'open']);
-  const toll = (s, pc, vel, full) => { bell(s, 60 + pc, vel); if (full) { bell(s, 67 + pc, vel - 8); bell(s, 72 + pc, vel - 4); } };
+  let gi = 0;
+  const E8 = (slot) => T(gi, slot * 2), D8 = (slot, len, k) => (T(gi, (slot + len) * 2) - T(gi, slot * 2)) * k;
+  const inRange = m => into(m, 57, 84);
+  const bell = (slot, m, vel, len) => P.bells.push([E8(slot), inRange(m), len || D8(slot, 8 - slot, 1) + 0.1, vel, 'open']);   // damped at the bar's end so it never rings into the next chord
+  const toll = (pc, vel, full) => { bell(0, 60 + pc, vel); if (full) { bell(0, 67 + pc, vel - 8); bell(0, 72 + pc, vel - 4); } };
+  // bass + guitars: the guitars play a power chord on every bass note (same rhythm), with muted 16th chugs filling the gaps
+  const ostinato = (pc, next, k, chug) => { for (const [s, m, l] of bassBar(pc, next, k)) {
+      P.bass.push([E8(s), m - 12, D8(s, l, 0.92), s === 0 ? 118 : 108, 'open']);
+      const g = into(m, 37, 48);                                 // Db2..C3 power chords (low, like the reference's F2/Eb2)
+      const fifth = s === 0 || chordPcs(pc).includes((g + 7) % 12);   // passing notes: octaves only, so no out-of-key fifths
+      for (const n of fifth ? [g, g + 7, g + 12] : [g, g + 12]) P.rhythm.push([E8(s), n, D8(s, l, 0.92), s === 0 ? 124 : 116, 'open']);
+      if (chug && l === 3) for (const q of [2, 4]) for (const n of fifth ? [g, g + 7] : [g]) P.rhythm.push([T(gi, s * 2 + q), n, D8(0, 0.5, 0.9), 100, 'mute']);
+    } };
+  const line = (notes, dest, vel, up) => notes.forEach(([s, m, l]) => dest.push([E8(s), m + (up || 0), D8(s, l, 0.95), vel, 'open']));
+  const brassLine = (notes, up) => { line(notes, P.lead, 112, up); notes.forEach(([s, m, l]) => P.brass.push([E8(s), into(m + (up || 0), 53, 81), D8(s, l, 0.95), l >= 4 ? 114 : 106, 'open'])); };
+  const strings = (pc, lo) => chordPcs(pc).slice(0, 3).forEach(c => P.strings.push([E8(0), into(c + 60, lo || 60, (lo || 60) + 11), D8(0, 8, 0.98), 84, 'open']));
+  const piano = (pc, next, k) => { for (const [s, m, l] of bassBar(pc, next, k)) P.piano.push([E8(s), into(m, 29, 40), D8(s, l, 0.9), 104, 'open'], [E8(s), into(m, 41, 52), D8(s, l, 0.9), 96, 'open']);
+    chordPcs(pc).slice(0, 3).forEach(c => P.piano.push([E8(0), into(c + 60, 60, 71), D8(0, 3, 0.9), 90, 'open'], [E8(3), into(c + 60, 60, 71), D8(3, 3, 0.9), 84, 'open'])); };
   for (const x of bars()) {
-    const { sec, b, t0, pc } = x; gi = x.gi;
-    const r = root2(pc);
-    if (sec === 'intro') { play(t0, r, b % 2 ? RIFF2 : RIFF); toll(0, pc, 96 + b * 3, b >= 4); chordBar(pc, { strings: b >= 4 }); }
-    else if (sec === 'A') { play(t0, r, b % 2 ? RIFF2 : RIFF); if (b % 8 === 0) toll(0, pc, 108, true); chordBar(pc, { strings: true, piano: b % 2 === 0 && b >= 24 }); if ((b >= 8 && b < 24) || b >= 32) lead(t0, THEME_A[b % 8], b >= 40 ? 12 : 0); }
-    else if (sec === 'B') { play(t0, r, b % 2 ? RIFF2 : RIFF); if (b % 8 === 0) toll(0, pc, 108, true); chordBar(pc, { strings: true, piano: b % 2 === 0 }); if (b >= 8) lead(t0, THEME_B[b % 8], b >= 24 ? 12 : 0); }
-    else if (sec === 'drop' || sec === 'end') { play(t0, r, HOLD); lead(t0, DROP[b % 8], sec === 'drop' && b >= 16 ? 12 : 0);
-      if (b % 2 === 0) toll(0, pc, 116, true);                                                        // each chord change
-      chordBar(pc, { strings: true, piano: true, timp: b % 2 === 0 });
-      DROP[b % 8].forEach(([s, m, l]) => { if (l >= 8 && s > 0) bell(s, m, 110); }); }                // doubles the long notes
-    else if (sec === 'C') { play(t0, r, b % 2 ? RIFF2 : RIFF); lead(t0, THEME_C[b % 8]); if (b % 8 === 0) toll(0, pc, 112, true); chordBar(pc, { strings: true }); }
-    else if (sec === 'D') { play(t0, r, b % 4 === 3 ? RIFF2 : DRIVE); lead(t0, THEME_A[b % 8], b >= 8 ? 12 : 0); toll(0, pc, b % 4 === 0 ? 118 : 104, b % 4 === 0); chordBar(pc, { strings: true, piano: true, timp: b % 4 === 0 }); }
-    else if (b === 0) {   // hold: one big chord at full energy (the song cuts it at ~1.8 s)
-      pc5(t0, root2(F), 2.0, 'open', 126); P.bass.push([t0, root2(F) - 12, 2.0, 120, 'open']);
-      P.lead.push([t0, 65, 2.0, 116, 'open'], [t0, 72, 2.0, 112, 'open']);
-      bell(0, 65, 127, 7); bell(0, 72, 120, 7); bell(0, 77, 118, 7);   // the last bell rings on past the cut
-      [65, 68, 72].forEach(m => P.strings.push([t0, m, 2.0, 100, 'open'])); P.timp.push([t0, 41, 1.5, 127, 'open']); P.piano.push([t0, 29, 2.0, 120, 'open'], [t0, 41, 2.0, 116, 'open']);
+    const { sec, b, ph, k, pc, next } = x; gi = x.gi;
+    if (sec === 'hold') { if (b === 0) {   // one big F minor chord at full energy (cut at ~1.8 s)
+      for (const n of [41, 48, 53]) P.rhythm.push([E8(0), n, 2.0, 126, 'open']); P.bass.push([E8(0), 29, 2.0, 120, 'open']);
+      P.lead.push([E8(0), 65, 2.0, 116, 'open'], [E8(0), 72, 2.0, 112, 'open']); P.brass.push([E8(0), 65, 2.0, 118, 'open'], [E8(0), 72, 2.0, 114, 'open']);
+      bell(0, 65, 127, 7); bell(0, 72, 120, 7); bell(0, 77, 118, 7);
+      [65, 68, 72].forEach(m => P.strings.push([E8(0), m, 2.0, 100, 'open'])); P.timp.push([E8(0), 41, 1.5, 127, 'open']);
+      P.piano.push([E8(0), 29, 2.0, 120, 'open'], [E8(0), 41, 2.0, 116, 'open'], [E8(0), 65, 2.0, 100, 'open'], [E8(0), 68, 2.0, 100, 'open'], [E8(0), 72, 2.0, 100, 'open']); }
+      continue; }
+    const pedal = ph === 'pedal', theme = ph === 'q' || ph === 'a', drop = ph === 'd' || ph === 'e';
+    ostinato(pc, next, k, drop || sec === 'C' || sec === 'end');
+    if (pedal) {
+      strings(pc);
+      if (sec !== 'intro' || b >= 4) { const up = sec === 'A2' || (sec === 'A' && b >= 8) ? 12 : 0;   // held octaves (an octave up the second time)
+        for (const [s, m, l] of LONG[k]) { const ln = [[s, m - 12 + up, l]]; brassLine(ln); line(ln, P.strings, 92, 12); }
+        if (k % 2 === 0 && LONG[k].length) bell(0, LONG[k][0][1], sec === 'intro' ? 100 : 112, LONG[k][0][2] > 8 ? D8(0, 16, 1) : undefined); }
+      if (sec === 'intro' && b === 0) toll(F, 110, true);
+    } else if (theme) {
+      const up = 0; brassLine(THEME[ph][k], up - 12 * (sec === 'C' ? 0 : 0));
+      strings(pc); if (sec !== 'B' || b >= 16) piano(pc, next, k);
+      if (k === 0) toll(pc, 112, true);
+    } else if (drop) {
+      brassLine(DROP[ph][k]); strings(pc, 53); piano(pc, next, k);
+      DROP[ph][k].forEach(([s, m, l]) => { if (l >= 4) bell(s, m, 114); });    // bells double the drop's long notes
+      if (k % 2 === 0) P.timp.push([E8(0), into(36 + pc, 41, 52), 0.6, 118, 'open']);
+      if (k === 0) toll(pc, 118, true);
     }
+    if (sec === 'end') P.timp.push([E8(0), into(36 + pc, 41, 52), 0.6, 112, 'open']);
   }
   const ARPN = [];
   { const ARP = [0, 1, 2, 3, 2, 1, 2, 3, 4, 3, 2, 1, 2, 3, 2, 1];
-    for (const { sec, b, gi: g2, pc } of bars()) { if (!((sec === 'A' && b >= 24) || (sec === 'B' && b >= 8) || sec === 'D')) continue;
-      const cp = chordPcs(pc).map(c => into(72 + c, 72, 83)).sort((x, y) => x - y), tones = [cp[0], cp[1], cp[2], cp[0] + 12, cp[1] + 12];
-      ARP.forEach((k, s) => ARPN.push([T(g2, s), tones[k], (T(g2, s + 1) - T(g2, s)) * 0.8, 90, 'open'])); } }
+    for (const { sec, b, gi: g2, pc } of bars()) { if (!ARP_ON(sec, b)) continue;
+      const cp = chordPcs(pc).slice(0, 3).map(c => into(72 + c, 72, 83)).sort((x, y) => x - y), tones = [cp[0], cp[1], cp[2], cp[0] + 12, cp[1] + 12];
+      ARP.forEach((kk, s) => ARPN.push([T(g2, s), tones[kk], (T(g2, s + 1) - T(g2, s)) * 0.8, 90, 'open'])); } }
   const part = (notes, o) => Object.assign({ sf: 'musescore', amp: 'none', humanize: 3, notes }, o);
-  return { bpm: BPM, sections: SECTIONS, colors: COLORS, bar_times: BAR_TIMES.slice(0, TOTAL + 1), bar_tempi: Array.from({ length: TOTAL }, (_, g) => barTempo(g)), parts: {
+  return { bpm: BPM, sections: SECTIONS, colors: COLORS, bar_times: BAR_TIMES.slice(0, TOTAL + 1), bar_tempi: Array.from({ length: TOTAL }, (_, g) => barTempo(g)),
+    chords: bars().map(x => x.pc), parts: {
     rhythmL: part(P.rhythm, { amp: 'modern', humanize: 6, release: -1400 }),
     rhythmR: part(P.rhythm.filter(n => !P.rhythm.some(o => o[0] === n[0] && o[1] === n[1] - 12)), { amp: 'modern', humanize: 9, velvar: 10, cents: 8, release: -1400 }),
     bass: part(P.bass, { program: 34, amp: 'bass', humanize: 3, release: -1400 }),
-    lead: part(P.lead, { record: false, label: 'Synth Brass', program: 62 }),   // synthesized in renderSong
-    bells: part(P.bells, { sf: '../soundfonts/TubularBells.sf2', program: 0, label: 'Bells', humanize: 2 }),   // FreePats Tubular Bells (CC0)
-    brassL: part(P.brass, { program: 61, label: 'Brass Section', humanize: 8, velvar: 6, cents: -7 }),          // two takes, wide: an ensemble
+    lead: part(P.lead, { record: false, label: 'Synth Brass', program: 62 }),
+    bells: part(P.bells, { sf: '../soundfonts/TubularBells.sf2', program: 0, label: 'Bells', humanize: 2 }),
+    brassL: part(P.brass, { program: 61, label: 'Brass Section', humanize: 8, velvar: 6, cents: -7 }),
     brassR: part(P.brass, { program: 61, humanize: 10, velvar: 6, cents: 8, lag: 6 }),
     strings: part(P.strings, { program: 48, humanize: 4 }),
     piano: part(P.piano, { program: 0, humanize: 5 }),
     timp: part(P.timp, { program: 47, humanize: 2 }),
-    arp: part(ARPN, { record: false, label: 'Synth Arp', program: 80 }),   // synthesized in renderSong
+    arp: part(ARPN, { record: false, label: 'Synth Arp', program: 80 }),
   } };
 }
 
@@ -211,8 +255,8 @@ async function renderSong() {
   const arpOut = eqChain(arpBus, [HP(400), LP(6000)]); const arpPan = ctx.createStereoPanner(); arpPan.pan.value = -0.2; arpOut.connect(arpPan); arpPan.connect(dry); send(arpPan, 0.12, true);
   const ARP = [0, 1, 2, 3, 2, 1, 2, 3, 4, 3, 2, 1, 2, 3, 2, 1];
   for (const { sec, b, gi, pc } of BARS) {
-    if (!((sec === 'A' && b >= 24) || (sec === 'B' && b >= 8) || sec === 'D')) continue;
-    const cp = chordPcs(pc).map(c => into(72 + c, 72, 83)).sort((x, y) => x - y), tones = [cp[0], cp[1], cp[2], cp[0] + 12, cp[1] + 12];
+    if (!ARP_ON(sec, b)) continue;
+    const cp = chordPcs(pc).slice(0, 3).map(c => into(72 + c, 72, 83)).sort((x, y) => x - y), tones = [cp[0], cp[1], cp[2], cp[0] + 12, cp[1] + 12];
     ARP.forEach((k, s) => { const t = T(gi, s), d = T(gi, s + 1) - t, o = ctx.createOscillator(); o.type = 'square'; o.frequency.value = hz(tones[k]);
       const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(s % 4 === 0 ? 1 : 0.7, t + 0.004); g.gain.exponentialRampToValueAtTime(0.001, t + d * 0.9);
       o.connect(g); g.connect(arpBus); o.start(t); o.stop(t + d); });
@@ -237,8 +281,9 @@ async function renderSong() {
   let HAT_N = 0;
   function hat(t, v, open) {
     const s = ctx.createBufferSource(); s.buffer = noise; const f = ctx.createBiquadFilter(); f.type = 'highpass'; f.frequency.value = 6000;
-    const g = ctx.createGain(), d = open ? 0.16 : 0.045; g.gain.setValueAtTime(1.6 * v, t); g.gain.exponentialRampToValueAtTime(0.001, t + d);
-    const p = ctx.createStereoPanner(); p.pan.value = (HAT_N++ % 2 ? 0.35 : -0.35);   // alternating sides: a wide cymbal wash s.connect(f); f.connect(g); g.connect(p); p.connect(drumBus); s.start(t, rand() * 0.5, d + 0.02);
+    const g = ctx.createGain(), d = open ? 0.16 : 0.045; g.gain.setValueAtTime(0.55 * v, t); g.gain.exponentialRampToValueAtTime(0.001, t + d);
+    const p = ctx.createStereoPanner(); p.pan.value = (HAT_N++ % 2 ? 0.35 : -0.35);   // alternating sides: a wide cymbal wash
+    s.connect(f); f.connect(g); g.connect(p); p.connect(drumBus); s.start(t, rand() * 0.5, d + 0.02);
     DLOG.break.push([t, STEP * 0.8, open ? 8 : 2]);
   }
   function crack(t, v) {   // a short snare-like crack (tonal body + band of noise), on the 16th before each kick

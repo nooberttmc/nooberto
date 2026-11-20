@@ -31,7 +31,9 @@ Python libs (mido, numpy, scipy, pillow) and Playwright's Chromium, then reports
 3. **Build.** `SONGFORGE=<skill>/scripts bash templates/build.sh song.js "Title" --artist NAME --gain 4 [--video]`
    exports the notes, records every part (FluidSynth -> amp sim), mixes in Chromium, masters to MP3 and prints the
    analysis. To iterate on the mix only (no re-recording), re-run just the `render.js ... --stem` step.
-4. **Check before you send.** Read the analysis: loudness ~-11 LUFS, true peak <= -1 dBTP, level jumps (few over
+4. **Check before you send.** Run `node scripts/check_notes.js song.js` until it prints "all notes OK" (out-of-key notes,
+   non-chord tones held on strong beats, minor-2nd clashes between any two parts; song.js must define QUAL, SCALE and
+   export `chords`). Then read the analysis: loudness ~-11 LUFS, true peak <= -1 dBTP, level jumps (few over
    3 dB), width, tonal balance vs the reference. For composition changes, print the notes per bar with their chords and
    confirm every note is intended. For guitar changes, check that short and long notes start at the same level.
 5. **Deliver and iterate.** Send the MP3 (and video). Say plainly that you can't listen, so the user's ears decide.
@@ -82,6 +84,11 @@ Details and the reasoning live in `references/`. These are the ones that cost th
     the output level (a synthesized kick swamped the low end until a post-drive gain was added).
 19. **Per-stem band contributions** (solo each stem at mix level, octave-band energy) find what's actually causing a
     band excess before you EQ the master.
+20. **Learn a reference's devices from the recording (or a score the user sends), never its notes**: e.g. a pedal-tone
+    bass ostinato in 3+3+2 with a pickup into each bar, long held octaves over it, a scale fill on the V, the
+    harmonic-minor leading tone only over V. Build the song from those devices, then run check_notes.js. (composition.md 1b)
+21. **Test a fix you can't hear by checking it's connected**: a hi-hat whose connect() calls ended up inside a comment
+    played nothing for a whole round ("I can't hear the drums").
 
 ## How the pieces fit
 - `song.js` defines `guitarEvents()` (every pitched part as notes: `[t_sec, midi, dur_sec, velocity, articulation]`,
@@ -93,7 +100,7 @@ Details and the reasoning live in `references/`. These are the ones that cost th
 - `scripts/guitar_stems.py` records parts (per-part options: program, sf, amp, humanize, lag, velvar, cents, release;
   articulations open/mute/lead/bend/release/bendrel/legato; amp rhythm/dark/lead/bass/none) and calls `scripts/reamp.py` (amp chain, cabinet voices,
   `LEAD` settings, fallback model).
-- `scripts/level.py` (slow leveler), `scripts/analyze.py` (measurement), `scripts/prepare_breaks.py` (loops ->
+- `scripts/check_notes.js` (every note vs its chord and the key, clashes between parts), `scripts/level.py` (slow leveler), `scripts/analyze.py` (measurement), `scripts/prepare_breaks.py` (loops ->
   trimmed MP3 + slice map), `scripts/visualize.py` (video), `scripts/export_midi.py` + `scripts/export_stems.sh`
   (DAW export).
 
