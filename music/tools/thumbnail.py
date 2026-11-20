@@ -90,6 +90,8 @@ def pixel_text(text, scale):
     m = Image.fromarray((a * 255).astype(np.uint8), 'L')
     return m.resize((m.width * scale, m.height * scale), Image.NEAREST)
 
+BAYER = np.array([[0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [15, 7, 13, 5]], np.float32) / 16
+
 def main(events, drums, audio, out):
     # background: the arrangement view in its own colours (a Phase I frame), dimmed, with a vignette
     bg = arrangement(events, drums, audio, t=20.0).resize((W, H))
@@ -97,15 +99,23 @@ def main(events, drums, audio, out):
     yy, xx = np.mgrid[0:H, 0:W]
     vign = 1 - 0.6 * np.clip(np.hypot((xx - W / 2) / (W / 2), (yy - H / 2) / (H / 2)) - 0.25, 0, 1)
     arr *= vign[..., None]
-    halo = np.exp(-(((xx - W / 2) ** 2 + (yy - H / 2 + 20) ** 2) / (2 * 220.0 ** 2)))   # warm light behind the sun
-    arr += np.array([70, 34, 8], np.float32) * halo[..., None]
-    img = Image.fromarray(np.clip(arr, 0, 255).astype(np.uint8)).convert('RGBA')
-    # the icon, centred, with a glow
+    # the icon's light (warm halo + glow) is pixel art too: built on the icon's own pixel grid, in stepped
+    # bands with dithered seams, so it lines up with the icon's pixels. The background stays as it is.
     ic = icon(); s = 6; big = ic.resize((ic.width * s, ic.height * s), Image.NEAREST)
     ox, oy = (W - big.width) // 2, (H - big.height) // 2
-    glow = Image.new('RGBA', (W, H), (0, 0, 0, 0)); glow.paste(big, (ox, oy), big)
-    glow = glow.filter(ImageFilter.GaussianBlur(20))
-    img = Image.alpha_composite(img, Image.blend(Image.new('RGBA', (W, H), (0, 0, 0, 0)), glow, 0.75))
+    kx, ky = -(-ox // s), -(-oy // s)                       # grid cells to the left of / above the icon
+    gx0, gy0 = ox - kx * s, oy - ky * s                     # where the grid starts (<= 0)
+    nx, ny = -(-(W - gx0) // s), -(-(H - gy0) // s)
+    cy, cx = (np.mgrid[0:ny, 0:nx] + 0.5) * s + np.array([gy0, gx0])[:, None, None]
+    light = np.array([70, 34, 8], np.float32) * np.exp(-(((cx - W / 2) ** 2 + (cy - H / 2 + 20) ** 2) / (2 * 220.0 ** 2)))[..., None]
+    grid_ic = Image.new('RGBA', (nx, ny), (0, 0, 0, 0)); grid_ic.paste(ic, (kx, ky), ic)
+    gl = np.asarray(grid_ic.filter(ImageFilter.GaussianBlur(20 / s)), np.float32)
+    light += gl[..., :3] * (gl[..., 3:4] / 255) * 0.75
+    th = np.tile(BAYER, (ny // 4 + 1, nx // 4 + 1))[:ny, :nx, None]
+    q = 9.0; light = np.floor(light / q + 0.5 + (th - 0.5) * 0.45) * q
+    light_big = np.asarray(Image.fromarray(np.clip(light, 0, 255).astype(np.uint8)).resize((nx * s, ny * s), Image.NEAREST), np.float32)
+    arr += light_big[-gy0:-gy0 + H, -gx0:-gx0 + W]
+    img = Image.fromarray(np.clip(arr, 0, 255).astype(np.uint8)).convert('RGBA')
     img.alpha_composite(big, (ox, oy))
     a = np.asarray(img.convert('RGB')).copy()
     a[::3] = (a[::3] * 0.88).astype(np.uint8)   # faint, even scanlines
