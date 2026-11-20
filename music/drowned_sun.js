@@ -6,7 +6,8 @@
 // every guitar re-amped through an overdrive, Guitarix JCM800 + DS-1 and a 4x12 cabinet curve.
 // Drums: at most two breakbeats from the pack at any moment, pitched from 160 to 178 BPM.
 const BPM = 178, STEP = 60 / BPM / 4, BAR = STEP * 16;
-const SECTIONS = [['intro', 8], ['a1', 16], ['b1', 16], ['brk', 8], ['a2', 16], ['clx', 16], ['inter', 8], ['a3', 16], ['b3', 16], ['outro', 4]];
+const SECTIONS = [['intro', 8], ['a1', 16], ['b1', 16], ['brk', 8], ['a2', 16], ['clx', 16], ['inter', 8], ['a3', 16], ['b3', 12], ['outro', 4]];
+const LEN = Object.fromEntries(SECTIONS), START = {}; { let g = 0; for (const [n, l] of SECTIONS) { START[n] = g; g += l; } }
 const Q = { m: [0, 3, 7], M: [0, 4, 7], '7': [0, 4, 7, 10] };
 // roots in octave 3 (F#3 = 54)
 const Fsm = [54, 'm'], E = [52, 'M'], D = [50, 'M'], Cs = [49, 'M'], Cs7 = [49, '7'], Bm = [59, 'm'], A = [57, 'M'], G = [55, 'M'], D7 = [50, '7'];
@@ -157,14 +158,31 @@ function guitarEvents() {
       // drops stay lean: guitars, bass, lead and drums carry them; strings sit an octave up, brass only marks phrases
       chord(P.strings, t0, str.map(n => n + 12), BAR, 72);
       if (b % 4 === 0) { timp(t0, ch, tr, 108); chord(P.brass, t0, str, STEP * 3, 104); }
-    } else if (sec === 'b1' || sec === 'b3') { // flowing 16th runs over the gallop
+    } else if (sec === 'b3') { // Phase III runs: 12 bars that keep changing - runs, stabs, triplets, an octave leap, a bend, a fall
+      const v = voicing(notes, 73), twinNote = (t, m, len, art) => { note(P.lead, t, m + LO, len, 116, art); note(P.harm, t, below(m + LO, notes), len, 104, art); };
+      pat(t0, r, b === 4 ? STABS : b === 9 ? DRIVE : b === 5 ? CHUG : GALLOP, true);
+      if (b === 3 || b === 7 || b === 11) melody(t0, [[0, v[2], 8], [8, v[1], 8]], 0, notes, true);          // two half notes
+      else if (b === 4) {                                                                                    // chord stabs, legato
+        const tops = [v[2], v[1], v[2], v[0] + 12, v[2], v[1]];
+        STAB.forEach((s, i) => twinNote(at(s), tops[i], ((STAB[i + 1] == null ? 16 : STAB[i + 1]) - s) * STEP + 0.012, 'legato'));
+      } else if (b === 5) {                                                                                  // triplet arpeggio, up and back down
+        const arp = [v[0], v[1], v[2], v[0] + 12, v[1] + 12, v[2] + 12, v[1] + 12, v[0] + 12, v[2], v[1], v[0], v[1]];
+        arp.forEach((m, i) => note(P.lead, t0 + i * STEP * 4 / 3, m + LO, STEP * 4 / 3 * 0.92, 118 + (i % 3 === 0 ? 6 : 0), 'open'));
+      } else if (b === 8) runBar(t0, notes, 1, false, 80);                                                    // the run, climbing higher
+      else if (b === 9) { twinNote(t0, v[2] + 12, STEP * 12 * 0.97, 'bend'); twinNote(at(12), v[1] + 12, STEP * 4 * 0.97, 'release'); }   // a long bend
+      else if (b === 10) scaleDown(t0, v[2] + 12, tr, 16, 0);                                                 // a falling scale into the end
+      else runBar(t0, notes, b, true);
+      chord(P.strings, t0, str.map(n => n + 12), BAR, 72);
+      if (b % 2 === 0) chord(P.brass, t0, str, STEP * 2, 110);
+      if (b % 4 === 0) timp(t0, ch, tr, 112);
+      if (b === LEN.b3 - 1) for (let s = 8; s < 16; s++) note(P.timp, at(s), 31, STEP, 90 + s * 3);
+    } else if (sec === 'b1') { // flowing 16th runs over the gallop
       pat(t0, r, GALLOP, true);
       if (b % 4 === 3) { const v = voicing(notes, 73); melody(t0, [[0, v[2], 8], [8, v[1], 8]], 0, notes, true); }   // two half notes
-      else runBar(t0, notes, b, sec === 'b3' || b >= 8);
+      else runBar(t0, notes, b, b >= 8);
       chord(P.strings, t0, str.map(n => n + 12), BAR, 70);
-      if (b % 2 === 0) chord(P.brass, t0, str, STEP * 2, sec === 'b3' ? 110 : 100);
+      if (b % 2 === 0) chord(P.brass, t0, str, STEP * 2, 100);
       if (b % 4 === 0) timp(t0, ch, tr, 112);
-      if (sec === 'b3' && b === 15) for (let s = 8; s < 16; s++) note(P.timp, at(s), 31, STEP, 90 + s * 3);
     } else if (sec === 'brk') { // half-time breakdown, low and heavy
       pat(t0, b < 2 ? 42 : r, BREAKDOWN); melody(t0, BRK_LEAD[b % 4], 0, notes, true);
       chord(P.brass, t0, low, STEP * 6, 118); chord(P.brass, at(10), low, STEP * 4, 110);
@@ -253,7 +271,12 @@ async function renderSong() {
     for (const [type, f, g, q] of eq || []) { const b = ctx.createBiquadFilter(); b.type = type; b.frequency.value = f; if (g != null) b.gain.value = g; b.Q.value = q || 0.7; n.connect(b); n = b; }
     return n;
   }
-  const RIDE = {}; let DRUM_DB = () => 0;   // per-part level riding (automation), on top of the static levels
+  const RIDE = {}; let DRUM_DB = () => 0;
+  // level changes never jump: every change glides over the bar before the downbeat it belongs to (a section boundary is always at least 2 bars from the next, so glides never overlap)
+  function glide(param, a, c, b) {
+    if (a === c) return; const v = d => Math.pow(10, d / 20), t = b * BAR, half = BAR;   // full-bar glides
+    param.setValueAtTime(v(a), t - half); param.linearRampToValueAtTime(v(c), t);   // the change happens over the bar before
+  }   // per-part level riding (automation), on top of the static levels
   const GUITARS = ['rhythmL', 'rhythmR', 'bass', 'lead', 'harmony'];
   async function stem(name, pan, targetDb, verbAmt, useDelay, eq, duck) {
     if (!has('stem/' + name)) return;
@@ -273,10 +296,10 @@ async function renderSong() {
   const HP = f => ['highpass', f, null, 0.7], LP = f => ['lowpass', f, null, 0.7], PK = (f, g, q) => ['peaking', f, g, q || 1];
   // rhythm guitars: 100 Hz up, scooped where bass/snare live (350) and where the lead sings (1.8-2.5k)
   const GTR = [HP(100), PK(350, -3, 1.1), PK(2000, -3.5, 1.4), PK(3500, 2.5, 1), LP(9000)];
-  await stem('rhythmL', -1, -13.5, 0.02, false, GTR, 0.3);
-  await stem('rhythmR', 1, -13.5, 0.02, false, GTR, 0.3);
+  await stem('rhythmL', -1, -13.5, 0.02, false, GTR, 0.12);
+  await stem('rhythmR', 1, -13.5, 0.02, false, GTR, 0.12);
   // bass: owns 45-250 Hz under the guitars; the sub synth owns the very bottom
-  await stem('bass', 0, -20, 0, false, [HP(45), PK(350, -3, 1), PK(900, 2, 1), LP(2600)], 0.5);
+  await stem('bass', 0, -20, 0, false, [HP(45), PK(350, -3, 1), PK(900, 2, 1), LP(2600)], 0.28);   // light kick ducking: tight, no pumping
   // lead: on top, with presence where the rhythm guitars were scooped
   await stem('lead', 0.0, -12.5, 0.14, true, [HP(110), PK(700, 1.5, 0.9), PK(1900, 1, 1), LP(6500)]);   // heavy body, a touch of presence
   await stem('harmony', 0.55, -25.5, 0.2, true, [HP(260), PK(2000, 1.5, 0.9), LP(6000)]);
@@ -291,24 +314,18 @@ async function renderSong() {
   //  - where the lead plays mostly fast notes, the rhythm guitars step back so runs, trills and stabs read clearly
   //  - in Phase III (the G minor return, bars 89-120) the wall is bigger, so the rhythm guitars sit lower and the lead higher
   {
-    const ev = guitarEvents().parts, lead = ev.lead.notes, fast = new Set(), all = {}, quick = {};
-    for (const n of lead) { const b = Math.floor(n[0] / BAR); all[b] = (all[b] || 0) + 1; if (n[2] < STEP * 2.5) quick[b] = (quick[b] || 0) + 1; }
-    for (const b in all) if ((quick[b] || 0) >= 5 && quick[b] / all[b] >= 0.6) fast.add(+b);
-    const p3 = b => b >= 88 && b < 120, db = v => Math.pow(10, v / 20);
+    const p3 = b => b >= START.a3 && b < START.outro, db = v => Math.pow(10, v / 20);
     const inter = b => b >= 80 && b < 88;
     // energy contour: pull back before the big moments so they hit harder (0-indexed bars)
     const verse = b => (b >= 24 && b < 32) || (b >= 48 && b < 56);   // run section 1st half; theme return 1st half
     const tease = b => b >= 8 && b < 16;                               // first statement of the theme
-    const gtrPull = b => tease(b) ? -3 : verse(b) ? -6 : 0;
-    const adj = { rhythmL: b => (fast.has(b) ? -2.5 : 0) + (p3(b) ? -3 : 0) + (inter(b) ? -6 : 0) + gtrPull(b), rhythmR: b => (fast.has(b) ? -2.5 : 0) + (p3(b) ? -3 : 0) + (inter(b) ? -6 : 0) + gtrPull(b),
-                  lead: b => (p3(b) ? 2 : 0) + (fast.has(b) ? 1.5 : 0) + (inter(b) ? -4 : 0) + (verse(b) ? -2.5 : tease(b) ? -1.5 : 0), harmony: b => (p3(b) ? 1 : 0) + (verse(b) ? -2.5 : 0),
-                  piano: b => inter(b) ? 2 : 0, bass: b => (inter(b) ? -3 : 0) + (verse(b) ? -4 : 0), low: b => inter(b) ? -3 : 0,
+    const gtrPull = b => tease(b) ? -1.5 : verse(b) ? -3 : 0;
+    const adj = { rhythmL: b => (p3(b) ? -3 : 0) + (inter(b) ? -4 : 0) + gtrPull(b), rhythmR: b => (p3(b) ? -3 : 0) + (inter(b) ? -4 : 0) + gtrPull(b),
+                  lead: b => (p3(b) ? 2 : 0) + (inter(b) ? (b < START.inter + 6 ? -6 : -3) : 0) + (verse(b) ? -1 : tease(b) ? -0.5 : 0), harmony: b => (p3(b) ? 1 : 0) + (verse(b) ? -1 : 0),
+                  piano: b => inter(b) ? 2 : 0, bass: b => (inter(b) ? -2 : 0) + (verse(b) ? -2 : 0), low: b => inter(b) ? -3 : 0,
                   brass: b => verse(b) || b === 62 || b === 63 ? -60 : 0 };   // brass sits out the pull-backs   // the interlude belongs to the piano: the band steps back around it
-    DRUM_DB = b => inter(b) ? -3 : tease(b) ? -5 : verse(b) ? -9 : (b === 62 || b === 63) ? -60 : 0;   // drums drop out for the 2 bars before the climax
-    for (const k in adj) if (RIDE[k]) for (let b = 1; b < BARS.length; b++) {
-      const a = adj[k](b - 1), c = adj[k](b); if (a === c) continue;
-      RIDE[k].gain.setValueAtTime(db(a), b * BAR - 0.06); RIDE[k].gain.linearRampToValueAtTime(db(c), b * BAR);
-    }
+    DRUM_DB = b => inter(b) ? -2 : tease(b) ? -2.5 : verse(b) ? -5 : (b === 62 || b === 63) ? -60 : 0;   // drums drop out for the 2 bars before the climax
+    for (const k in adj) if (RIDE[k]) for (let b = 1; b < BARS.length; b++) glide(RIDE[k].gain, adj[k](b - 1), adj[k](b), b);
   }
 
   // ---- breaks: one per section (two at most, when a snare layer is added) ----
@@ -322,8 +339,7 @@ async function renderSong() {
   const drumLow = ctx.createBiquadFilter(); drumLow.type = 'lowshelf'; drumLow.frequency.value = 110; drumLow.gain.value = 0;
   drumBus.connect(drumLow); drumLow.connect(drumBus2); drumDip.connect(drumLP); drumLP.connect(dry); send(drumLP, 0.05);
   for (let b = 1; b < BARS.length; b++) {   // drum level per bar (energy contour + the interlude)
-    const a = DRUM_DB(b - 1), c = DRUM_DB(b); if (a === c) continue;
-    drumBus2.gain.setValueAtTime(Math.pow(10, a / 20), b * BAR - 0.06); drumBus2.gain.linearRampToValueAtTime(Math.pow(10, c / 20), b * BAR);
+    glide(drumBus2.gain, DRUM_DB(b - 1), DRUM_DB(b), b);
   }
   const DLOG = { break: [], layer: [], kick: [] };   // drum hits, for the visualizer
   function slice(name, t, idx, len, rate, vol, quiet) {
@@ -351,12 +367,12 @@ async function renderSong() {
   }
     function impact(t, v) { hit(t, 90, 28, 1.0, 0.6 * v, master); }
   function riser() {}  // removed: noise sweeps aren't instruments
-  const subBus = ctx.createGain(); subBus.gain.value = 0.5; const subDuck = ctx.createGain(); subBus.connect(subDuck); subDuck.connect(dry); ducks.push([subDuck, 0.45]);
+  const subBus = ctx.createGain(); subBus.gain.value = 0.5; const subDuck = ctx.createGain(); subBus.connect(subDuck); subDuck.connect(dry); ducks.push([subDuck, 0.3]);
   function sub(t, m, len, v) { const o = ctx.createOscillator(); o.frequency.value = 440 * Math.pow(2, (m - 69) / 12); const g = ctx.createGain();
     g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(v, t + 0.01); g.gain.setValueAtTime(v, t + len - 0.04); g.gain.linearRampToValueAtTime(0.0001, t + len); o.connect(g); g.connect(subBus); o.start(t); o.stop(t + len + 0.05); }
 
   for (const x of BARS) {
-    const { sec, b, t0, ch, tr } = x, at = s => t0 + s * STEP, subN = 30 + ((ch[0] + tr - 30) % 12), last = b === ({ intro: 8, brk: 8, inter: 8, outro: 4 }[sec] || 16) - 1;
+    const { sec, b, t0, ch, tr } = x, at = s => t0 + s * STEP, subN = 30 + ((ch[0] + tr - 30) % 12), last = b === LEN[sec] - 1;
     if (sec === 'intro') { // drums come in early (bar 3), filtered open by bar 8
       sub(t0, subN, BAR, 0.12 + 0.025 * b);
       if (b >= 2) { drumLP.frequency.setValueAtTime(300 + b * 150, t0); drumLP.frequency.linearRampToValueAtTime(b === 7 ? 18000 : 450 + b * 150, t0 + BAR); groove('amen_yki', t0, b, 0.55 + b * 0.05); }
@@ -378,18 +394,19 @@ async function renderSong() {
       continue;
     }
     // the Amen breaks are thin below 120 Hz next to Hard Steppin: give them the same floor
-    if (b === 0) drumLow.gain.setValueAtTime(sec === 'a1' || sec === 'a2' ? 6 : 0, t0);
+    if (b === 0) drumLow.gain.setTargetAtTime(sec === 'a1' || sec === 'a2' ? 6 : 0, t0, 0.15);   // glides, no jump
     const brk = { a1: 'amen_yki', b1: 'steppin2', a2: 'amen_df', clx: 'steppin2', inter: 'amen_df', a3: 'amen_yki', b3: 'steppin2' }[sec];
     if (sec === 'inter') { // a lighter break; opens up over the last two bars
-      if (b < 6) { drumLP.frequency.setValueAtTime(b < 4 ? 2500 : 6000, t0); groove(brk, t0, b, 0.85); }
-      else { drumLP.frequency.setValueAtTime(18000, t0); if (b === 7) fillBar(brk, t0, b, true); else groove(brk, t0, b, 1); kick(t0, 1); }
+      if (b === 0) { drumLP.frequency.setTargetAtTime(3000, t0 - BAR / 2, 0.25); drumLP.frequency.setValueAtTime(3000, t0 + BAR); drumLP.frequency.exponentialRampToValueAtTime(18000, t0 + BAR * 7.5); }   // one continuous sweep
+      if (b === 7) fillBar(brk, t0, b, true); else groove(brk, t0, b, 0.85 + b * 0.02);
+      if (b >= 6) kick(t0, 1);
       sub(t0, subN, BAR - 0.02, 0.22);
       continue;
     }
     if (sec === 'a1' && b === 0) drumLP.frequency.setValueAtTime(18000, t0);
-    if (sec === 'b1' && b === 0) drumLP.frequency.setValueAtTime(1800, t0);
-    if (sec === 'b1' && b === 8) drumLP.frequency.setValueAtTime(18000, t0);
-    if (b % 8 === 7) fillBar(brk, t0, b, b === 15); else if (b % 4 === 3) fillBar(brk, t0, b, false); else groove(brk, t0, b, 1);
+    if (sec === 'b1' && b === 0) drumLP.frequency.setTargetAtTime(1800, t0, 0.15);
+    if (sec === 'b1' && b === 8) drumLP.frequency.setTargetAtTime(18000, t0 - BAR / 2, 0.12);   // opens over the half bar before
+    if (last) fillBar(brk, t0, b, true); else if (b % 4 === 3) fillBar(brk, t0, b, false); else groove(brk, t0, b, 1);
     if (sec === 'a3' || sec === 'b3' || sec === 'clx') { // second layer: Hard Steppin 1 snares on the backbeat
       if (b % 4 !== 3) { slice('steppin1', at(4), INFO.steppin1.snare, 1, R, 0.5); slice('steppin1', at(12), INFO.steppin1.snare, 1, R, 0.5); }
     }

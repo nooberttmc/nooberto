@@ -15,7 +15,7 @@ X0 = 76                        # playhead (left edge of the lanes)
 # the Drowned Sun palette (from the fight): ember-black, molten orange, gold, flare red, eclipse violet
 BG, PANEL, GRID = (9, 4, 6), (18, 8, 8), (34, 16, 14)
 CREAM, GOLD, ORANGE, RED, VIOLET = (255, 240, 192), (255, 208, 96), (255, 176, 64), (255, 80, 48), (192, 96, 255)
-SECTIONS = [('intro', 8), ('a1', 16), ('b1', 16), ('brk', 8), ('a2', 16), ('clx', 16), ('inter', 8), ('a3', 16), ('b3', 16), ('outro', 4)]
+SECTIONS = [('intro', 8), ('a1', 16), ('b1', 16), ('brk', 8), ('a2', 16), ('clx', 16), ('inter', 8), ('a3', 16), ('b3', 12), ('outro', 4)]
 PHASE = {'intro': ORANGE, 'a1': ORANGE, 'b1': ORANGE, 'brk': RED, 'a2': ORANGE, 'clx': RED, 'inter': VIOLET, 'a3': VIOLET, 'b3': VIOLET, 'outro': GOLD}
 SEC_NAME = {'intro': 'Dawn', 'a1': 'Phase I', 'b1': 'Phase I', 'brk': 'Corona', 'a2': 'Phase II', 'clx': 'Phase II', 'inter': 'Eclipse', 'a3': 'Phase III', 'b3': 'Phase III', 'outro': 'Drowned'}
 sec_at = []
