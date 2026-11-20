@@ -78,6 +78,10 @@ Details and the reasoning live in `references/`. These are the ones that cost th
 15. **Tempo effects need a tempo map** (`T(bar, step)` for all timing, `bar_times` exported). (composition.md 5b)
 16. **Measure tone against the reference's isolated guitars** (side channel), never by eye. (guitars.md)
 17. **Renders aren't bit-identical** (echo scheduling); compare mixes by residual dB, not max sample difference.
+18. **Set a distorted synth part's level after its clipper**: turning down the gain into a tanh drive barely changes
+    the output level (a synthesized kick swamped the low end until a post-drive gain was added).
+19. **Per-stem band contributions** (solo each stem at mix level, octave-band energy) find what's actually causing a
+    band excess before you EQ the master.
 
 ## How the pieces fit
 - `song.js` defines `guitarEvents()` (every pitched part as notes: `[t_sec, midi, dur_sec, velocity, articulation]`,

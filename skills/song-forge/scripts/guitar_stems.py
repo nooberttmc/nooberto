@@ -8,7 +8,7 @@ Open notes use the part's "program" (default GM 27, clean electric guitar), palm
 Note articulations: "open" (plain), "mute" (palm mute, on mute_program), "lead" (vibrato on long notes), "bend" (picked
 a whole step low, bent up into pitch), "release" (sags a semitone as it ends), "bendrel" (both), "legato" (plain; give it
 a length that overlaps the next note by ~12 ms so lines connect).
-Per-part options: record (False = don't record; the part is synthesized in renderSong but its notes still feed the
+Per-part options: sf (a SoundFont name or a path, e.g. "soundfonts/TubularBells.sf2"), record (False = don't record; the part is synthesized in renderSong but its notes still feed the
 video and MIDI export), program, mute_program, sf, amp ("rhythm" | "lead" | "bass" | "none"), humanize (ms of random timing),
 lag (ms the player sits behind the grid), velvar (+- velocity variation), cents (constant detune, e.g. a second
 take), release (SoundFont NRPN offset for the release envelope in timecents: -1800 = ~25 ms, -1400 = ~45 ms; the
@@ -87,6 +87,15 @@ def write_midi(part, path, seed):
         else: tr.append(mido.Message(kind, channel=ch, note=a, velocity=b, time=dt))
     mid.save(path)
 
+def soundfont(name, events):
+    """A part's "sf": a known name (musescore, fluid) or a path to any .sf2/.sf3 file, absolute or relative to the song
+    folder (the folder holding stems/events.json) - e.g. "soundfonts/TubularBells.sf2"."""
+    if name in SF: return SF[name]
+    base = os.path.dirname(os.path.abspath(events))
+    for c in (name, os.path.join(base, name), os.path.join(os.path.dirname(base), name)):
+        if os.path.exists(os.path.expanduser(c)): return os.path.expanduser(c)
+    raise SystemExit(f'soundfont not found: {name}')
+
 def main(events, outdir):
     os.makedirs(outdir, exist_ok=True)
     parts = json.load(open(events))['parts']
@@ -94,7 +103,7 @@ def main(events, outdir):
         if part.get('record') is False: continue   # synthesized in renderSong (e.g. a synth lead): notes only, no recording
         mid, di, out = [os.path.join(outdir, f'{name}{s}') for s in ('.mid', '_di.wav', '.wav')]
         write_midi(part, mid, seed=i * 101 + 7)
-        subprocess.run(['fluidsynth', '-ni', '-q', '-R', '0', '-C', '0', '-g', '0.7', '-r', '44100', '-F', di, SF[part.get('sf', 'musescore')], mid], check=True)
+        subprocess.run(['fluidsynth', '-ni', '-q', '-R', '0', '-C', '0', '-g', '0.7', '-r', '44100', '-F', di, soundfont(part.get('sf', 'musescore'), events), mid], check=True)
         if part.get('amp', 'rhythm') == 'none': os.replace(di, out)
         else: reamp.main(di, out, part['amp']); os.remove(di)
         print('recorded', name)

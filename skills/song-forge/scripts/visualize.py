@@ -6,12 +6,13 @@ Tracks are stacked down the screen with their names on the left; every note is a
 playhead at the left edge and lights up as it sounds; each track's clip strips cover the bars it plays in, in the
 colour of the current section.
 events.json is the song's guitarEvents() export. Read from it: "bpm", "sections" ([[name, bars], ...]),
-optional "colors" ({section: "#rrggbb"}), optional "bar_times" (start time of every bar, for songs with tempo changes:
-the video scrolls at constant speed, so slow passages stretch out and speed-ups bunch up), and per part optional "label" (lane name) and "lane" (parts with the same
+optional "colors" ({section: "#rrggbb"}), optional "bar_times" (start time of every bar) and "bar_tempi" ([start, end] BPM per bar) for
+songs with tempo changes: the video scrolls by musical position like a DAW, so the whole view visibly slows down in a
+brake and rushes in a speed-up, and a Tempo lane shows the BPM curve and the current value; and per part optional "label" (lane name) and "lane" (parts with the same
 lane share one, e.g. two rhythm guitar takes). drums.json (from renderSong's DLOG) adds a Drums lane; pass - to skip.
 theme.json may set bg, panel, grid, cream, gold (hex) and palette (list of hex, cycled per section).
 """
-import sys, json, subprocess, bisect
+import sys, json, subprocess, bisect, math
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 
@@ -29,17 +30,50 @@ def bar_start(b):   # start time of bar b: from the song's tempo map (bar_times)
     if BT is None: return b * BAR
     return BT[b] if 0 <= b < len(BT) else BT[-1] + (b - len(BT) + 1) * BAR if b >= len(BT) else b * BAR
 
+TEMPI = None   # per bar [start BPM, end BPM] (events.json "bar_tempi"), for exact positions inside ramping bars
+
+def frac_in_bar(b, dt):
+    """Fraction (0..1) of bar b reached dt seconds after its start; exact for a linear tempo ramp."""
+    d = BT[b + 1] - BT[b]
+    if TEMPI and b < len(TEMPI):
+        a, c = TEMPI[b]
+        if abs(c - a) > 1e-6: return max(0.0, min(1.0, a * (math.exp(dt * (c - a) / 240) - 1) / (c - a)))
+    return max(0.0, min(1.0, dt / d))
+
+def pos(t):
+    """Musical position in bars (what the video scrolls by: a bar is always the same width, so tempo changes show)."""
+    if BT is None: return t / BAR
+    if t >= BT[-1]: return len(BT) - 1 + (t - BT[-1]) / BAR
+    if t <= BT[0]: return t / BAR
+    b = bisect.bisect_right(BT, t) - 1; return b + frac_in_bar(b, t - BT[b])
+
+def time_of(p):
+    """Inverse of pos (bisection; only used to pick which notes are on screen)."""
+    lo, hi = -10.0, (BT[-1] if BT else p * BAR) + 60
+    for _ in range(40):
+        m = (lo + hi) / 2
+        if pos(m) < p: lo = m
+        else: hi = m
+    return hi
+
+def bpm_at(p):
+    if BT is None: return BPM
+    b = int(p)
+    if b >= len(BT) - 1: return TEMPI[-1][1] if TEMPI else BPM
+    if TEMPI and b < len(TEMPI): a, c = TEMPI[b]; return a + (c - a) * (p - b)
+    return 240 / (BT[b + 1] - BT[b])
+
 def bar_of(t):
     if BT is None: return int(t // BAR)
     return max(0, bisect.bisect_right(BT, t) - 1) if t < BT[-1] else len(BT) - 1 + int((t - BT[-1]) // BAR)
-NICE = {'lead': 'Lead Guitar', 'harmony': 'Harmony', 'rhythmL': 'Rhythm Gtrs', 'rhythmR': 'Rhythm Gtrs', 'bass': 'Bass', 'piano': 'Piano',
+NICE = {'brassL': 'Brass', 'brassR': 'Brass', 'bells': 'Bells', 'arp': 'Synth Arp', 'lead': 'Lead Guitar', 'harmony': 'Harmony', 'rhythmL': 'Rhythm Gtrs', 'rhythmR': 'Rhythm Gtrs', 'bass': 'Bass', 'piano': 'Piano',
         'strings': 'Strings', 'low': 'Low Strings', 'brass': 'Brass', 'organ': 'Organ', 'timp': 'Timpani', 'synth': 'Synth', 'pad': 'Pad'}
 
 def configure(ev, theme=None):
-    global BG, PANEL, GRID, CREAM, GOLD, BPM, BAR, SECTIONS, PHASE, sec_at, BT
+    global BG, PANEL, GRID, CREAM, GOLD, BPM, BAR, SECTIONS, PHASE, sec_at, BT, TEMPI
     th = dict(THEME, **(theme or {}))
     BG, PANEL, GRID, CREAM, GOLD = (hx(th[k]) for k in ('bg', 'panel', 'grid', 'cream', 'gold'))
-    BPM = ev.get('bpm', 120); BAR = 60 / BPM * 4; BT = ev.get('bar_times')   # tempo map: start time of every bar
+    BPM = ev.get('bpm', 120); BAR = 60 / BPM * 4; BT = ev.get('bar_times'); TEMPI = ev.get('bar_tempi')   # tempo map: bar start times (+ start/end BPM per bar)
     SECTIONS = [tuple(x) for x in ev.get('sections', [['song', 9999]])]
     pal = [hx(c) for c in th['palette']]; order = []
     for n, _ in SECTIONS:
@@ -78,6 +112,7 @@ def main(events, drums, audio, out, fps=60, start=0.0, length=None, scale=1.0, t
         drum = [[t, 0, d, 100, 'd'] for t, d, p in dr.get('kick', [])] + [[t, 4, d, 100, 'd'] for t, d, p in dr.get('layer', [])] + \
                [[t, 8 + p, d, 100, 'd'] for t, d, p in dr.get('break', [])]
         lanes.append(('Drums', 'Breaks', drum, 56))
+    if BT: lanes.append(('Tempo', 'Tempo', [], 30))   # the tempo curve
     top = u(38)
     lay = []
     for label, clip, notes, h in lanes:
@@ -105,7 +140,8 @@ def main(events, drums, audio, out, fps=60, start=0.0, length=None, scale=1.0, t
     cmd = ['ffmpeg', '-y', '-loglevel', 'error', '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-s', f'{W_}x{H_}', '-r', str(fps), '-i', '-', '-ss', str(start), '-i', audio,
            '-c:v', 'libx264', '-preset', 'medium', '-crf', '20', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-b:a', '192k', '-shortest', '-movflags', '+faststart', out]
     enc = subprocess.Popen(cmd, stdin=subprocess.PIPE)
-    view = (W_ - X0_) / PX_
+    PXB = PX_ * BAR                     # pixels per bar (at the nominal tempo, the same scroll speed as before)
+    viewB = (W_ - X0_) / PXB
     nframes = int(((length or dur - start)) * fps)
     for fi in range(nframes):
         t = start + fi / fps
@@ -115,30 +151,38 @@ def main(events, drums, audio, out, fps=60, start=0.0, length=None, scale=1.0, t
         st = max(s for s, n in sec_at if s <= t + 1e-9); prev = PHASE[section(st - 0.01)] if st > 0 else col
         col = mix(prev, col, min(1, (t - st) / 1.2))
         # ruler: bar numbers scroll with the music
-        b = bar_of(t)
-        while bar_start(b) < t + view:
-            x = X0_ + (bar_start(b) - t) * PX_; b += 1   # (b is now this bar's 1-based number)
-            if x < X0_: continue
-            g.line([x, u(22), x, u(32)], fill=(110, 70, 50), width=max(1, u(1))); g.text((x + u(3), u(20)), str(b), font=font, fill=(150, 110, 90))
+        p0 = pos(t); tv = time_of(p0 + viewB)   # musical position now, and the time at the right edge
+        X = lambda tt: X0_ + (pos(tt) - p0) * PXB
+        for b in range(max(0, int(p0)), int(p0 + viewB) + 2):
+            x = X0_ + (b - p0) * PXB
+            if x < X0_ or x > W_: continue
+            b1 = b + 1   # 1-based bar number
+            g.line([x, u(22), x, u(32)], fill=(110, 70, 50), width=max(1, u(1))); g.text((x + u(3), u(20)), str(b1), font=font, fill=(150, 110, 90))
             g.line([x, u(34), x, H_], fill=GRID, width=max(1, u(1)))
         for L in lay:
             y, h = L['y'], L['h']
-            i0 = bisect.bisect_left(L['starts'], t - L['maxd'] - 0.01); i1 = bisect.bisect_right(L['starts'], t + view)
+            if L['label'] == 'Tempo':   # the tempo lane: BPM curve across the view, with the current value
+                g.rectangle([X0_, y, W_, y + u(9)], fill=mix(BG, col, 0.62)); g.text((X0_ + u(4), y - u(1)), 'Tempo', font=font, fill=mix(col, CREAM, 0.6))
+                pts = [(x, y + u(12) + (h - u(6)) * (1 - (min(220, max(60, bpm_at(p0 + (x - X0_) / PXB))) - 60) / 160)) for x in range(X0_, W_, u(3))]
+                g.line(pts, fill=mix(col, CREAM, 0.4), width=max(2, u(2)))
+                bn = bpm_at(p0); g.text((X0_ + u(8), y + u(12)), f'{bn:.0f} BPM', font=fbig, fill=CREAM if abs(bn - BPM) > 1 else mix(col, CREAM, 0.5))
+                continue
+            i0 = bisect.bisect_left(L['starts'], t - L['maxd'] - 0.01); i1 = bisect.bisect_right(L['starts'], tv)
             vis = [n for n in L['notes'][i0:i1] if n[0] + n[2] >= t]
             # clip strips (drawn from the bars, so a strip scrolls off the left edge like the notes do), like pattern blocks, over the bars this track plays in, in the phase colour
-            b = bar_of(t)
-            while bar_start(b) < t + view:
+            b = int(p0)
+            while b < p0 + viewB:
                 if b in L['bars']:
                     e = b
-                    while e + 1 in L['bars'] and bar_start(e + 1) < t + view: e += 1
-                    xa = max(X0_, X0_ + (bar_start(b) - t) * PX_); xb = min(W_, X0_ + (bar_start(e + 1) - t) * PX_) - 1
+                    while e + 1 in L['bars'] and e + 1 < p0 + viewB: e += 1
+                    xa = max(X0_, X0_ + (b - p0) * PXB); xb = min(W_, X0_ + (e + 1 - p0) * PXB) - 1
                     if xb > xa: g.rectangle([xa, y, xb, y + u(9)], fill=mix(BG, col, 0.62))
                     if xb - xa > u(60): g.text((xa + u(4), y - u(1)), L['clip'] + ' ' + str(b // 8 + 1), font=font, fill=mix(col, CREAM, 0.6))
                     b = e + 1
                 else: b += 1
             span = L['hi'] - L['lo']
             for n in vis:
-                x1 = X0_ + (n[0] - t) * PX_; x2 = X0_ + (n[0] + n[2] - t) * PX_
+                x1 = X(n[0]); x2 = X(n[0] + n[2])
                 ny = y + u(12) + (h - u(6)) * (1 - (n[1] - L['lo']) / span) if span > 1 else y + u(12) + h / 2 - u(4)
                 playing = n[0] <= t < n[0] + n[2]
                 c = CREAM if playing else mix(col, CREAM, 0.55)
