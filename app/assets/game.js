@@ -581,16 +581,28 @@ function spawnSun() {
   const a = rand(TAU), dist = Math.min(VW, VH) / 2 + 90;
   const e = spawnEnemy('drifter', R.p.x + Math.cos(a) * dist, R.p.y + Math.sin(a) * dist);
   const raid = !!R.raid;
-  Object.assign(e, { boss: true, final: true, kind: 'sun', bd: BOSSES[3], r: 78, color: '#ffb040', spd: 32,
-    hp: 72000 * Math.pow(R.depth.hp, 0.75) * (raid ? 0.8 : 1), dmg: 34 * R.depth.dmg * (raid ? 1.2 : 1), xp: 2500,
+  Object.assign(e, { boss: true, final: true, kind: 'sun', bd: BOSSES[3], r: 108, color: '#ffb040', spd: 34,
+    hp: 252000 * Math.pow(R.depth.hp, 0.75) * (raid ? 0.8 : 1), dmg: 42 * R.depth.dmg * (raid ? 1.2 : 1), xp: 2500, moonK: 1, last: false,
     state: 'drift', pt: 3.5, phase: 1, trans: 0, atkI: 0, moonA: 0, spiralA: 0, spiralT: 0, sumT: 14, name: 'The Drowned Sun', enh: 1, extras: [], xt: 1e9, xi: 0, ringN: 0 });
   e.maxHp = e.hp; e.spawnT = 1.2;
+  // the arena belongs to the sun: everything else burns away, and nothing else enters until it falls
+  for (const o of R.enemies) if (o !== e && !o.dead) { o.dead = true; burst(o.x, o.y, '#ffb040', 6, 140, 3, 0.5); }
+  R.enemies = R.enemies.filter(o => !o.dead); R.toSpawn = 0; R.spawnAcc = 0; R.bounty = null; R.trial = null;
   R.boss = e; hint('boss');
   R.banner = { text: 'THE DROWNED SUN', sub: 'The last light of the deep', t: 4, color: '#ffb040' };
   SFX.play('bossroar'); SFX.music('sun'); addShake(6);
   R.ebul.length = 0;
 }
-function sunPhase(e) { // dramatic phase change: brief invulnerability, bullets cleared
+function sunMoons(e) { // offsets of the orbiting moons; while a tether web is up, their orbit breathes in and out
+  const n = 2 + e.phase, out = [], k = e.moonK || 1;
+  for (let i = 0; i < n; i++) { const a = e.moonA + i * TAU / n; out.push([Math.cos(a) * e.r * 1.9 * k, Math.sin(a) * e.r * 1.9 * k]); }
+  return out;
+}
+function sunHearts(n) { // no enemies to feed healing in the sun's arena: it sheds hearts at its turning points
+  for (let i = 0; i < n; i++) { const a = rand(TAU), d = rand(60, 110); R.items.push({ k: 'heart', x: R.p.x + Math.cos(a) * d, y: R.p.y + Math.sin(a) * d, t: 0 }); }
+}
+function sunPhase(e) { // dramatic phase change: brief invulnerability, bullets cleared, two hearts shed
+  sunHearts(2);
   e.phase++; e.trans = 2.4; e.state = 'drift'; e.spiralT = 0; e.pt = 2.6;
   R.ebul.length = 0; R.hazards.length = 0; R.gravity = null;
   R.fx.push({ k: 'ring', x: e.x, y: e.y, r: e.r, max: 700, life: 1, c: e.phase === 3 ? '#c060ff' : '#ff6030' });
@@ -599,34 +611,42 @@ function sunPhase(e) { // dramatic phase change: brief invulnerability, bullets 
 }
 function sunAI(e, dt, d, ux, uy) {
   const p = R.p, ph = e.phase, dens = R.depth.bullets, bd = e.dmg * 0.55;
-  e.moonA += dt * (0.5 + ph * 0.15);
+  const web = R.hazards.find(h => h.k === 'tether' && h.src === e);
+  e.moonA += dt * (0.5 + ph * 0.15) * (web && web.tele <= 0 ? 1.8 : 1);
+  e.moonK = web && web.tele <= 0 ? 1.35 + 0.5 * Math.sin((4.2 - web.life) * 1.6) : Math.max(1, (e.moonK || 1) - dt);
   if (e.trans > 0) { e.trans -= dt; return; }
   const later = (t, f) => { R.delayed = (R.delayed || []).concat([{ t, f: () => { if (!e.dead && e.trans <= 0) f(); } }]); };
   const ring = (n, spd, off, col, r) => { n = Math.max(6, Math.round(n * dens)); for (let i = 0; i < n; i++) eShoot(e.x, e.y, off + i * TAU / n, spd, bd, col || '#ffb040', r || 7); SFX.play('eshot'); };
   const fanAt = (x, y, n, step, spd, col) => { const a0 = Math.atan2(R.p.y - y, R.p.x - x); for (let i = 0; i < n; i++) eShoot(x, y, a0 + (i - (n - 1) / 2) * step, spd, bd, col || '#ffd080', 6); SFX.play('eshot'); };
-  const moons = () => { const n = 2 + ph, out = []; for (let i = 0; i < n; i++) { const a = e.moonA + i * TAU / n; out.push([e.x + Math.cos(a) * e.r * 1.9, e.y + Math.sin(a) * e.r * 1.9]); } return out; };
+  const moons = () => sunMoons(e).map(m => [e.x + m[0], e.y + m[1]]);
   // movement: hovers at a distance, drifting around you; faster in later phases
   let vx = 0, vy = 0;
   if (e.state === 'wind') { if ((e.wt -= dt) <= 0) { e.state = 'dash'; e.wt = 0.6; } }
   else if (e.state === 'dash') { vx = e.cx * 520; vy = e.cy * 520; if ((e.wt -= dt) <= 0) { e.state = 'drift'; ring(18, 120, rand(TAU)); } }
   else {
-    const want = 230, f = d > want + 50 ? 1 : d < want - 60 ? -0.7 : 0, sp = e.spd * (1 + (ph - 1) * 0.35);
+    const want = 270, f = d > want + 50 ? 1 : d < want - 60 ? -0.7 : 0, sp = e.spd * (1 + (ph - 1) * 0.35);
     vx = (ux * f - uy * 0.5) * sp; vy = (uy * f + ux * 0.5) * sp;
   }
   e.x += vx * dt; e.y += vy * dt;
+  // Last Light: below 15% in Phase III the sun gives everything it has left
+  if (ph === 3 && !e.last && e.hp < e.maxHp * 0.15) {
+    e.last = true; e.spiralT = 1e9; R.ebul.length = 0; sunHearts(2);
+    R.banner = { text: 'LAST LIGHT', sub: 'The drowning sun burns everything it has left', t: 3, color: '#ff80ff' };
+    R.fx.push({ k: 'ring', x: e.x, y: e.y, r: e.r, max: 800, life: 1.2, c: '#ff80ff' }); SFX.play('bossroar'); addShake(8);
+  }
   // sustained spiral
   if (e.spiralT > 0) {
     e.spiralT -= dt; e.sp = (e.sp || 0) - dt;
-    if (e.sp <= 0) { e.sp = 0.09 / dens; e.spiralA += 0.27; const arms = ph + 1; for (let k = 0; k < arms; k++) eShoot(e.x, e.y, e.spiralA + k * TAU / arms, 118, bd, '#ff8040', 6); }
+    if (e.sp <= 0) { e.sp = (e.last ? 0.16 : 0.09) / dens; e.spiralA += e.last ? 0.21 : 0.27; const arms = e.last ? 3 : ph + 1; for (let k = 0; k < arms; k++) eShoot(e.x, e.y, e.spiralA + k * TAU / arms, e.last ? 105 : 118, bd, e.last ? '#ff80ff' : '#ff8040', 6); }
   }
   // summons
-  if (ph >= 2 && (e.sumT -= dt) <= 0) { e.sumT = 13 - ph * 2; for (let i = 0; i < 4 + ph; i++) { const a = rand(TAU); const m = spawnEnemy(pick(['dart', 'gunner', 'charger', 'wraith']), e.x + Math.cos(a) * 110, e.y + Math.sin(a) * 110, { elite: Math.random() < 0.15 }); m.spawnT = 0.6; } }
   if (e.state !== 'drift' || (e.pt -= dt) > 0) return;
-  const list = ph === 1 ? ['rings', 'eclipse', 'moons', 'laser', 'wall', 'fans', 'homing']
-    : ph === 2 ? ['eclipse', 'spiral', 'flare', 'moons', 'zones', 'lunge', 'flower', 'cross', 'rings', 'laser']
-    : ['supernova', 'eclipse', 'gravity', 'flare', 'spiral', 'moons', 'snipe', 'lunge', 'zones', 'wall', 'cross', 'homing'];
+  const list = ph === 1 ? ['rings', 'prominence', 'eclipse', 'arcs', 'moons', 'laser', 'wall', 'fans', 'homing']
+    : ph === 2 ? ['eclipse', 'tether', 'spiral', 'sunbeam', 'prominence', 'flare', 'sunfall', 'arcs', 'zones', 'lunge', 'flower', 'cross', 'moons']
+    : e.last ? ['sunbeam', 'tether', 'prominence', 'sunfall', 'arcs', 'flare']   // with the spiral running underneath
+    : ['supernova', 'tether', 'sunbeam', 'gravity', 'sunfall', 'prominence', 'spiral', 'arcs', 'eclipse', 'snipe', 'lunge', 'flare', 'cross', 'wall'];
   const atk = list[e.atkI++ % list.length];
-  e.pt = [0, 2.4, 2.0, 1.7][ph];
+  e.pt = e.last ? 1.5 : [0, 1.9, 1.6, 1.35][ph];
   switch (atk) {
     case 'rings': { const off = rand(TAU), n = 16 + ph * 4; ring(n, 105, off); later(0.45, () => ring(n, 105, off + Math.PI / n)); if (ph >= 2) later(0.9, () => ring(n, 125, off)); break; }
     case 'fans': for (let k = 0; k < 3; k++) later(k * 0.3, () => fanAt(e.x, e.y, 9, 0.11, 170)); break;
@@ -645,6 +665,34 @@ function sunAI(e, dt, d, ux, uy) {
         R.hazards.push({ k: 'marker', x, y, tele: 1.1, life: 0.01, c: '#ff8040' });
         later(1.1, () => { for (let k = -1; k <= 1; k++) eShoot(x, y, Math.atan2(R.p.y - y, R.p.x - x) + k * 0.18, 150, bd, '#ff8040', 6); }); }
       SFX.play('telegraph'); break;
+    }
+    case 'prominence': { // a ring of fire flung outward: it slows, stops, and falls back into the sun
+      const n = Math.max(10, Math.round((14 + ph * 4) * dens)), off = rand(TAU), sp = 230 + ph * 20;
+      for (let w = 0; w < (ph >= 3 ? 2 : 1); w++) later(w * 0.55, () => { for (let i = 0; i < n; i++) { const a = off + (i + w * 0.5) * TAU / n, b = eShoot(e.x, e.y, a, sp, bd, '#ffcc66', 7, 4.2);
+        if (b) { b.ux = Math.cos(a); b.uy = Math.sin(a); b.acc = -sp / 1.4; } } SFX.play('eshot'); });
+      SFX.play('telegraph'); e.pt += 1.4; break;
+    }
+    case 'arcs': { // coronal arcs: streams of fire that bend as they fly, curling both ways
+      const streams = 4 + ph, a0 = rand(TAU), turn = 0.75 + ph * 0.1;
+      for (let k = 0; k < 7; k++) later(k * 0.16, () => { for (let i = 0; i < streams; i++) { const b = eShoot(e.x, e.y, a0 + i * TAU / streams, 140, bd, '#ff9a50', 6, 6); if (b) b.turn = (i % 2 ? 1 : -1) * turn; } SFX.play('eshot'); });
+      e.pt += 0.9; break;
+    }
+    case 'sunbeam': { // a huge beam that slowly tracks you: keep moving around the sun
+      R.hazards.push({ k: 'track', src: e, a: Math.atan2(p.y - e.y, p.x - e.x), w: 34, len: 1100, tele: 1.1, life: 2.8, turn: 0.3 + ph * 0.08, dmg: e.dmg * 0.75, c: '#fff0a0' });
+      SFX.play('telegraph'); e.pt += 2.4; break;
+    }
+    case 'tether': { // the moons link up with burning tethers, and the web breathes in and out
+      R.hazards.push({ k: 'tether', src: e, w: 10, tele: 1.2, life: 4.2, dmg: e.dmg * 0.7, c: ph === 3 ? '#d080ff' : '#ffb060' });
+      SFX.play('telegraph'); e.pt += 2.6; break;
+    }
+    case 'sunfall': { // three rings of eruptions close in on you; each has one gap
+      const gap0 = rand(TAU), n = 12;
+      [[250, 1.0], [185, 1.55], [120, 2.1]].forEach(([rad, tele], k) => {
+        const gap = gap0 + k * (Math.random() < 0.5 ? 1 : -1) * rand(0.5, 1.1);
+        for (let i = 0; i < n; i++) { const a = i * TAU / n; let da = Math.abs(((a - gap) % TAU + TAU + Math.PI) % TAU - Math.PI); if (da < TAU / n * 1.05) continue;
+          R.hazards.push({ k: 'zone', x: p.x + Math.cos(a) * rad, y: p.y + Math.sin(a) * rad, r: 40, tele, dmg: bd * 1.3, c: '#ff7040', quiet: true }); }
+      });
+      SFX.play('telegraph'); e.pt += 1.8; break;
     }
     case 'lunge': { const dx = p.x - e.x, dy = p.y - e.y, dl = Math.hypot(dx, dy) || 1; e.cx = dx / dl; e.cy = dy / dl; e.state = 'wind'; e.wt = 1.0; SFX.play('telegraph'); break; }
     case 'gravity': { // pulled toward the sun while rings pulse outward
@@ -1108,6 +1156,7 @@ function activateShrine(sh) {
     R.items.push({ k: 'chest', x: sh.x, y: sh.y, t: 0 });
     for (let i = 0; i < 6; i++) R.items.push({ k: 'coin', x: sh.x + rand(-40, 40), y: sh.y + rand(-40, 40), v: 1, t: 0 });
     if (Math.random() < 0.3) R.items.push({ k: 'heart', x: sh.x + 20, y: sh.y, t: 0 });
+  } else if (R.boss && R.boss.final) { R.buffs.power = dur; recalc();   // no champions in the sun's arena
   } else { // trial: a pack of champions
     const n = 4 + Math.floor(R.wave / 5), ids = new Set();
     for (let i = 0; i < n; i++) { const a = i * TAU / n; const e = spawnEnemy(pickType(), p.x + Math.cos(a) * 240, p.y + Math.sin(a) * 240, { elite: true }); ids.add(e.id); }
@@ -1204,6 +1253,7 @@ function updateWaves(dt) {
   if (R.toSpawn > 0) {
     const rate = R.waveTotal / R.spawnDur;
     R.spawnAcc += rate * dt * (R.waveT < 2 ? 2.5 : 1);
+    if (R.boss && R.boss.final) { R.toSpawn = 0; R.spawnAcc = 0; }   // no other enemies during the final boss
     while (R.spawnAcc >= 1 && R.toSpawn > 0) {
       R.spawnAcc -= 1;
       const alive = R.enemies.length;
@@ -1226,7 +1276,7 @@ function updateWaves(dt) {
   const isBoss = R.wave % 5 === 0;
   if (isBoss) {
     if (!R.boss) endWave();
-    else if (R.toSpawn <= 0 && R.waveT > R.spawnDur && !R.raid) { R.toSpawn = Math.floor(6 + R.wave); R.waveT = 0; }
+    else if (R.toSpawn <= 0 && R.waveT > R.spawnDur && !R.raid && !R.boss.final) { R.toSpawn = Math.floor(6 + R.wave); R.waveT = 0; }
   } else if ((R.toSpawn <= 0 && !R.enemies.some(e => e.type !== 'gleamer')) || R.waveT > R.spawnDur + 28) endWave();
 }
 function endWave() {
@@ -1589,6 +1639,10 @@ function updateHazards(dt) {
   const p = R.p;
   for (const h of R.hazards) {
     if (h.tele > 0 && h.src) { h.x = h.src.x; h.y = h.src.y; if (h.k === 'sweep') h.a += h.spin * 0.15 * dt; }
+    if (h.k === 'track' && h.src) { // turns toward you, at most h.turn rad/s
+      let da = Math.atan2(p.y - h.src.y, p.x - h.src.x) - h.a; while (da > Math.PI) da -= TAU; while (da < -Math.PI) da += TAU;
+      h.a += clamp(da, -h.turn * dt, h.turn * dt);
+    }
     if (h.tele > 0) { h.tele -= dt; if (h.tele <= 0 && h.k === 'zone') { // erupt
         h.life = 0.3;
         if (Math.hypot(p.x - h.x, p.y - h.y) < h.r + p.r) hurtPlayer(h.dmg);
@@ -1604,6 +1658,16 @@ function updateHazards(dt) {
       for (let i = 0; i < h.n; i++) {
         const a = h.a + i * TAU / h.n, dx = Math.cos(a), dy = Math.sin(a), px = p.x - h.x, py = p.y - h.y, t = px * dx + py * dy;
         if (t > 0 && t < h.len && Math.abs(px * dy - py * dx) < h.w / 2 + p.r - 2) hurtPlayer(h.dmg);
+      }
+    } else if (h.k === 'track') {
+      const dx = Math.cos(h.a), dy = Math.sin(h.a), px = p.x - h.x, py = p.y - h.y, t = px * dx + py * dy;
+      if (t > 0 && t < h.len && Math.abs(px * dy - py * dx) < h.w / 2 + p.r - 2) hurtPlayer(h.dmg);
+    } else if (h.k === 'tether') {
+      const m = sunMoons(h.src);
+      for (let i = 0; i < m.length; i++) { // each edge of the web: point-to-segment distance
+        const ax = h.x + m[i][0], ay = h.y + m[i][1], bx = h.x + m[(i + 1) % m.length][0], by = h.y + m[(i + 1) % m.length][1];
+        const vx = bx - ax, vy = by - ay, l2 = vx * vx + vy * vy || 1, u = clamp(((p.x - ax) * vx + (p.y - ay) * vy) / l2, 0, 1);
+        if (Math.hypot(p.x - ax - vx * u, p.y - ay - vy * u) < h.w / 2 + p.r - 2) { hurtPlayer(h.dmg); break; }
       }
     } else if (h.k === 'well') {
       const dx = h.x - p.x, dy = h.y - p.y, dd = Math.hypot(dx, dy) || 1;
@@ -1694,6 +1758,8 @@ function updateEbul(dt) {
       let da = a - cur; while (da > Math.PI) da -= TAU; while (da < -Math.PI) da += TAU;
       const na = cur + clamp(da, -b.home * dt, b.home * dt); b.vx = Math.cos(na) * sp; b.vy = Math.sin(na) * sp;
     }
+    if (b.acc) { b.vx += b.ux * b.acc * dt; b.vy += b.uy * b.acc * dt; }   // prominence: slows, stops, falls back
+    if (b.turn) { const c = Math.cos(b.turn * dt), s2 = Math.sin(b.turn * dt), vx = b.vx; b.vx = vx * c - b.vy * s2; b.vy = vx * s2 + b.vy * c; }   // coronal arcs: curving
     b.x += b.vx * dt; b.y += b.vy * dt;
     const dx = b.x - p.x, dy = b.y - p.y;
     if (R.aegis > 0 && dx * dx + dy * dy < 34 * 34) { b.life = 0; burst(b.x, b.y, '#ffe080', 3, 80, 2, 0.25); continue; }
@@ -1845,6 +1911,27 @@ function drawSun(e, r) {
   g.globalCompositeOperation = 'lighter';
   glow(0, 0, r * 3.4, hot, 0.35 + (nova ? (1 - nova.tele / 2.8) * 0.5 : 0));
   glow(0, 0, r * 1.9, core, 0.25 + (e.trans > 0 ? 0.4 : 0));
+  if (e.last) glow(0, 0, r * (4 + Math.sin(t * 6) * 0.4), '#ff60ff', 0.3);   // Last Light: a pulsing magenta blaze
+  g.globalCompositeOperation = 'source-over';
+  // outer halo: two slow rings with gaps, turning opposite ways
+  for (let k = 0; k < 2; k++) {
+    g.strokeStyle = hexA(k ? core : hot, 0.35); g.lineWidth = k ? 2 : 3;
+    for (let i = 0; i < 6; i++) { const a = i * TAU / 6 + t * (k ? -0.15 : 0.1); g.beginPath(); g.arc(0, 0, r * (k ? 2.6 : 2.35), a, a + TAU / 6 - 0.35); g.stroke(); }
+  }
+  // embers drifting in orbit
+  g.globalCompositeOperation = 'lighter';
+  for (let i = 0; i < 28; i++) { const a = i * 2.39996 + t * (0.25 + (i % 5) * 0.05), rr = r * (1.45 + ((i * 0.618) % 1) * 0.9 + Math.sin(t * 2 + i) * 0.06);
+    g.fillStyle = hexA(i % 3 ? hot : core, 0.55 + 0.35 * Math.sin(t * 4 + i)); g.beginPath(); g.arc(Math.cos(a) * rr, Math.sin(a) * rr, 1.8 + (i % 3), 0, TAU); g.fill(); }
+  // Phase II: solar flare loops arching off the rim and back
+  if (ph >= 2) { g.strokeStyle = hexA(hot, 0.75); g.lineWidth = 4;
+    for (let i = 0; i < 3; i++) { const a = i * TAU / 3 + t * 0.3, sp = 0.5, h2 = r * (1.6 + 0.35 * Math.sin(t * 1.7 + i * 2));
+      g.beginPath(); g.moveTo(Math.cos(a - sp) * r, Math.sin(a - sp) * r); g.quadraticCurveTo(Math.cos(a) * h2 * 1.25, Math.sin(a) * h2 * 1.25, Math.cos(a + sp) * r, Math.sin(a + sp) * r); g.stroke(); } }
+  // Phase III: violet lightning crackling off the disc
+  if (ph === 3) { g.strokeStyle = hexA('#e0a0ff', 0.8); g.lineWidth = 2.5; const flick = Math.floor(t * 12);
+    for (let i = 0; i < 5; i++) { const seed = Math.sin(flick * 12.9898 + i * 78.233) * 43758.5453, a = (seed - Math.floor(seed)) * TAU;
+      g.beginPath(); let x = Math.cos(a) * r, y = Math.sin(a) * r; g.moveTo(x, y);
+      for (let k = 1; k <= 4; k++) { const j = Math.sin(seed * k) * 0.35; x = Math.cos(a + j) * r * (1 + k * 0.28); y = Math.sin(a + j) * r * (1 + k * 0.28); g.lineTo(x, y); }
+      g.stroke(); } }
   g.globalCompositeOperation = 'source-over';
   // corona: flame tongues around the eclipse
   const n = 18 + ph * 5;
@@ -1875,8 +1962,7 @@ function drawSun(e, r) {
   g.beginPath(); g.arc(ex, ey, r * 0.2, 0, TAU); g.fillStyle = core; g.fill();
   g.beginPath(); g.ellipse(ex * 1.3, ey * 1.3, r * 0.05, r * 0.17, 0, 0, TAU); g.fillStyle = '#07030c'; g.fill();
   // orbiting moons
-  const nm = 2 + ph;
-  for (let i = 0; i < nm; i++) { const a = e.moonA + i * TAU / nm, mx = Math.cos(a) * r * 1.9, my = Math.sin(a) * r * 1.9;
+  for (const [mx0, my0] of sunMoons(e)) { const mx = mx0 * r / e.r, my = my0 * r / e.r;
     g.globalCompositeOperation = 'lighter'; glow(mx, my, 22, hot, 0.5); g.globalCompositeOperation = 'source-over';
     g.beginPath(); g.arc(mx, my, 9, 0, TAU); g.fillStyle = '#1a1626'; g.fill(); g.strokeStyle = core; g.lineWidth = 2; g.stroke(); }
   if (e.trans > 0) { g.globalAlpha = Math.min(1, e.trans); g.beginPath(); g.arc(0, 0, r * 1.15, 0, TAU); g.strokeStyle = '#ffffff'; g.lineWidth = 3; g.setLineDash([10, 8]); g.stroke(); g.setLineDash([]); g.globalAlpha = 1; }
@@ -1996,7 +2082,7 @@ function renderRun() {
   // hazards (telegraphs and beams)
   for (const h of R.hazards) {
     if (h.k === 'zone') {
-      if (h.tele > 0) { const f = 1 - h.tele / 1.1; g.beginPath(); g.arc(h.x, h.y, h.r, 0, TAU); g.fillStyle = hexA('#ff2040', 0.08 + f * 0.18); g.fill(); g.strokeStyle = hexA('#ff4060', 0.6); g.lineWidth = 2; g.stroke();
+      if (h.tele > 0) { const f = 1 - h.tele / (h.t0 || (h.t0 = Math.max(1.1, h.tele))); g.beginPath(); g.arc(h.x, h.y, h.r, 0, TAU); g.fillStyle = hexA('#ff2040', 0.08 + f * 0.18); g.fill(); g.strokeStyle = hexA('#ff4060', 0.6); g.lineWidth = 2; g.stroke();
         g.beginPath(); g.arc(h.x, h.y, h.r * clamp(f, 0, 1), 0, TAU); g.strokeStyle = '#ff6080'; g.stroke(); }
       else { g.globalCompositeOperation = 'lighter'; glow(h.x, h.y, h.r * 1.8, h.c, h.life * 3); g.globalCompositeOperation = 'source-over'; }
     } else if (h.k === 'laser' || h.k === 'aim') {
@@ -2016,6 +2102,17 @@ function renderRun() {
           const ar = a + Math.sign(h.spin) * 0.25; g.fillStyle = '#ff5060'; g.beginPath(); g.arc(h.x + Math.cos(ar) * 160, h.y + Math.sin(ar) * 160, 5, 0, TAU); g.fill(); }
         else { g.globalCompositeOperation = 'lighter'; g.strokeStyle = hexA(h.c, 0.85); g.lineWidth = h.w; g.beginPath(); g.moveTo(h.x, h.y); g.lineTo(x1, y1); g.stroke(); g.strokeStyle = '#ffffff'; g.lineWidth = h.w * 0.3; g.stroke(); g.globalCompositeOperation = 'source-over'; }
       }
+    } else if (h.k === 'track') {
+      const x1 = h.x + Math.cos(h.a) * h.len, y1 = h.y + Math.sin(h.a) * h.len;
+      if (h.tele > 0) { g.strokeStyle = hexA('#ff3040', 0.35 + Math.sin(R.t * 25) * 0.15); g.lineWidth = 6; g.setLineDash([18, 10]); g.beginPath(); g.moveTo(h.x, h.y); g.lineTo(x1, y1); g.stroke(); g.setLineDash([]); }
+      else { g.globalCompositeOperation = 'lighter'; g.strokeStyle = hexA(h.c, 0.35); g.lineWidth = h.w * 2.2; g.beginPath(); g.moveTo(h.x, h.y); g.lineTo(x1, y1); g.stroke();
+        g.strokeStyle = hexA(h.c, 0.9); g.lineWidth = h.w; g.stroke(); g.strokeStyle = '#ffffff'; g.lineWidth = h.w * 0.35; g.stroke(); g.globalCompositeOperation = 'source-over'; }
+    } else if (h.k === 'tether' && h.src) {
+      const m = sunMoons(h.src);
+      g.beginPath(); for (let i = 0; i <= m.length; i++) { const q = m[i % m.length]; i ? g.lineTo(h.x + q[0], h.y + q[1]) : g.moveTo(h.x + q[0], h.y + q[1]); }
+      if (h.tele > 0) { g.strokeStyle = hexA('#ff3040', 0.35 + Math.sin(R.t * 25) * 0.15); g.lineWidth = 4; g.setLineDash([12, 10]); g.stroke(); g.setLineDash([]); }
+      else { g.globalCompositeOperation = 'lighter'; g.strokeStyle = hexA(h.c, 0.35); g.lineWidth = h.w * 2.6; g.stroke(); g.strokeStyle = hexA(h.c, 0.95); g.lineWidth = h.w; g.stroke();
+        g.strokeStyle = '#ffffff'; g.lineWidth = h.w * 0.3; g.stroke(); g.globalCompositeOperation = 'source-over'; }
     } else if (h.k === 'marker' && h.tele > 0) {
       const f = 1 - h.tele / 1.1; g.beginPath(); g.arc(h.x, h.y, 16 - f * 8, 0, TAU); g.strokeStyle = hexA('#ff5040', 0.5 + f * 0.5); g.lineWidth = 3; g.stroke();
     } else if (h.k === 'well') {

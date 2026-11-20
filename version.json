@@ -1,8 +1,8 @@
 {
-  "versionCode": 34,
-  "versionName": "4.2",
+  "versionCode": 35,
+  "versionName": "4.3",
   "apk": "https://raw.githubusercontent.com/nooberttmc/nooberto/claude/android-game-apk-w2q4io/Emberwake.apk",
   "notes": [
-    "Final boss music: the Eclipse interlude breathes again; safer loudness"
+    "The Drowned Sun reworked: 3.5x health, bigger, no other enemies, new attacks (Prominence, Coronal Arcs, Sunbeam, Moon Web, Sunfall, Last Light)"
   ]
 }
