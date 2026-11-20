@@ -6,7 +6,7 @@
 // every guitar re-amped through an overdrive, Guitarix JCM800 + DS-1 and a 4x12 cabinet curve.
 // Drums: at most two breakbeats from the pack at any moment, pitched from 160 to 178 BPM.
 const BPM = 178, STEP = 60 / BPM / 4, BAR = STEP * 16;
-const SECTIONS = [['intro', 8], ['a1', 16], ['b1', 16], ['brk', 8], ['a2', 16], ['clx', 16], ['inter', 8], ['a3', 16], ['b3', 12], ['outro', 4]];
+const SECTIONS = [['intro', 8], ['a1', 16], ['b1', 16], ['brk', 8], ['a2', 16], ['clx', 16], ['inter', 8], ['a3', 16], ['b3', 12], ['coda', 8], ['outro', 6]];
 const LEN = Object.fromEntries(SECTIONS), START = {}; { let g = 0; for (const [n, l] of SECTIONS) { START[n] = g; g += l; } }
 const Q = { m: [0, 3, 7], M: [0, 4, 7], '7': [0, 4, 7, 10] };
 // roots in octave 3 (F#3 = 54)
@@ -15,6 +15,7 @@ const PROG_A = [Fsm, E, D, Cs, Bm, D, G, Cs7];        // the descent, then the d
 const PROG_B = [D, A, E, Fsm, Bm, Fsm, G, Cs7];
 const PROG_BRK = [Fsm, Fsm, G, Cs];
 const PROG_CLX = [Fsm, Fsm, D, D, Bm, Bm, Cs, Cs7];
+const CODA_P = [[54, 'm'], [54, 'm'], [50, 'M'], [50, 'M'], [59, 'm'], [59, 'm'], [55, 'M'], [49, '7']];
 const PROG_INT = [Fsm, D, Bm, Cs, Fsm, D, Cs7, D7];   // D7 pivots into G minor
 // melodies: [16th step, midi, length in 16ths]
 const THEME_A = [
@@ -50,7 +51,15 @@ const B3_LINE = [
    [8, 73, 2], [10, 76, 2], [12, 80, 2], [14, 83, 2]],                                                   // E: fall, then climb back
   [[0, 85, 8], [8, 78, 8]],                                                                              // F#m: home
 ];
-const B3_TWIN = [3, 4, 5, 7, 8, 9, 11];   // the harmony guitar doubles the held and stab bars, not the runs  // natural minor from the tonic
+const B3_TWIN = [3, 4, 5, 7, 8, 9, 11];
+// coda: the main theme returns broadened (every note twice as long) as the band settles, then a dark bII and the
+// dominant lead into the final fall. Chords (F# minor, played in G minor): F#m F#m D D | Bm Bm G C#7
+const CODA_LINE = [
+  [[0, 73, 8], [8, 78, 8]], [[0, 76, 4], [4, 78, 4], [8, 81, 8]],     // theme bar 1, broadened
+  [[0, 78, 8], [8, 74, 4], [12, 78, 4]], [[0, 81, 12], [12, 83, 4]],   // theme bar 3, broadened
+  [[0, 74, 16]], [[0, 73, 8], [8, 71, 8]],                             // settling: D, then C# - B
+  [[0, 74, 8], [8, 71, 8]], [[0, 77, 8], [8, 80, 8]],                  // bII (G): D - B; dominant: E# - G#
+];   // the harmony guitar doubles the held and stab bars, not the runs  // natural minor from the tonic
 const RUNS = [[1, 2, 1, 3, 2, 1, 2, 0, 1, 0, 1, 2], [0, 1, 2, 3, 2, 3, 4, 3, 2, 1, 2, 1], [3, 2, 1, 2, 0, 1, 0, -1, 0, 1, 2, 3]];
 
 function bars() {
@@ -64,6 +73,7 @@ function bars() {
     else if (sec === 'inter') ch = PROG_INT[b];
     else if (sec === 'a3') { ch = PROG_A[b % 8]; tr = 1; }
     else if (sec === 'b3') { ch = PROG_B[b % 8]; tr = 1; }
+    else if (sec === 'coda') { ch = CODA_P[b]; tr = 1; }
     else { ch = Fsm; tr = 1; }
     out.push({ sec, b, gi, t0: gi * BAR, ch, tr, notes: Q[ch[1]].map(i => ch[0] + i + tr) });
   }
@@ -209,16 +219,25 @@ function guitarEvents() {
       lowStr(84 + b * 3);
       if (b >= 4) { const v = voicing(notes, 73); melody(t0, b === 7 ? [[0, 74, 8], [8, 78, 4], [12, 81, 4]] : [[0, v[0], 8], [8, v[1], 8]], 0, notes, b >= 6); }
       if (b >= 6) for (let s = 0; s < 16; s += 4) timp(at(s), ch, tr, 90 + b * 4 + s);
+    } else if (sec === 'coda') { // the band settles: ringing chords and half-time first, then piano and long notes
+      melody(t0, CODA_LINE[b], tr, notes, b < 4 || b >= 6);
+      if (b < 4) { pc(t0, r, STEP * 7.6, 'open', 118 - b * 2); pc(at(8), r, STEP * 7.6, 'open', 112 - b * 2); P.bass.push([t0, r - 12, BAR * 0.98, 110, 'open']); }
+      else { pc(t0, r, STEP * 15.6, 'open', 104 - (b - 4) * 4); P.bass.push([t0, r - 12, BAR * 0.98, 100 - (b - 4) * 4, 'open']); }
+      if (b >= 4) pianoBar(t0, notes, ch, tr, 88, false);                       // the intro's piano returns
+      chord(P.strings, t0, str.concat([str[0] + 12]), BAR, 84); chord(P.organ, t0, low, BAR, 80 + b * 2); lowStr(96);
+      if (b === 0 || b === 4) chord(P.brass, t0, str, STEP * 8, 104);
+      if (b % 2 === 0 && b < 7) timp(t0, ch, tr, 104);
+      if (b === 7) for (let s = 0; s < 16; s++) note(P.timp, at(s), 31, STEP, 70 + s * 3);   // a roll that swells into the end
     } else if (b === 0) { // outro: G minor; the lead falls two octaves and everything lands on one low G
       pc(t0, 43, STEP * 3, 'open', 124); for (let s = 3; s < 16; s++) pc(at(s), 43, STEP * 0.9, s % 4 === 0 ? 'open' : 'mute', 110);
       P.bass.push([t0, 31, BAR * 0.98, 116, 'open']);
       [79, 77, 74, 70, 67, 65, 62, 58].forEach((m, i) => { note(P.lead, at(i * 2), m, STEP * 2 + 0.012, 116, 'legato'); note(P.harm, at(i * 2), m - 5, STEP * 2 + 0.012, 106, 'legato'); });   // legato fall into the last note
       chord(P.organ, t0, [43, 50, 55], BAR, 100); chord(P.strings, t0, [55, 58, 62], BAR, 96); chord(P.low, t0, [31, 43], BAR, 110); timp(t0, [43], 0, 124);
       const tEnd = t0 + BAR; // the final low note
-      pc(tEnd, 43, BAR * 2.6, 'open', 126); P.bass.push([tEnd, 31, BAR * 2.6, 120, 'open']);
-      note(P.lead, tEnd, 55, BAR * 2.6, 118, 'lead'); note(P.harm, tEnd, 43, BAR * 2.6, 110, 'lead');
-      chord(P.organ, tEnd, [31, 43, 50], BAR * 3, 108); chord(P.low, tEnd, [31, 43], BAR * 3, 116); chord(P.brass, tEnd, [43, 50, 55], BAR * 2, 118);
-      note(P.piano, tEnd, 31, BAR * 3, 110); note(P.piano, tEnd, 19, BAR * 3, 110); note(P.timp, tEnd, 31, BAR, 127);
+      pc(tEnd, 43, BAR * 4.4, 'open', 126); P.bass.push([tEnd, 31, BAR * 4.4, 120, 'open']);
+      note(P.lead, tEnd, 55, BAR * 4.4, 118, 'lead'); note(P.harm, tEnd, 43, BAR * 4.4, 110, 'lead');
+      chord(P.organ, tEnd, [31, 43, 50], BAR * 4.8, 108); chord(P.low, tEnd, [31, 43], BAR * 4.8, 116); chord(P.brass, tEnd, [43, 50, 55], BAR * 2, 118);
+      note(P.piano, tEnd, 31, BAR * 4.8, 110); note(P.piano, tEnd, 19, BAR * 4.8, 110); note(P.timp, tEnd, 31, BAR, 127);
     }
   }
   const quick = n => n[4] === 'open' && n[2] < STEP * 2.5;
@@ -388,8 +407,16 @@ async function renderSong() {
       continue;
     }
     if (sec === 'outro') { if (b === 0) { impact(t0, 1); groove('amen_yki', t0, 0, 1, 12); roll('amen_yki', at(12), 4, 6, 1, 1.3, 0.6, 1); kick(t0, 1); sub(t0, 31, BAR, 0.32); }
-      if (b === 1) { impact(t0, 1.5); kick(t0, 1.2); hit(t0, 70, 24, 3, 0.7, master); sub(t0, 31, BAR * 2.6, 0.45); }
+      if (b === 1) { impact(t0, 1.5); kick(t0, 1.2); hit(t0, 70, 24, 3, 0.7, master); sub(t0, 31, BAR * 4.4, 0.45); }
       continue; }
+    if (sec === 'coda') {
+      if (b === 0) impact(t0, 1.2);
+      if (b < 4) { [0, 10].forEach(s => { kick(at(s), 1); slice('steppin1', at(s), INFO.steppin1.kick, 1, R, 0.8); });
+                   slice('steppin1', at(8), INFO.steppin1.snare, 2, R * 0.9, 1.0); sub(t0, subN, BAR - 0.02, 0.3); }
+      else if (b < 6) { kick(t0, 0.8); sub(t0, subN, BAR - 0.02, 0.24); }
+      else sub(t0, subN, BAR - 0.02, 0.2);
+      continue;
+    }
     if (b === 0) impact(t0, sec === 'a3' || sec === 'clx' ? 1.4 : 1);
     else if (b % 8 === 0 && sec !== 'brk' && sec !== 'inter') impact(t0, 0.8);
     if (last && sec !== 'brk') riser(t0 + BAR, BAR, 0.06);
@@ -423,7 +450,7 @@ async function renderSong() {
     sub(t0, subN, BAR - 0.02, 0.3);
   }
   const end = totalBars * BAR + 1.5;
-  master.gain.setValueAtTime(0.8, end - 2.2); master.gain.linearRampToValueAtTime(0, end);
+  master.gain.setValueAtTime(0.8, end - 5); master.gain.linearRampToValueAtTime(0, end);   // a long, gentle fade on the last note
   const out = await ctx.startRendering();
   const L = out.getChannelData(0), Rc = out.getChannelData(1), n = L.length, buf = new ArrayBuffer(44 + n * 4), v = new DataView(buf);
   let peak = 0; for (let i = 0; i < n; i++) peak = Math.max(peak, Math.abs(L[i]), Math.abs(Rc[i]));
