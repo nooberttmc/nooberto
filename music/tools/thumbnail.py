@@ -25,11 +25,18 @@ def arrangement(events, drums, audio, t=96.0):
         return Image.open(png).convert('RGB')
 
 def icon(grid=80):
-    """A sun setting into the sea: clean half disc, bold rays, four swells narrowing to the horizon with the sun's
-    warm reflection down their middle, and ember sparks. Drawn on an 80x80 grid, then scaled with hard pixel edges."""
-    img = Image.new('RGBA', (grid, grid), (0, 0, 0, 0)); d = ImageDraw.Draw(img)
+    """A sun setting into the sea: a half disc shading from warm gold at its heart to cream at the rim, bold rays,
+    four smooth swells narrowing to the horizon with the sun's reflection down their middle, and ember twinkles.
+    Drawn on an 80x80 grid, then scaled with hard pixel edges."""
+    img = Image.new('RGBA', (grid, grid), (0, 0, 0, 0)); d = ImageDraw.Draw(img); px = img.load()
     cx, hy, r = 40, 46, 20                                        # centre x, horizon y, sun radius
-    d.pieslice([cx - r, hy - r, cx + r - 1, hy + r - 1], 180, 360, fill=CREAM)
+    heart = (246, 186, 98)                                        # a deeper, warmer gold at the centre
+    for y in range(hy - r, hy):
+        for x in range(cx - r, cx + r):
+            dist = np.hypot(x - cx + 0.5, y - hy + 0.5)
+            if dist <= r:
+                f = min(1, (dist / r) ** 1.6 * 1.15)              # heart -> cream towards the rim
+                px[x, y] = tuple(int(heart[i] + (CREAM[i] - heart[i]) * f) for i in range(3)) + (255,)
     for k in range(1, 6):                                         # five rays over the upper half
         ang = np.pi + (k + 0.5) * np.pi / 7; L = 10 if k % 2 == 1 else 7
         x0, y0 = cx - 0.5 + np.cos(ang) * (r + 4), hy - 0.5 + np.sin(ang) * (r + 4)
@@ -40,16 +47,20 @@ def icon(grid=80):
         f = min(1, abs(x - cx + 0.5) / half * 1.4)
         a0, a1, k = (GOLD, ORANGE, f * 2) if f < 0.5 else (ORANGE, RED, f * 2 - 1)
         return tuple(int(a0[i] + (a1[i] - a0[i]) * k) for i in range(3))
-    for n, (row, half) in enumerate([(hy + 6, 27), (hy + 12, 21), (hy + 18, 15), (hy + 24, 9)]):   # swells, narrowing
+    for n, (row, half) in enumerate([(hy + 6, 27), (hy + 12, 21), (hy + 18, 15), (hy + 24, 9)]):   # smooth swells
         for x in range(cx - half, cx + half):
-            ph = (x - cx + n * 3) % 8
-            if ph == 7: continue                                  # small breaks between crests
-            y = row - (1 if ph in (2, 3, 4) else 0)               # a rounded crest on every wave
-            d.rectangle([x, y, x, y + 1], fill=wave_col(x, half))
-    for fx, fy, big in [(8, 8, 1), (70, 7, 1), (6, 26, 0), (73, 24, 0), (20, 4, 0), (58, 4, 0)]:   # ember sparks: twinkles
-        a = 3 if big else 2
-        d.line([(fx - a, fy), (fx + a, fy)], fill=GOLD + (200,)); d.line([(fx, fy - a), (fx, fy + a)], fill=GOLD + (200,))
-        d.point((fx, fy), fill=CREAM + (230,))
+            # a gentle swell: a long, shallow sine (one-pixel rise), so the line reads as smooth water
+            y = row - int(round(0.5 + 0.5 * np.sin(2 * np.pi * (x - cx) / 16 + n * 1.7)))
+            edge = min(x - (cx - half), cx + half - 1 - x)        # the ends fade out instead of breaking off
+            al = int(255 * min(1, (edge + 1) / 4))
+            d.rectangle([x, y, x, y + 1], fill=wave_col(x, half) + (al,))
+    for fx, fy, big in [(8, 8, 1), (70, 7, 1), (6, 26, 0), (73, 24, 0), (20, 4, 0), (58, 4, 0)]:   # twinkles
+        a = 4 if big else 3
+        for k in range(1, a + 1):                                 # arms fade towards their tips
+            al = int(230 * (1 - (k - 1) / a) ** 1.2)
+            for dx, dy in [(k, 0), (-k, 0), (0, k), (0, -k)]: px[fx + dx, fy + dy] = GOLD + (al,)
+        for dx, dy in [(1, 1), (-1, 1), (1, -1), (-1, -1)]: px[fx + dx, fy + dy] = GOLD + (110,)   # soft diagonal glow
+        px[fx, fy] = CREAM + (255,)
     return img
 
 GLYPHS = {   # 5-wide pixel font, rows 0-6 + 2 descender rows
