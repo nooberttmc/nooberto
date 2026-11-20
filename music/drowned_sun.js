@@ -139,7 +139,9 @@ function guitarEvents() {
       lowStr(84 + b * 3); chord(P.organ, t0, low, BAR, 66 + b * 4);
       if (b >= 2) strings(70 + b * 4);
       if (b % 2 === 0 || b >= 4) timp(t0, ch, tr, 82 + b * 5);
-      if (b >= 4 && b < 7) { pc(t0, r, STEP * 7.5, 'open', 116); pc(at(8), r, STEP * 7.5, 'open', 112); P.bass.push([t0, r - 12, BAR * 0.98, 110, 'open']); melody(t0, THEME_A[b - 4], 0, notes, false); }
+      if (b >= 4 && b < 7) { pc(t0, r, STEP * 7.5, 'open', 116); pc(at(8), r, STEP * 7.5, 'open', 112); P.bass.push([t0, r - 12, BAR * 0.98, 110, 'open']); melody(t0, THEME_A[b - 4], 0, notes, false);
+        if (b === 6) { // the phrase's last two notes hold into each other, and the last one rings on until the falling run
+          const n = P.lead.length; P.lead[n - 2][2] = STEP * 6 + 0.012; P.lead[n - 1][2] = STEP * 8 + 0.012; } }
       if (b === 7) { pc(t0, r, STEP * 5.5, 'open', 118); for (let s = 6; s < 16; s++) pc(at(s), r, STEP * 0.9, 'mute', 92 + s * 2); P.bass.push([t0, r - 12, BAR * 0.98, 110, 'open']); scaleDown(t0, 85, 0, 10, 6); }
     } else if (sec === 'a1' || sec === 'a2' || sec === 'a3') { // the main theme
       const twin = sec !== 'a1' || b >= 8;
@@ -185,7 +187,7 @@ function guitarEvents() {
     } else if (b === 0) { // outro: G minor; the lead falls two octaves and everything lands on one low G
       pc(t0, 43, STEP * 3, 'open', 124); for (let s = 3; s < 16; s++) pc(at(s), 43, STEP * 0.9, s % 4 === 0 ? 'open' : 'mute', 110);
       P.bass.push([t0, 31, BAR * 0.98, 116, 'open']);
-      [79, 77, 74, 70, 67, 65, 62, 58].forEach((m, i) => { note(P.lead, at(i * 2), m, STEP * 1.9, 116, 'open'); note(P.harm, at(i * 2), m - 5, STEP * 1.9, 106, 'open'); });
+      [79, 77, 74, 70, 67, 65, 62, 58].forEach((m, i) => { note(P.lead, at(i * 2), m, STEP * 2 + 0.012, 116, 'legato'); note(P.harm, at(i * 2), m - 5, STEP * 2 + 0.012, 106, 'legato'); });   // legato fall into the last note
       chord(P.organ, t0, [43, 50, 55], BAR, 100); chord(P.strings, t0, [55, 58, 62], BAR, 96); chord(P.low, t0, [31, 43], BAR, 110); timp(t0, [43], 0, 124);
       const tEnd = t0 + BAR; // the final low note
       pc(tEnd, 43, BAR * 2.6, 'open', 126); P.bass.push([tEnd, 31, BAR * 2.6, 120, 'open']);
@@ -286,9 +288,9 @@ async function renderSong() {
     for (const b in all) if ((quick[b] || 0) >= 5 && quick[b] / all[b] >= 0.6) fast.add(+b);
     const p3 = b => b >= 88 && b < 120, db = v => Math.pow(10, v / 20);
     const inter = b => b >= 80 && b < 88;
-    const adj = { rhythmL: b => (fast.has(b) ? -2.5 : 0) + (p3(b) ? -3 : 0) + (inter(b) ? -3 : 0), rhythmR: b => (fast.has(b) ? -2.5 : 0) + (p3(b) ? -3 : 0) + (inter(b) ? -3 : 0),
-                  lead: b => (p3(b) ? 2 : 0) + (fast.has(b) ? 1.5 : 0), harmony: b => p3(b) ? 1 : 0,
-                  piano: b => b >= 80 && b < 88 ? 8 : 0 };   // the interlude belongs to the piano
+    const adj = { rhythmL: b => (fast.has(b) ? -2.5 : 0) + (p3(b) ? -3 : 0) + (inter(b) ? -6 : 0), rhythmR: b => (fast.has(b) ? -2.5 : 0) + (p3(b) ? -3 : 0) + (inter(b) ? -6 : 0),
+                  lead: b => (p3(b) ? 2 : 0) + (fast.has(b) ? 1.5 : 0) + (inter(b) ? -4 : 0), harmony: b => p3(b) ? 1 : 0,
+                  piano: b => inter(b) ? 2 : 0, bass: b => inter(b) ? -3 : 0, low: b => inter(b) ? -3 : 0 };   // the interlude belongs to the piano: the band steps back around it
     for (const k in adj) if (RIDE[k]) for (let b = 1; b < BARS.length; b++) {
       const a = adj[k](b - 1), c = adj[k](b); if (a === c) continue;
       RIDE[k].gain.setValueAtTime(db(a), b * BAR - 0.06); RIDE[k].gain.linearRampToValueAtTime(db(c), b * BAR);
@@ -305,6 +307,9 @@ async function renderSong() {
   const drumLP = ctx.createBiquadFilter(); drumLP.type = 'lowpass'; drumLP.frequency.value = 18000;
   const drumLow = ctx.createBiquadFilter(); drumLow.type = 'lowshelf'; drumLow.frequency.value = 110; drumLow.gain.value = 0;
   drumBus.connect(drumLow); drumLow.connect(drumBus2); drumDip.connect(drumLP); drumLP.connect(dry); send(drumLP, 0.05);
+  { const d3 = Math.pow(10, -3 / 20);   // the drums step back 3 dB for the piano interlude (bars 81-88)
+    drumBus2.gain.setValueAtTime(1, 80 * BAR - 0.06); drumBus2.gain.linearRampToValueAtTime(d3, 80 * BAR);
+    drumBus2.gain.setValueAtTime(d3, 88 * BAR - 0.06); drumBus2.gain.linearRampToValueAtTime(1, 88 * BAR); }
   const DLOG = { break: [], layer: [], kick: [] };   // drum hits, for the visualizer
   function slice(name, t, idx, len, rate, vol, quiet) {
     const buf = BRK[name]; if (!buf) return;

@@ -1,8 +1,8 @@
 {
-  "versionCode": 27,
-  "versionName": "3.5",
+  "versionCode": 28,
+  "versionName": "3.6",
   "apk": "https://raw.githubusercontent.com/nooberttmc/nooberto/claude/android-game-apk-w2q4io/Emberwake.apk",
   "notes": [
-    "Final boss music: piano leads the Eclipse interlude; held lead notes split into half notes"
+    "Final boss music: interlude piano sounds like the intro again; legato phrase endings"
   ]
 }
