@@ -1,13 +1,14 @@
 // song-forge note checker: node check_notes.js song.js
-// Needs song.js to define QUAL (chord root pitch class -> intervals, e.g. {5: [0, 3, 7], 0: [0, 4, 7, 10]}), SCALE (allowed
-// pitch classes) and guitarEvents() returning `chords` (one root pitch class per bar) and `bar_times`.
+// Best: guitarEvents() returns `harmony`, one {tones: [chord pitch classes, root first], scale: [allowed pitch classes]} per bar
+// (handles key changes and borrowed notes per chord). Older form: song.js defines QUAL (root pc -> intervals), SCALE, and
+// guitarEvents() returns `chords` (one root pc per bar).
 // Prints: out-of-key notes; E natural (the harmonic-minor leading tone of F minor) anywhere but over the V (edit LEADING/V
 // below for other keys); non-chord tones held on strong beats (beat 1 and the 3+3+2 hits) in melody parts; minor 2nds /
 // minor 9ths sounding together between any two parts for > 120 ms (unaccented stepwise passing tones are allowed).
 const fs = require('fs'), path = require('path'); global.window = {};
 const SONG = path.resolve(process.argv[2] || 'song.js');
-eval(fs.readFileSync(SONG, 'utf8') + ';global.G = guitarEvents; global.QUAL = QUAL; global.SCALE_ = typeof SCALE !== "undefined" ? SCALE : null;');
-const ev = G(), bt = ev.bar_times, ch = ev.chords, N = 'C Db D Eb E F Gb G Ab A Bb B'.split(' ');
+eval(fs.readFileSync(SONG, 'utf8') + ';global.G = guitarEvents; global.QUAL = typeof QUAL !== "undefined" ? QUAL : {}; global.SCALE_ = typeof SCALE !== "undefined" ? SCALE : null;');
+const ev = G(), bt = ev.bar_times, ch = ev.chords || [], HM = ev.harmony, N = 'C Db D Eb E F Gb G Ab A Bb B'.split(' ');
 const barOf = t => { let b = 0; while (b + 1 < bt.length && bt[b + 1] <= t + 1e-6) b++; return b; };
 const slot = t => { const b = barOf(t); return [b, (t - bt[b]) / (bt[b + 1] - bt[b]) * 8]; };
 const SC = SCALE_ || [5, 7, 8, 10, 0, 1, 3, 4], LEADING = 4, V = 0;   // F minor defaults
@@ -17,10 +18,10 @@ for (const [part, p] of Object.entries(ev.parts)) {
   if (/R$/.test(part)) continue;   // second takes double the L part
   for (const [t, m, len, v, art] of p.notes) {
     if (art === 'mute') continue;
-    const [b, s] = slot(t), pc = ch[b], cps = QUAL[pc].map(i => (pc + i) % 12), mp = m % 12;
-    const tag = `${part.padEnd(8)} bar ${String(b + 1).padStart(3)} slot ${s.toFixed(1).padStart(4)} ${name(m).padEnd(4)} over ${N[pc]}${QUAL[pc][1] === 3 ? 'm' : QUAL[pc].length > 3 ? '7' : ''}`;
-    if (!SC.includes(mp)) { console.log('OUT OF KEY ', tag); problems++; continue; }
-    if (mp === LEADING && pc !== V) { console.log('E NOT ON V ', tag); problems++; }
+    const [b, s] = slot(t), pc = HM ? HM[b].tones[0] : ch[b], cps = HM ? HM[b].tones : QUAL[pc].map(i => (pc + i) % 12), mp = m % 12, SCb = HM ? HM[b].scale : SC;
+    const iv = cps.map(c => (c - pc + 12) % 12), tag = `${part.padEnd(8)} bar ${String(b + 1).padStart(3)} slot ${s.toFixed(1).padStart(4)} ${name(m).padEnd(4)} over ${N[pc]}${iv[1] === 3 ? 'm' : iv.length > 3 ? '7' : ''}`;
+    if (!SCb.includes(mp)) { console.log('OUT OF KEY ', tag); problems++; continue; }
+    if (!HM && mp === LEADING && pc !== V) { console.log('E NOT ON V ', tag); problems++; }
     const strong = Math.abs(s - Math.round(s)) < 0.05 && [0, 3, 6].includes(Math.round(s));
     const longEnough = len > (bt[b + 1] - bt[b]) / 8 * 1.2;
     if (!cps.includes(mp) && strong && longEnough && !/bass|piano|rhythm|timp|arp/.test(part)) { console.log('NON-CHORD  ', tag, `(${(len * 1000) | 0} ms)`); problems++; }

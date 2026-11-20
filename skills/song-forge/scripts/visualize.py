@@ -67,7 +67,7 @@ def bar_of(t):
     if BT is None: return int(t // BAR)
     return max(0, bisect.bisect_right(BT, t) - 1) if t < BT[-1] else len(BT) - 1 + int((t - BT[-1]) // BAR)
 NICE = {'brassL': 'Brass', 'brassR': 'Brass', 'bells': 'Bells', 'arp': 'Synth Arp', 'lead': 'Lead Guitar', 'harmony': 'Harmony', 'rhythmL': 'Rhythm Gtrs', 'rhythmR': 'Rhythm Gtrs', 'bass': 'Bass', 'piano': 'Piano',
-        'strings': 'Strings', 'low': 'Low Strings', 'brass': 'Brass', 'organ': 'Organ', 'timp': 'Timpani', 'synth': 'Synth', 'pad': 'Pad'}
+        'strings': 'Strings', 'choir': 'Choir', 'low': 'Low Strings', 'brass': 'Brass', 'organ': 'Organ', 'timp': 'Timpani', 'synth': 'Synth', 'pad': 'Pad'}
 
 def configure(ev, theme=None):
     global BG, PANEL, GRID, CREAM, GOLD, BPM, BAR, SECTIONS, PHASE, sec_at, BT, TEMPI
