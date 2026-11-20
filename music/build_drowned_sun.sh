@@ -6,4 +6,4 @@ mkdir -p stems
 node render.js drowned_sun.js "The Drowned Sun" --events stems/events.json
 python3 tools/guitar_stems.py stems/events.json stems
 STEMS=$(python3 -c "import json; print(' '.join(f'--stem {k}=stems/{k}.wav' for k in json.load(open('stems/events.json'))['parts']))")
-node render.js drowned_sun.js "The Drowned Sun" $STEMS --gain 5 --level 10.79:161.8
+node render.js drowned_sun.js "The Drowned Sun" $STEMS --gain 3.9 --level 10.79:161.8 --free 105.17:118.65

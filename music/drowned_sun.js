@@ -271,7 +271,7 @@ async function renderSong() {
   const master = ctx.createGain(); master.gain.value = 0.8;
   const lowShelf = ctx.createBiquadFilter(); lowShelf.type = 'lowshelf'; lowShelf.frequency.value = 80; lowShelf.gain.value = -3;
   const dark = ctx.createBiquadFilter(); dark.type = 'highshelf'; dark.frequency.value = 6000; dark.gain.value = -3;
-  master.connect(lowShelf); lowShelf.connect(dark); dark.connect(comp); comp.connect(ctx.destination);
+  const mride = ctx.createGain(); master.connect(mride); mride.connect(lowShelf); lowShelf.connect(dark); dark.connect(comp); comp.connect(ctx.destination);   // mride: whole-mix level shaping
   const dry = ctx.createGain(); dry.connect(master);
   const verb = ctx.createConvolver();
   { const len = SR * 3.2, ir = ctx.createBuffer(2, len, SR); for (let ch = 0; ch < 2; ch++) { const d = ir.getChannelData(ch); for (let i = 0; i < len; i++) d[i] = (rand() * 2 - 1) * Math.pow(1 - i / len, 2.4); } verb.buffer = ir; }
@@ -364,6 +364,12 @@ async function renderSong() {
   const drumLP = ctx.createBiquadFilter(); drumLP.type = 'lowpass'; drumLP.frequency.value = 18000;
   const drumLow = ctx.createBiquadFilter(); drumLow.type = 'lowshelf'; drumLow.frequency.value = 110; drumLow.gain.value = 0;
   drumBus.connect(drumLow); drumLow.connect(drumBus2); drumDip.connect(drumLP); drumLP.connect(dry); send(drumLP, 0.05);
+  { // into the interlude: the climax's last two bars ease down 2.5 dB, then the thinner interlude gets a small lift so it
+    // sits about 3.5 dB under the rest; its last two bars swell back up into Phase III
+    const v = d => Math.pow(10, d / 20), a = START.inter * BAR, b = START.a3 * BAR;
+    mride.gain.setValueAtTime(1, a - 2 * BAR); mride.gain.linearRampToValueAtTime(v(-2.5), a);
+    mride.gain.setValueAtTime(v(1.5), a); mride.gain.setValueAtTime(v(1.5), b - 2 * BAR); mride.gain.linearRampToValueAtTime(v(3), b - 0.05);
+    mride.gain.linearRampToValueAtTime(1, b); }
   for (let b = 1; b < BARS.length; b++) {   // drum level per bar (energy contour + the interlude)
     glide(drumBus2.gain, DRUM_DB(b - 1), DRUM_DB(b), b);
   }
