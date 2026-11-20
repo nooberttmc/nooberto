@@ -1,6 +1,6 @@
 """Render a DAW-style scrolling arrangement video of a song, in the colours of the Drowned Sun fight.
 
-usage: python3 visualize.py events.json drums.json song.mp3 out.mp4 [fps]
+usage: python3 visualize.py events.json drums.json song.mp3 out.mp4 [fps] [scale]   (scale 1.5 = 1920x1080)
 Tracks are stacked down the screen with their names on the left; every note is a thin bar that scrolls
 past the playhead at the left edge; each track's clip strip lights up in the colour of the current phase.
 """
@@ -28,7 +28,10 @@ def section(t):
 
 def mix(a, b, f): return tuple(int(a[k] + (b[k] - a[k]) * f) for k in range(3))
 
-def main(events, drums, audio, out, fps=60, start=0.0, length=None):
+def main(events, drums, audio, out, fps=60, start=0.0, length=None, scale=1.0):
+    # scale: 1.0 = 1280x720; 1.5 = 1920x1080. Every size below is multiplied by K, so the layout is identical.
+    K = scale; W_, H_ = int(round(W * K)), int(round(H * K)); X0_ = int(round(X0 * K)); PX_ = PX * K
+    u = lambda v: int(round(v * K))
     parts = json.load(open(events))['parts']
     dr = json.load(open(drums))
     # lanes: (label, clip name, note list, height)
@@ -42,7 +45,7 @@ def main(events, drums, audio, out, fps=60, start=0.0, length=None):
     drum = [[t, 0, d, 100, 'd'] for t, d, p in dr.get('kick', [])] + [[t, 4, d, 100, 'd'] for t, d, p in dr.get('layer', [])] + \
            [[t, 8 + p, d, 100, 'd'] for t, d, p in dr.get('break', [])]
     lanes.append(('Drums', 'Breaks', drum, 56))
-    top = 38
+    top = u(38)
     lay = []
     for label, clip, notes, h in lanes:
         notes = sorted(notes, key=lambda n: n[0])
@@ -50,26 +53,26 @@ def main(events, drums, audio, out, fps=60, start=0.0, length=None):
         lo, hi = min(ps), max(ps)
         lay.append(dict(label=label, clip=clip, notes=notes, starts=[n[0] for n in notes], y=top, h=h, lo=lo, hi=max(hi, lo + 1),
                         maxd=max([n[2] for n in notes] or [0]), bars=set(b for n in notes for b in range(int(n[0] / BAR), int((n[0] + n[2] - 1e-3) / BAR) + 1))))
-        top += h + 13
+        top += h + u(13)
     # stretch the lanes to fill the screen
-    k = (H - 44 - 13 * len(lay)) / sum(L['h'] for L in lay); y = 38
-    for L in lay: L['h'] = int(L['h'] * k); L['y'] = y; y += L['h'] + 13
+    k = (H_ - u(44) - u(13) * len(lay)) / sum(L['h'] for L in lay); y = u(38)
+    for L in lay: L['h'] = int(L['h'] * k); L['y'] = y; y += L['h'] + u(13)
     dur = float(subprocess.run(['ffprobe', '-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', audio], capture_output=True, text=True).stdout)
-    try: font = ImageFont.truetype('/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf', 10); fbig = ImageFont.truetype('/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf', 11)
+    try: font = ImageFont.truetype('/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf', u(10)); fbig = ImageFont.truetype('/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf', u(11))
     except OSError: font = fbig = ImageFont.load_default()
     # static backdrop: panel, track names, lane shading
-    base = Image.new('RGB', (W, H), BG); d = ImageDraw.Draw(base)
-    d.rectangle([0, 0, X0 - 4, H], fill=PANEL); d.line([X0 - 4, 0, X0 - 4, H], fill=(60, 26, 20))
-    d.text((4, 4), 'Instruments', font=font, fill=(200, 170, 150))
+    base = Image.new('RGB', (W_, H_), BG); d = ImageDraw.Draw(base)
+    d.rectangle([0, 0, X0_ - u(4), H_], fill=PANEL); d.line([X0_ - u(4), 0, X0_ - u(4), H_], fill=(60, 26, 20), width=max(1, u(1)))
+    d.text((u(4), u(4)), 'Instruments', font=font, fill=(200, 170, 150))
     for L in lay:
-        d.rectangle([X0, L['y'], W, L['y'] + L['h'] + 10], fill=(14, 6, 8))
-        d.text((4, L['y'] + 1), L['label'], font=font, fill=(214, 186, 160))
-        d.ellipse([X0 - 16, L['y'] + L['h'] - 2, X0 - 10, L['y'] + L['h'] + 4], outline=(120, 70, 50))
-        d.line([X0, L['y'] + L['h'] + 11, W, L['y'] + L['h'] + 11], fill=(26, 12, 12))
-    cmd = ['ffmpeg', '-y', '-loglevel', 'error', '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-s', f'{W}x{H}', '-r', str(fps), '-i', '-', '-ss', str(start), '-i', audio,
+        d.rectangle([X0_, L['y'], W_, L['y'] + L['h'] + u(10)], fill=(14, 6, 8))
+        d.text((u(4), L['y'] + u(1)), L['label'], font=font, fill=(214, 186, 160))
+        d.ellipse([X0_ - u(16), L['y'] + L['h'] - u(2), X0_ - u(10), L['y'] + L['h'] + u(4)], outline=(120, 70, 50))
+        d.line([X0_, L['y'] + L['h'] + u(11), W_, L['y'] + L['h'] + u(11)], fill=(26, 12, 12), width=max(1, u(1)))
+    cmd = ['ffmpeg', '-y', '-loglevel', 'error', '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-s', f'{W_}x{H_}', '-r', str(fps), '-i', '-', '-ss', str(start), '-i', audio,
            '-c:v', 'libx264', '-preset', 'medium', '-crf', '20', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-b:a', '192k', '-shortest', '-movflags', '+faststart', out]
     enc = subprocess.Popen(cmd, stdin=subprocess.PIPE)
-    view = (W - X0) / PX
+    view = (W_ - X0_) / PX_
     nframes = int(((length or dur - start)) * fps)
     for fi in range(nframes):
         t = start + fi / fps
@@ -81,10 +84,10 @@ def main(events, drums, audio, out, fps=60, start=0.0, length=None):
         # ruler: bar numbers scroll with the music
         b0 = int(t / BAR)
         for b in range(b0, b0 + int(view / BAR) + 2):
-            x = X0 + (b * BAR - t) * PX
-            if x < X0: continue
-            g.line([x, 22, x, 32], fill=(110, 70, 50)); g.text((x + 3, 20), str(b + 1), font=font, fill=(150, 110, 90))
-            g.line([x, 34, x, H], fill=GRID)
+            x = X0_ + (b * BAR - t) * PX_
+            if x < X0_: continue
+            g.line([x, u(22), x, u(32)], fill=(110, 70, 50), width=max(1, u(1))); g.text((x + u(3), u(20)), str(b + 1), font=font, fill=(150, 110, 90))
+            g.line([x, u(34), x, H_], fill=GRID, width=max(1, u(1)))
         for L in lay:
             y, h = L['y'], L['h']
             i0 = bisect.bisect_left(L['starts'], t - L['maxd'] - 0.01); i1 = bisect.bisect_right(L['starts'], t + view)
@@ -95,25 +98,26 @@ def main(events, drums, audio, out, fps=60, start=0.0, length=None):
                 if b in L['bars']:
                     e = b
                     while e + 1 in L['bars'] and (e + 1) * BAR < t + view: e += 1
-                    xa = max(X0, X0 + (b * BAR - t) * PX); xb = min(W, X0 + ((e + 1) * BAR - t) * PX) - 1
-                    if xb > xa: g.rectangle([xa, y, xb, y + 9], fill=mix(BG, col, 0.62))
-                    if xb - xa > 60: g.text((xa + 4, y - 1), L['clip'] + ' ' + str(b // 8 + 1), font=font, fill=mix(col, CREAM, 0.6))
+                    xa = max(X0_, X0_ + (b * BAR - t) * PX_); xb = min(W_, X0_ + ((e + 1) * BAR - t) * PX_) - 1
+                    if xb > xa: g.rectangle([xa, y, xb, y + u(9)], fill=mix(BG, col, 0.62))
+                    if xb - xa > u(60): g.text((xa + u(4), y - u(1)), L['clip'] + ' ' + str(b // 8 + 1), font=font, fill=mix(col, CREAM, 0.6))
                     b = e + 1
                 else: b += 1
             span = L['hi'] - L['lo']
             for n in vis:
-                x1 = X0 + (n[0] - t) * PX; x2 = X0 + (n[0] + n[2] - t) * PX
-                ny = y + 12 + (h - 6) * (1 - (n[1] - L['lo']) / span) if span > 1 else y + 12 + h / 2 - 4
+                x1 = X0_ + (n[0] - t) * PX_; x2 = X0_ + (n[0] + n[2] - t) * PX_
+                ny = y + u(12) + (h - u(6)) * (1 - (n[1] - L['lo']) / span) if span > 1 else y + u(12) + h / 2 - u(4)
                 playing = n[0] <= t < n[0] + n[2]
                 c = CREAM if playing else mix(col, CREAM, 0.55)
-                xa = max(X0, x1); g.rectangle([xa, ny, max(xa + 1, x2 - 1), ny + 2], fill=c)
-                if playing: g.rectangle([X0, ny - 1, X0 + 3, ny + 3], fill=GOLD)
+                xa = max(X0_, x1); g.rectangle([xa, ny, max(xa + 1, x2 - 1), ny + u(2)], fill=c)
+                if playing: g.rectangle([X0_, ny - u(1), X0_ + u(3), ny + u(3)], fill=GOLD)
         # playhead glow
-        g.line([X0, 34, X0, H], fill=GOLD, width=2)
+        g.line([X0_, u(34), X0_, H_], fill=GOLD, width=u(2))
         enc.stdin.write(img.tobytes())
         if fi % (fps * 20) == 0: print(f'{t:.0f}s / {dur:.0f}s', flush=True)
     enc.stdin.close(); enc.wait()
     print('wrote', out)
 
 if __name__ == '__main__':
-    main(sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4], int(sys.argv[5]) if len(sys.argv) > 5 else 60)
+    main(sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4], int(sys.argv[5]) if len(sys.argv) > 5 else 60,
+         scale=float(sys.argv[6]) if len(sys.argv) > 6 else 1.0)
