@@ -1,4 +1,4 @@
-// "The Drowned Sun" v5: the final boss theme, written again from a blank page. Original composition.
+// "The Drowned Sun" v5 (no Think break: its vocal shouts don't belong): the final boss theme, written again from a blank page. Original composition.
 // F# minor, 178 BPM, ~3:10. Built from what the reference does (not its notes): an Andalusian-style descent
 // (i - VII - VI - V), flowing 16th-note runs, galloping octave bass, staccato chord stabs at the climax,
 // a lift up a half step into G minor for the final stretch, and an ending on one low, heavy note.
@@ -236,7 +236,7 @@ async function renderSong() {
   await stem('timp', 0, -21, 0.3, false, [HP(45), PK(300, -2, 1)]);
 
   // ---- breaks: one per section (two at most, when a snare layer is added) ----
-  const BRK = {}; for (const k of ['amen_yki', 'amen_df', 'steppin1', 'steppin2', 'bloodfire', 'think']) if (has('break/' + k)) BRK[k] = await loadAsset('break/' + k, ctx);
+  const BRK = {}; for (const k of ['amen_yki', 'amen_df', 'steppin1', 'steppin2', 'bloodfire']) if (has('break/' + k)) BRK[k] = await loadAsset('break/' + k, ctx);
   const INFO = window.BREAK_INFO || {}, bStep = 60 / 160 / 4, R = BPM / 160;
   const drumBus = ctx.createGain(); drumBus.gain.value = 0.9;
   const drumBus2 = ctx.createGain(); drumBus.gain.value = 1.05;
@@ -299,7 +299,7 @@ async function renderSong() {
     }
     // the Amen and Bloodfire breaks are thin below 120 Hz next to Hard Steppin: give them the same floor
     if (b === 0) drumLow.gain.setValueAtTime(sec === 'a1' || sec === 'a2' || sec === 'clx' ? 6 : 0, t0);
-    const brk = { a1: 'amen_yki', b1: 'steppin2', a2: 'amen_df', clx: 'bloodfire', inter: 'think', a3: 'amen_yki', b3: 'steppin2' }[sec];
+    const brk = { a1: 'amen_yki', b1: 'steppin2', a2: 'amen_df', clx: 'bloodfire', inter: 'amen_df', a3: 'amen_yki', b3: 'steppin2' }[sec];
     if (sec === 'inter') { // a lighter break; opens up over the last two bars
       if (b < 6) { drumLP.frequency.setValueAtTime(b < 4 ? 2500 : 6000, t0); groove(brk, t0, b, 0.85); }
       else { drumLP.frequency.setValueAtTime(18000, t0); if (b === 7) fillBar(brk, t0, b, true); else groove(brk, t0, b, 1); kick(t0, 1); }

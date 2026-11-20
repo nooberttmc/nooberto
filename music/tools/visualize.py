@@ -51,11 +51,10 @@ def main(events, drums, audio, out, fps=60, start=0.0, length=None):
         lay.append(dict(label=label, clip=clip, notes=notes, starts=[n[0] for n in notes], y=top, h=h, lo=lo, hi=max(hi, lo + 1),
                         maxd=max([n[2] for n in notes] or [0]), bars=set(b for n in notes for b in range(int(n[0] / BAR), int((n[0] + n[2] - 1e-3) / BAR) + 1))))
         top += h + 13
-    auto_y = top + 6
-    # loudness envelope for the automation lane
-    pcm = np.frombuffer(subprocess.run(['ffmpeg', '-loglevel', 'error', '-i', audio, '-ac', '1', '-ar', '8000', '-f', 'f32le', '-'], capture_output=True).stdout, np.float32)
-    hop = 80; env = np.sqrt(np.convolve(pcm ** 2, np.ones(hop) / hop, 'same'))[::hop]; env /= env.max() + 1e-9   # 100 per second
-    dur = len(pcm) / 8000
+    # stretch the lanes to fill the screen
+    k = (H - 44 - 13 * len(lay)) / sum(L['h'] for L in lay); y = 38
+    for L in lay: L['h'] = int(L['h'] * k); L['y'] = y; y += L['h'] + 13
+    dur = float(subprocess.run(['ffprobe', '-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', audio], capture_output=True, text=True).stdout)
     try: font = ImageFont.truetype('/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf', 10); fbig = ImageFont.truetype('/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf', 11)
     except OSError: font = fbig = ImageFont.load_default()
     # static backdrop: panel, track names, lane shading
@@ -67,7 +66,6 @@ def main(events, drums, audio, out, fps=60, start=0.0, length=None):
         d.text((4, L['y'] + 1), L['label'], font=font, fill=(214, 186, 160))
         d.ellipse([X0 - 16, L['y'] + L['h'] - 2, X0 - 10, L['y'] + L['h'] + 4], outline=(120, 70, 50))
         d.line([X0, L['y'] + L['h'] + 11, W, L['y'] + L['h'] + 11], fill=(26, 12, 12))
-    d.text((4, auto_y + 4), 'Automation', font=font, fill=(214, 186, 160))
     cmd = ['ffmpeg', '-y', '-loglevel', 'error', '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-s', f'{W}x{H}', '-r', str(fps), '-i', '-', '-ss', str(start), '-i', audio,
            '-c:v', 'libx264', '-preset', 'medium', '-crf', '20', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-b:a', '192k', '-shortest', '-movflags', '+faststart', out]
     enc = subprocess.Popen(cmd, stdin=subprocess.PIPE)
@@ -86,14 +84,13 @@ def main(events, drums, audio, out, fps=60, start=0.0, length=None):
             x = X0 + (b * BAR - t) * PX
             if x < X0: continue
             g.line([x, 22, x, 32], fill=(110, 70, 50)); g.text((x + 3, 20), str(b + 1), font=font, fill=(150, 110, 90))
-            g.line([x, 34, x, auto_y - 4], fill=GRID)
+            g.line([x, 34, x, H], fill=GRID)
         g.text((X0 + 6, 4), f'The Drowned Sun  —  {SEC_NAME[sec]}', font=fbig, fill=col)
         for L in lay:
             y, h = L['y'], L['h']
             i0 = bisect.bisect_left(L['starts'], t - L['maxd'] - 0.01); i1 = bisect.bisect_right(L['starts'], t + view)
             vis = [n for n in L['notes'][i0:i1] if n[0] + n[2] >= t]
-            if not vis: continue
-            # clip strips, like pattern blocks, over the bars this track plays in, in the phase colour
+            # clip strips (drawn from the bars, so a strip scrolls off the left edge like the notes do), like pattern blocks, over the bars this track plays in, in the phase colour
             b = int(t / BAR)
             while b * BAR < t + view:
                 if b in L['bars']:
@@ -112,12 +109,6 @@ def main(events, drums, audio, out, fps=60, start=0.0, length=None):
                 c = CREAM if playing else mix(col, CREAM, 0.55)
                 xa = max(X0, x1); g.rectangle([xa, ny, max(xa + 1, x2 - 1), ny + 2], fill=c)
                 if playing: g.rectangle([X0, ny - 1, X0 + 3, ny + 3], fill=GOLD)
-        # automation lane: the song's loudness, scrolling like a volume curve
-        ay = auto_y + 16; ah = H - ay - 10
-        g.rectangle([X0, auto_y, W, auto_y + 11], fill=(232, 220, 210)); g.text((X0 + 6, auto_y), 'Master - Volume', font=font, fill=(90, 50, 40))
-        xs = np.arange(X0, W, 2); idx = np.clip(((t + (xs - X0) / PX) * 100).astype(int), 0, len(env) - 1)
-        pts = [(int(x), int(ay + ah - env[i] * ah)) for x, i in zip(xs, idx)]
-        g.line(pts, fill=mix(col, CREAM, 0.3), width=2)
         # playhead glow
         g.line([X0, 34, X0, H], fill=GOLD, width=2)
         enc.stdin.write(img.tobytes())
