@@ -1,8 +1,8 @@
 {
-  "versionCode": 22,
-  "versionName": "3.0",
+  "versionCode": 23,
+  "versionName": "3.1",
   "apk": "https://raw.githubusercontent.com/nooberttmc/nooberto/claude/android-game-apk-w2q4io/Emberwake.apk",
   "notes": [
-    "Final boss music: clear fast lead lines and trills, lead stays on top in Phase III"
+    "Final boss music: one consistent lead guitar tone for fast and held notes"
   ]
 }

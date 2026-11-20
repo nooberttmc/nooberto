@@ -33,7 +33,7 @@ def main(events, drums, audio, out, fps=60, start=0.0, length=None):
     dr = json.load(open(drums))
     # lanes: (label, clip name, note list, height)
     rhythm = parts['rhythmL']['notes']
-    lanes = [('Lead Guitar', 'Lead', parts['lead']['notes'] + parts.get('leadfast', {}).get('notes', []), 64), ('Harmony', 'Harmony', parts['harmony']['notes'], 40),
+    lanes = [('Lead Guitar', 'Lead', parts['lead']['notes'], 64), ('Harmony', 'Harmony', parts['harmony']['notes'], 40),
              ('Rhythm Gtrs', 'Rhythm', rhythm, 50), ('Bass', 'Bass', parts['bass']['notes'], 34),
              ('Piano', 'Piano', parts['piano']['notes'], 50), ('Strings', 'Strings', parts['strings']['notes'], 28),
              ('Low Strings', 'Low', parts['low']['notes'], 26), ('Brass', 'Brass', parts['brass']['notes'], 26),

@@ -188,15 +188,14 @@ function guitarEvents() {
     }
   }
   const quick = n => n[4] === 'open' && n[2] < STEP * 2.5;
-  P.fast = P.lead.filter(quick).map(n => [n[0], n[1], Math.min(n[2], STEP * 0.95), n[3], 'open']);
-  P.lead = P.lead.filter(n => !quick(n)); P.harm = P.harm.filter(n => !quick(n));
+  // one lead guitar plays everything; quick notes are cleanly separated (no overlap) so each pitch speaks
+  P.lead = P.lead.map(n => quick(n) ? [n[0], n[1], Math.min(n[2], STEP * 0.95), n[3], 'open'] : n); P.harm = P.harm.filter(n => !quick(n));
   const part = (notes, o) => Object.assign({ sf: 'musescore', amp: 'none', humanize: 3, notes }, o);
   return { bpm: BPM, parts: {
     rhythmL: part(P.rhythm, { amp: 'rhythm', humanize: 6 }),
     rhythmR: part(P.rhythm, { amp: 'rhythm', humanize: 6, cents: 6 }),
     bass: part(P.bass, { program: 34, amp: 'bass', humanize: 3 }),
     lead: part(P.lead, { amp: 'lead', humanize: 0 }),
-    leadfast: part(P.fast, { amp: 'fast', humanize: 0 }),
     harmony: part(P.harm, { amp: 'lead', humanize: 4, cents: -5 }),
     piano: part(P.piano, { program: 0, humanize: 6 }),
     strings: part(P.strings, { program: 48 }),
@@ -223,7 +222,7 @@ async function renderSong() {
   { const len = SR * 3.2, ir = ctx.createBuffer(2, len, SR); for (let ch = 0; ch < 2; ch++) { const d = ir.getChannelData(ch); for (let i = 0; i < len; i++) d[i] = (rand() * 2 - 1) * Math.pow(1 - i / len, 2.4); } verb.buffer = ir; }
   const verbOut = ctx.createGain(); verbOut.gain.value = 0.4; const verbLP = ctx.createBiquadFilter(); verbLP.type = 'lowpass'; verbLP.frequency.value = 5000;
   verb.connect(verbLP); verbLP.connect(verbOut); verbOut.connect(master);
-  const delay = ctx.createDelay(2); delay.delayTime.value = STEP * 3; const fb = ctx.createGain(); fb.gain.value = 0.25;
+  const delay = ctx.createDelay(2); delay.delayTime.value = STEP * 3; const fb = ctx.createGain(); fb.gain.value = 0.2;
   const dlp = ctx.createBiquadFilter(); dlp.type = 'lowpass'; dlp.frequency.value = 2400; delay.connect(dlp); dlp.connect(fb); fb.connect(delay); dlp.connect(master);
   const send = (node, v, alsoDelay) => { const g = ctx.createGain(); g.gain.value = v; node.connect(g); g.connect(verb); if (alsoDelay) g.connect(delay); };
   const noise = (() => { const b = ctx.createBuffer(1, SR * 2, SR), d = b.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = rand() * 2 - 1; return b; })();
@@ -238,7 +237,7 @@ async function renderSong() {
     return n;
   }
   const RIDE = {};   // per-part level riding (automation), on top of the static levels
-  const GUITARS = ['rhythmL', 'rhythmR', 'bass', 'lead', 'leadfast', 'harmony'];
+  const GUITARS = ['rhythmL', 'rhythmR', 'bass', 'lead', 'harmony'];
   async function stem(name, pan, targetDb, verbAmt, useDelay, eq, duck) {
     if (!has('stem/' + name)) return;
     const buf = await loadAsset('stem/' + name, ctx), d = buf.getChannelData(0);
@@ -262,8 +261,7 @@ async function renderSong() {
   // bass: owns 45-250 Hz under the guitars; the sub synth owns the very bottom
   await stem('bass', 0, -20, 0, false, [HP(45), PK(350, -3, 1), PK(900, 2, 1), LP(2600)], 0.5);
   // lead: on top, with presence where the rhythm guitars were scooped
-  await stem('lead', 0.0, -13.5, 0.18, true, [HP(170), PK(450, -2.5, 1), PK(2100, 3, 0.9), LP(6000)]);
-  await stem('leadfast', 0.0, -14, 0.06, false, [HP(200), PK(450, -2, 1), PK(2500, 3, 1), LP(8000)]);
+  await stem('lead', 0.0, -13.5, 0.14, true, [HP(170), PK(450, -2.5, 1), PK(2300, 3, 0.9), LP(7500)]);
   await stem('harmony', 0.3, -25.5, 0.2, true, [HP(260), PK(2000, 1.5, 0.9), LP(6000)]);
   await stem('piano', -0.15, -21, 0.4, false, [HP(110)]);
   await stem('strings', 0.25, -27, 0.45, false, [HP(320), LP(8000)]);
@@ -276,12 +274,12 @@ async function renderSong() {
   //  - where the lead plays mostly fast notes, the rhythm guitars step back so runs, trills and stabs read clearly
   //  - in Phase III (the G minor return, bars 89-120) the wall is bigger, so the rhythm guitars sit lower and the lead higher
   {
-    const ev = guitarEvents().parts, lead = ev.lead.notes.concat(ev.leadfast.notes), fast = new Set(), all = {}, quick = {};
+    const ev = guitarEvents().parts, lead = ev.lead.notes, fast = new Set(), all = {}, quick = {};
     for (const n of lead) { const b = Math.floor(n[0] / BAR); all[b] = (all[b] || 0) + 1; if (n[2] < STEP * 2.5) quick[b] = (quick[b] || 0) + 1; }
     for (const b in all) if ((quick[b] || 0) >= 5 && quick[b] / all[b] >= 0.6) fast.add(+b);
     const p3 = b => b >= 88 && b < 120, db = v => Math.pow(10, v / 20);
     const adj = { rhythmL: b => (fast.has(b) ? -2.5 : 0) + (p3(b) ? -3 : 0), rhythmR: b => (fast.has(b) ? -2.5 : 0) + (p3(b) ? -3 : 0),
-                  lead: b => p3(b) ? 2 : 0, leadfast: b => p3(b) ? 2 : 0, harmony: b => p3(b) ? 1 : 0 };
+                  lead: b => (p3(b) ? 2 : 0) + (fast.has(b) ? 1.5 : 0), harmony: b => p3(b) ? 1 : 0 };
     for (const k in adj) if (RIDE[k]) for (let b = 1; b < BARS.length; b++) {
       const a = adj[k](b - 1), c = adj[k](b); if (a === c) continue;
       RIDE[k].gain.setValueAtTime(db(a), b * BAR - 0.06); RIDE[k].gain.linearRampToValueAtTime(db(c), b * BAR);
