@@ -162,7 +162,7 @@ function guitarEvents() {
   const E8 = slot => T(gi, slot * 2), D8 = (slot, len, k) => (T(gi, (slot + len) * 2) - T(gi, slot * 2)) * k;
   const last = {};   // the last pitch per line, for grace-note direction
   // a melodic line into a part, with its ornaments. who: 'gtr' (lead guitar) or 'brass' (brass section + synth double)
-  const GTR_OCT = -12;   // the guitars play an octave below where the lines are written: heavier, clear of the brass
+  const GTR_OCT = 0;   // the lead guitar at the written pitch (above the rhythm guitars, with their tone)
   function line(who, notes, opt) {
     const o = opt || {}, up = o.up || 0, vel = o.vel || 112, sc = barScale(X.pc);
     for (const n of notes) {
@@ -214,7 +214,7 @@ function guitarEvents() {
     if (sec === 'hold') { if (b === 0) {   // one big tonic chord at full energy (cut at ~1.8 s)
         const H = 4.2;   // the held chord rings ~4 s
         for (const n of [41, 48, 53]) P.rhythm.push([E8(0), n, H, 126, 'open']); P.bass.push([E8(0), 29, H, 120, 'open']);
-        P.lead.push([E8(0), 65, H, 120, 'bend']); P.harmony.push([E8(0), 60, H, 112, 'lead']); P.brass.push([E8(0), 72, H, 120, 'open'], [E8(0), 77, H, 118, 'open']); P.synth.push([E8(0), 77, H, 116, 'open']);
+        P.lead.push([E8(0), 77, H, 120, 'bend']); P.harmony.push([E8(0), 72, H, 112, 'lead']); P.brass.push([E8(0), 72, H, 120, 'open'], [E8(0), 77, H, 118, 'open']); P.synth.push([E8(0), 77, H, 116, 'open']);
         bell(0, 65, 124, 6.5); bell(0, 68, 118, 6.5); bell(0, 72, 120, 6.5); bell(0, 77, 116, 6.5);   // ~30 dB down by 6.5 s: inaudible after
         [65, 68, 72].forEach(m => P.strings.push([E8(0), m, H, 100, 'open'])); [60, 65, 68].forEach(m => P.choir.push([E8(0), m, H, 104, 'open']));
         P.timp.push([E8(0), 41, 1.5, 127, 'open']); rolled(E8(0), [29, 41, 65, 68, 72], H, 100, 6); PEDAL.push([E8(0) + 0.05, E8(0) + H]); }
@@ -296,8 +296,8 @@ function guitarEvents() {
   return { bpm: BPM, sections: SECTIONS, colors: COLORS, bar_times: BAR_TIMES.slice(0, TOTAL + 1), bar_tempi: Array.from({ length: TOTAL }, (_, g) => barTempo(g)),
     harmony: B.map(x => ({ tones: chordPcs(x.pc).map(c => (c + x.tr) % 12), scale: barScale(x.pc).map(c => (c + x.tr) % 12) })),
     parts: {
-    lead: part(P.lead, { amp: 'lead', label: 'Lead Guitar', humanize: 4, lag: 3, velvar: 6, release: -1800 }),
-    harmony: part(P.harmony, { amp: 'lead', label: 'Harmony Guitar', humanize: 4, lag: 6, velvar: 6, cents: -5, release: -1800 }),   // a second player: a hair late, slightly flat, own dynamics
+    lead: part(P.lead, { amp: 'rhythm', mono: true, label: 'Lead Guitar', humanize: 6, release: -1400 }),   // the rhythm guitars' sound, playing the lead
+    harmony: part(P.harmony, { amp: 'rhythm', mono: true, label: 'Harmony Guitar', humanize: 9, velvar: 10, cents: 8, release: -1400 }),   // like rhythmR: a second player   // a second player: a hair late, slightly flat, own dynamics
     brassL: part(P.brass, { program: 61, label: 'Brass Section', humanize: 8, velvar: 6, cents: -7 }),
     brassR: part(P.brass, { program: 61, humanize: 10, velvar: 6, cents: 8, lag: 6 }),
     synth: part(P.synth, { record: false, label: 'Synth Brass', program: 62 }),
@@ -370,8 +370,8 @@ async function renderSong() {
   await stem('rhythmR', 1, -13.5, 0.02, false, GTR, 0.12);
   // the duel: lead guitar just left of centre, the brass section spread wide around it, at the same level
   // the lead guitar: darker (top rolled off from ~4 kHz, more 500-900 Hz body) and louder, the brass's equal in the duel
-  await stem('lead', 0.0, -9.5, 0.14, true, [HP(110), PK(700, 1.5, 0.9), PK(1900, 1, 1), LP(6500)]);   // apricity's lead chain (louder: it duels the brass)
-  await stem('harmony', 0.55, -14, 0.2, true, [HP(260), PK(2000, 1.5, 0.9), LP(6000)]);   // apricity's harmony chain   // the second guitarist, panned apart
+  await stem('lead', 0.0, -10, 0.08, false, GTR);   // the rhythm guitars' chain
+  await stem('harmony', 0.45, -13, 0.08, false, GTR);   // the second guitarist, panned apart
   await stem('brassL', -0.6, -12.5, 0.3, true, [HP(150), LP(7000)]);
   await stem('brassR', 0.6, -12.5, 0.3, true, [HP(150), LP(7000)]);
   await stem('strings', 0.35, -15, 0.45, false, [HP(280), PK(3000, 1.5, 1), LP(10000)]);
