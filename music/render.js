@@ -10,6 +10,9 @@ for (let i = 2; i < args.length; i++) {
   if (args[i] === '--events') opt.events = args[++i];
   else if (args[i] === '--stem') { const [k, v] = args[++i].split('='); opt.stems[k] = v; }
   else if (args[i] === '--gain') opt.gain = +args[++i];
+  else if (args[i] === '--solo') opt.solo = args[++i];       // stem export: one part ('all' = everything, uncompressed)
+  else if (args[i] === '--norm') opt.norm = +args[++i];      // stem export: fixed output scale
+  else if (args[i] === '--wav-out') opt.wavOut = args[++i];  // write the raw WAV there and stop (no leveler, no MP3)
   else if (args[i] === '--level') opt.level = args[++i];   // "FROM:UNTIL" seconds: run tools/level.py on the mix
   else if (args[i] === '--dip') (opt.dips = opt.dips || []).push(args[++i]);   // "FROM:UNTIL:DB": a section kept quieter
   else if (args[i] === '--free') (opt.free = opt.free || []).push(args[++i]);   // "FROM:UNTIL": leveler hands off
@@ -30,7 +33,7 @@ const pcm = p => execSync(`ffmpeg -loglevel error -i "${p}" -ac 1 -ar 44100 -f f
     const a = assets[decodeURIComponent(u)]; return a ? r.fulfill({ body: a, contentType: 'application/octet-stream' }) : r.fulfill({ status: 404 });
   });
   await pg.goto('http://song.local/');
-  await pg.evaluate(([names, info]) => { window.ASSET_NAMES = names; window.BREAK_INFO = JSON.parse(info); }, [Object.keys(assets), info]);
+  await pg.evaluate(([names, info, solo, norm]) => { window.ASSET_NAMES = names; window.BREAK_INFO = JSON.parse(info); window.SOLO = solo; window.SOLO_NORM = norm; }, [Object.keys(assets), info, opt.solo || null, opt.norm || null]);
   await pg.addScriptTag({ content: fs.readFileSync(path.join(__dirname, file), 'utf8') + `
     async function loadAsset(name, ctx) { // raw mono float PCM -> AudioBuffer
       const r = await fetch('http://song.local/' + encodeURIComponent(name)); const f = new Float32Array(await r.arrayBuffer());
@@ -44,6 +47,7 @@ const pcm = p => execSync(`ffmpeg -loglevel error -i "${p}" -ac 1 -ar 44100 -f f
   await b.close();
   if (errs.length) { console.log(errs); process.exit(1); }
   if (r.drums) fs.writeFileSync(path.join(__dirname, 'stems', 'drums.json'), JSON.stringify(r.drums));
+  if (opt.wavOut) { fs.writeFileSync(opt.wavOut, Buffer.from(r.wav, 'base64')); console.log('wrote', opt.wavOut, 'peak', r.peak.toFixed(3)); return; }
   const wav = path.join(__dirname, file.replace(/\.js$/, '.wav')), mp3 = path.join(__dirname, title + '.mp3');
   fs.writeFileSync(wav, Buffer.from(r.wav, 'base64'));
   if (opt.level) { const [a0, a1] = opt.level.split(':'); execSync(`python3 "${path.join(__dirname, 'tools', 'level.py')}" "${wav}" "${wav}" --hold-from ${a0} --hold-until ${a1}${(opt.dips || []).map(d => ' --dip ' + d).join('')}${(opt.free || []).map(d => ' --free ' + d).join('')}`, { stdio: 'inherit' }); }

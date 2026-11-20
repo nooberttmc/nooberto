@@ -268,6 +268,7 @@ async function renderSong() {
   const BARS = bars(), totalBars = BARS.length, dur = totalBars * BAR + 1.5;
   const ctx = new OfflineAudioContext(2, Math.ceil(SR * dur), SR);
   const comp = ctx.createDynamicsCompressor(); comp.threshold.value = -9; comp.ratio.value = 1.6; comp.attack.value = 0.015; comp.release.value = 0.15; // gentle glue: lets drum hits through
+  if (window.SOLO) comp.ratio.value = 1;   // stem export: no master compression, so the stems add up exactly
   const master = ctx.createGain(); master.gain.value = 0.8;
   const lowShelf = ctx.createBiquadFilter(); lowShelf.type = 'lowshelf'; lowShelf.frequency.value = 80; lowShelf.gain.value = -3;
   const dark = ctx.createBiquadFilter(); dark.type = 'highshelf'; dark.frequency.value = 6000; dark.gain.value = -3;
@@ -306,6 +307,7 @@ async function renderSong() {
   const GUITARS = ['rhythmL', 'rhythmR', 'bass', 'lead', 'harmony'];
   async function stem(name, pan, targetDb, verbAmt, useDelay, eq, duck) {
     if (!has('stem/' + name)) return;
+    if (window.SOLO && window.SOLO !== 'all' && window.SOLO !== name) return;   // stem export: one part at a time
     const buf = await loadAsset('stem/' + name, ctx), d = buf.getChannelData(0);
     let sum = 0, n = 0; for (let i = 0; i < d.length; i += 4) { const a = Math.abs(d[i]); if (a > 1e-3) { sum += a * a; n++; } }
     const rms = Math.sqrt(sum / Math.max(1, n)) || 1e-3, src = ctx.createBufferSource(); src.buffer = buf;
@@ -388,7 +390,8 @@ async function renderSong() {
   const fillBar = (name, t0, b, big) => { groove(name, t0, b, 1, 12); roll(name, t0 + 12 * STEP, 4, big ? 8 : 4, 1, 1.25, 0.55, 0.95); };
 
   // ---- a little synthesis for weight: sub, kick punch, impacts, risers ----
-  function hit(t, f0, f1, d, v, dest) { const o = ctx.createOscillator(); o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(f1, t + d * 0.7);
+  const DRUMS_ON = !window.SOLO || window.SOLO === 'all' || window.SOLO === 'drums';
+  function hit(t, f0, f1, d, v, dest) { if (!DRUMS_ON && dest) return; const o = ctx.createOscillator(); o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(f1, t + d * 0.7);
     const g = ctx.createGain(); g.gain.setValueAtTime(v, t); g.gain.exponentialRampToValueAtTime(0.0008, t + d); o.connect(g); g.connect(dest || drumBus); o.start(t); o.stop(t + d + 0.02); }
   function nz(t, d, type, f, q, v, dest, attack) { const s = ctx.createBufferSource(); s.buffer = noise; s.loop = true; const fl = ctx.createBiquadFilter(); fl.type = type; fl.frequency.value = f; fl.Q.value = q;
     const g = ctx.createGain(); if (attack) { g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(v, t + attack); } else g.gain.setValueAtTime(v, t);
@@ -403,6 +406,9 @@ async function renderSong() {
   function sub(t, m, len, v) { const o = ctx.createOscillator(); o.frequency.value = 440 * Math.pow(2, (m - 69) / 12); const g = ctx.createGain();
     g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(v, t + 0.01); g.gain.setValueAtTime(v, t + len - 0.04); g.gain.linearRampToValueAtTime(0.0001, t + len); o.connect(g); g.connect(subBus); o.start(t); o.stop(t + len + 0.05); }
 
+  // stem export without drums: the drum pattern still runs (so kicks still duck the other parts exactly as in the mix),
+  // but every drum and synth-hit output is silent
+  if (!DRUMS_ON) { drumBus.gain.value = 0; subBus.gain.value = 0; }
   for (const x of BARS) {
     const { sec, b, t0, ch, tr } = x, at = s => t0 + s * STEP, subN = 30 + ((ch[0] + tr - 30) % 12), last = b === LEN[sec] - 1;
     if (sec === 'intro') { // drums come in early (bar 3), filtered open by bar 8
@@ -460,7 +466,7 @@ async function renderSong() {
   const out = await ctx.startRendering();
   const L = out.getChannelData(0), Rc = out.getChannelData(1), n = L.length, buf = new ArrayBuffer(44 + n * 4), v = new DataView(buf);
   let peak = 0; for (let i = 0; i < n; i++) peak = Math.max(peak, Math.abs(L[i]), Math.abs(Rc[i]));
-  const norm = peak > 0 ? 0.95 / peak : 1;
+  const norm = window.SOLO_NORM || (peak > 0 ? 0.95 / peak : 1);   // stems share the full mix's scale
   const ws = (o, s) => { for (let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); };
   ws(0, 'RIFF'); v.setUint32(4, 36 + n * 4, true); ws(8, 'WAVE'); ws(12, 'fmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 2, true);
   v.setUint32(24, SR, true); v.setUint32(28, SR * 4, true); v.setUint16(32, 4, true); v.setUint16(34, 16, true); ws(36, 'data'); v.setUint32(40, n * 4, true);

@@ -4,3 +4,4 @@ music/breaks/*.mp3
 music/stems/
 __pycache__/
 music/*.mp4
+music/fl_export/
