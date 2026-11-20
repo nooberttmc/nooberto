@@ -191,10 +191,20 @@ function guitarEvents() {
     } };
   const strings = (pc, lo, vel, len) => triad(pc).forEach(c => P.strings.push([E8(0), into(c + 60, lo || 60, (lo || 60) + 11), D8(0, len || 8, 0.98), vel || 84, 'open']));
   const choir = (pc, vel) => triad(pc).forEach(c => P.choir.push([E8(0), into(c + 60, 57, 68), D8(0, 8, 0.98), vel || 92, 'open']));
-  const pianoStab = (pc, slots) => slots.forEach(s => { P.piano.push([E8(s), into(36 + pc, 36, 47), D8(s, 1, 0.9), 104, 'open']);
-    triad(pc).forEach(c => P.piano.push([E8(s), into(c + 60, 60, 71), D8(s, 1, 0.9), 96, 'open'])); });
+  // ---- the piano, played like a pianist: moderate velocities shaped by the phrase (accented downbeats, softer inner
+  // voices, arched arpeggios), chords rolled a few ms from the bass up, and the sustain pedal changed at each chord in the
+  // lyrical sections (lifted as the new chord sounds, pressed again just after) ----
+  const PEDAL = [];
+  const pedalBar = () => PEDAL.push([T(gi, 0) + 0.07, T(gi + 1, 0) + 0.015]);
+  const pdyn = () => ({ intro: -14, A: -4, B: -2, C: -10, A2: 2, drop: 0, S: 0, F: 2, end: 2, hold: 0 })[X.sec] || 0;   // section dynamics
+  const pkey = (t, m, d, v) => P.piano.push([t, m, d, Math.max(30, Math.min(124, Math.round(v + pdyn()))), 'open']);
+  const rolled = (t, ms, d, v, top) => ms.slice().sort((a, b) => a - b).forEach((m, i, arr) => pkey(t + i * 0.006, m, d, i === arr.length - 1 ? v + (top || 4) : i === 0 ? v : v - 8));
+  const pianoStab = (pc, slots) => slots.forEach((s, j) => { const v = j === 0 ? 92 : 80;   // dry stabs, the downbeat accented
+    rolled(E8(s), [into(36 + pc, 36, 47), ...triad(pc).map(c => into(c + 60, 60, 71))], D8(s, 1, 0.85), v); });
   const pianoArp = pc => { const tn = triad(pc).map(c => into(c + 60, 60, 71)).sort((a, b) => a - b), seq = [tn[0] - 12, tn[0], tn[1], tn[2], tn[0] + 12, tn[2], tn[1], tn[0]];
-    P.piano.push([E8(0), into(36 + pc, 36, 47), D8(0, 8, 0.95), 104, 'open']); seq.forEach((m, i) => P.piano.push([E8(i), m, D8(i, 1, 0.95), i % 2 ? 88 : 98, 'open'])); };
+    const arch = [70, 74, 79, 84, 88, 83, 77, 72];   // up the arpeggio and back down
+    pkey(E8(0), into(36 + pc, 36, 47), D8(0, 8, 0.95), 84); pkey(E8(0) + 0.004, into(36 + pc, 36, 47) + 12, D8(0, 8, 0.95), 74);
+    seq.forEach((m, i) => pkey(E8(i), m, D8(i, 1.6, 1), arch[i])); pedalBar(); };
   const timp = (slot, pc, vel) => P.timp.push([E8(slot), into(36 + pc, 41, 52), Math.min(0.6, D8(slot, 8 - slot, 1)), vel || 118, 'open']);   // damped at the barline
   const timpRoll = (from, pc) => { for (let s = from; s < 8; s += 0.5) timp(s, pc, 90 + Math.round((s - from) * 8)); };
 
@@ -206,11 +216,12 @@ function guitarEvents() {
         P.lead.push([E8(0), 77, H, 120, 'bend']); P.harmony.push([E8(0), 72, H, 112, 'lead']); P.brass.push([E8(0), 72, H, 120, 'open'], [E8(0), 77, H, 118, 'open']); P.synth.push([E8(0), 77, H, 116, 'open']);
         bell(0, 65, 124, 6.5); bell(0, 68, 118, 6.5); bell(0, 72, 120, 6.5); bell(0, 77, 116, 6.5);   // ~30 dB down by 6.5 s: inaudible after
         [65, 68, 72].forEach(m => P.strings.push([E8(0), m, H, 100, 'open'])); [60, 65, 68].forEach(m => P.choir.push([E8(0), m, H, 104, 'open']));
-        P.timp.push([E8(0), 41, 1.5, 127, 'open']); P.piano.push([E8(0), 29, H, 120, 'open'], [E8(0), 41, H, 116, 'open'], [E8(0), 65, H, 100, 'open'], [E8(0), 68, H, 100, 'open'], [E8(0), 72, H, 100, 'open']); }
+        P.timp.push([E8(0), 41, 1.5, 127, 'open']); rolled(E8(0), [29, 41, 65, 68, 72], H, 100, 6); PEDAL.push([E8(0) + 0.05, E8(0) + H]); }
     } else if (ph === 'pedal') {
       const bb = bassBar(pc, next, k);
       if (sec === 'intro' && b < 4) {   // piano + bells alone: the ostinato in octaves, the held line on the bells
-        for (const [s, m, l] of bb) P.piano.push([E8(s), m, D8(s, l, 0.9), 100, 'open'], [E8(s), m + 12, D8(s, l, 0.9), 92, 'open']);
+        for (const [s, m, l] of bb) { pkey(E8(s), m, D8(s, l, 0.9), s === 0 ? 86 : 74); pkey(E8(s) + 0.005, m + 12, D8(s, l, 0.9), s === 0 ? 80 : 68); }
+        triad(pc).forEach((c, i) => pkey(E8(0) + 0.012 + i * 0.007, into(c + 60, 60, 71), D8(0, 8, 0.95), 62 + i * 3)); pedalBar();
         if (k % 2 === 0) toll(pc, 104, false, D8(0, 16, 1));
         if (b >= 2) strings(pc, 60, 70);
       } else {
@@ -220,7 +231,7 @@ function guitarEvents() {
         if (sec !== 'intro') { line('brass', LONG[k].map(n => [n[0], n[1] - 12 + up, n[2], n[3]]));
           line('gtr', LONG[k].map(n => [n[0], n[1] - 12 + up, n[2], 'v']), { harm: true, vel: 104 });           // the guitar a third under the brass
           LONG[k].forEach(n => P.strings.push([E8(n[0]), n[1] + up, D8(n[0], n[2], 0.98), 92, 'open'])); }
-        if (sec === 'intro') for (const [s, m, l] of bb) P.piano.push([E8(s), m + 12, D8(s, l, 0.9), 94, 'open']);
+        if (sec === 'intro') { for (const [s, m, l] of bb) pkey(E8(s), m + 12, D8(s, l, 0.9), s === 0 ? 84 : 72); pedalBar(); }
         else pianoStab(pc, [0, 3, 6]);
         if (sec === 'A' && b === 0) toll(pc, 112, true);
         if (sec === 'A2') { choir(pc, 96); if (k === 0 || k === 4) timp(0, pc); if (k >= 6) timpRoll(k === 6 ? 4 : 0, pc); }
@@ -257,7 +268,7 @@ function guitarEvents() {
       else { line('gtr', FILLS[k]); if (!FILLS[k].length) line('gtr', DROP[ph][k], { harm: true, vel: 104 }); }   // fills the long notes
       for (const s of [0, 1, 2, 3, 4, 5, 6, 7]) { const c = triad(pc), r = into(60 + c[0], 60, 71), f = into(60 + c[2], 60, 71);   // string ostinato in 8ths
         P.strings.push([E8(s), s % 2 ? f + 12 : r + 12, D8(s, 1, 0.8), s % 2 ? 84 : 96, 'open']); }
-      choir(pc, 96); P.piano.push(...DROP[ph][k].map(([s, m, l]) => [E8(s), m + 12, D8(s, l, 0.9), 96, 'open']));
+      choir(pc, 96); DROP[ph][k].forEach(([s, m, l], i) => pkey(E8(s), m + 12, D8(s, l, 0.95), (l >= 4 ? 90 : 82) + (i === 0 ? 4 : 0))); pedalBar();
       if (k % 2 === 0) timp(0, pc); if (sec === 'drop' && b === 0) toll(pc, 118, true);
       if (sec === 'end' && k === 7) timpRoll(0, pc);
     } else if (ph === 's') {   // the trading solo
@@ -285,16 +296,16 @@ function guitarEvents() {
     harmony: B.map(x => ({ tones: chordPcs(x.pc).map(c => (c + x.tr) % 12), scale: barScale(x.pc).map(c => (c + x.tr) % 12) })),
     parts: {
     lead: part(P.lead, { amp: 'lead', label: 'Lead Guitar', humanize: 4, lag: 3, velvar: 6, release: -1800 }),
-    harmony: part(P.harmony, { amp: 'lead', label: 'Harmony Guitar', humanize: 3, lag: 6, velvar: 8, cents: -5, release: -1800 }),   // a second player: a hair late, slightly flat, own dynamics
+    harmony: part(P.harmony, { amp: 'lead', label: 'Harmony Guitar', humanize: 4, lag: 6, velvar: 6, cents: -5, release: -1800 }),   // a second player: a hair late, slightly flat, own dynamics
     brassL: part(P.brass, { program: 61, label: 'Brass Section', humanize: 8, velvar: 6, cents: -7 }),
     brassR: part(P.brass, { program: 61, humanize: 10, velvar: 6, cents: 8, lag: 6 }),
     synth: part(P.synth, { record: false, label: 'Synth Brass', program: 62 }),
-    rhythmL: part(P.rhythm, { amp: 'modern', humanize: 2, release: -1400 }),
-    rhythmR: part(P.rhythm.filter(n => !P.rhythm.some(o => o[0] === n[0] && o[1] === n[1] - 12)), { amp: 'modern', humanize: 2, lag: 2, velvar: 8, cents: 4, release: -1400 }),   // a tight double: within ~3 ms of the left take (looser read as flams)
+    rhythmL: part(P.rhythm, { amp: 'rhythm', humanize: 6, release: -1400 }),   // apricity's guitar setup
+    rhythmR: part(P.rhythm.filter(n => !P.rhythm.some(o => o[0] === n[0] && o[1] === n[1] - 12)), { amp: 'rhythm', humanize: 9, velvar: 10, cents: 8, release: -1400 }),
     bass: part(P.bass, { program: 34, amp: 'bass', humanize: 3, release: -1400 }),
     strings: part(P.strings, { program: 48, humanize: 4 }),
     choir: part(P.choir, { program: 52, label: 'Choir', humanize: 6 }),
-    piano: part(P.piano, { program: 0, humanize: 5 }),
+    piano: part(P.piano, { sf: '../soundfonts/SalamanderGrandPiano.sf2', program: 0, humanize: 4, velvar: 5, pedal: PEDAL, label: 'Piano' }),   // Salamander Grand (Yamaha C5, CC-BY 3.0, Alexander Holm / FreePats)
     bells: part(P.bells, { sf: '../soundfonts/TubularBells.sf2', program: 0, label: 'Bells', humanize: 2 }),
     timp: part(P.timp, { program: 47, humanize: 2 }),
     arp: part(ARPN, { record: false, label: 'Synth Arp', program: 80 }),
@@ -353,18 +364,18 @@ async function renderSong() {
     if (duck) { const dg = ctx.createGain(); out.connect(dg); out = dg; ducks.push([dg, duck]); }
     out.connect(p); p.connect(rings ? master : dry); send(p, verbAmt, echo); src.start(0); if (!rings) src.stop(tCut + 0.03);
   }
-  const GTR = [HP(45), PK(4200, -5, 0.8), LP(8500)];
-  await stem('rhythmL', -0.6, -14, 0.03, false, GTR, 0.25);
-  await stem('rhythmR', 0.6, -14, 0.03, false, GTR, 0.25);
+  const GTR = [HP(100), PK(350, -3, 1.1), PK(2000, -3.5, 1.4), PK(3500, 2.5, 1), LP(9000)];   // apricity's rhythm guitar EQ
+  await stem('rhythmL', -1, -13.5, 0.02, false, GTR, 0.12);
+  await stem('rhythmR', 1, -13.5, 0.02, false, GTR, 0.12);
   // the duel: lead guitar just left of centre, the brass section spread wide around it, at the same level
   // the lead guitar: darker (top rolled off from ~4 kHz, more 500-900 Hz body) and louder, the brass's equal in the duel
-  await stem('lead', 0, -8.5, 0.12, false, [HP(90), PK(650, 2.5, 0.9), PK(1600, 1, 0.9), PK(3200, -4, 0.9), LP(4800)]);
-  await stem('harmony', 0.2, -10.5, 0.12, false, [HP(90), PK(650, 2, 0.9), PK(3200, -4, 0.9), LP(4600)]);   // the second guitarist, panned apart
+  await stem('lead', 0.0, -9.5, 0.14, true, [HP(110), PK(700, 1.5, 0.9), PK(1900, 1, 1), LP(6500)]);   // apricity's lead chain (louder: it duels the brass)
+  await stem('harmony', 0.55, -14, 0.2, true, [HP(260), PK(2000, 1.5, 0.9), LP(6000)]);   // apricity's harmony chain   // the second guitarist, panned apart
   await stem('brassL', -0.6, -12.5, 0.3, true, [HP(150), LP(7000)]);
   await stem('brassR', 0.6, -12.5, 0.3, true, [HP(150), LP(7000)]);
   await stem('strings', 0.35, -15, 0.45, false, [HP(280), PK(3000, 1.5, 1), LP(10000)]);
   await stem('choir', -0.35, -17, 0.55, false, [HP(200), LP(8000)]);
-  await stem('piano', -0.25, -14, 0.3, false, [HP(80), PK(2500, 2, 1)], 0.15);
+  await stem('piano', -0.15, -14, 0.32, false, [HP(60), PK(250, -2, 1), PK(3000, 1.5, 1)], 0.1);   // a real stereo grand: little EQ, a room around it
   await stem('timp', 0.1, -14, 0.35, false, [HP(40)]);
   await stem('bells', 0.15, -14, 0.5, false, [HP(250), PK(2500, 2, 1)], 0, true);
   await stem('bass', 0, -24, 0, false, [HP(55), PK(300, -2, 1), LP(2200)], 0.5);

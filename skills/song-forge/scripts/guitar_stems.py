@@ -8,7 +8,7 @@ Open notes use the part's "program" (default GM 27, clean electric guitar), palm
 Note articulations: "open" (plain), "mute" (palm mute, on mute_program), "lead" (vibrato on long notes), "bend" (picked
 a whole step low, bent up into pitch), "release" (sags a semitone as it ends), "bendrel" (both), "legato" (plain; give it
 a length that overlaps the next note by ~12 ms so lines connect).
-Per-part options: sf (a SoundFont name or a path, e.g. "soundfonts/TubularBells.sf2"), record (False = don't record; the part is synthesized in renderSong but its notes still feed the
+Per-part options: pedal ([[t_down, t_up], ...] sustain pedal, CC64), sf (a SoundFont name or a path, e.g. "soundfonts/TubularBells.sf2"), record (False = don't record; the part is synthesized in renderSong but its notes still feed the
 video and MIDI export), program, mute_program, sf, amp ("rhythm" | "lead" | "bass" | "none"), humanize (ms of random timing),
 lag (ms the player sits behind the grid), velvar (+- velocity variation), cents (constant detune, e.g. a second
 take), release (SoundFont NRPN offset for the release envelope in timecents: -1800 = ~25 ms, -1400 = ~45 ms; the
@@ -89,10 +89,15 @@ def write_midi(part, path, seed):
             if rel:  # let the note sag down a semitone as it ends
                 for k in range(8): PB(t0 + vib_to + k * 0.0175, -4096 * (k / 7) ** 1.5)
             PB(t0 + d + 0.001, 0)
+    # sustain pedal (pianos): "pedal": [[t_down, t_up], ...] in seconds -> CC64 on channel 0. Lifting it releases every
+    # note that is no longer held, like a pianist changing pedal at a chord change.
+    for down, up in part.get('pedal', []):
+        ev.append((down, 2, ('control_change', 0, 64, 127))); ev.append((up, 0, ('control_change', 0, 64, 0)))
     ev.sort(key=lambda e: (e[0], e[1])); last = 0
     for t, _, (kind, ch, a, b) in ev:
         tk = max(0, sec(max(0.0, t))); dt = max(0, tk - last); last = max(last, tk)
         if kind == 'pitchwheel': tr.append(mido.Message('pitchwheel', channel=ch, pitch=max(-8192, min(8191, a)), time=dt))
+        elif kind == 'control_change': tr.append(mido.Message('control_change', channel=ch, control=a, value=b, time=dt))
         else: tr.append(mido.Message(kind, channel=ch, note=a, velocity=b, time=dt))
     mid.save(path)
 

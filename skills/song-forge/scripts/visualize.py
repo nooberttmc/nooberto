@@ -8,7 +8,7 @@ colour of the current section.
 events.json is the song's guitarEvents() export. Read from it: "bpm", "sections" ([[name, bars], ...]),
 optional "colors" ({section: "#rrggbb"}), optional "bar_times" (start time of every bar) and "bar_tempi" ([start, end] BPM per bar) for
 songs with tempo changes: the video scrolls by musical position like a DAW, so the whole view visibly slows down in a
-brake and rushes in a speed-up, and (with --tempo-lane) a Tempo lane shows the BPM curve and the current value; and per part optional "label" (lane name) and "lane" (parts with the same
+brake and rushes in a speed-up, and a Tempo lane shows the BPM curve (--no-tempo-lane hides it; --bpm-text adds the current value); and per part optional "label" (lane name) and "lane" (parts with the same
 lane share one, e.g. two rhythm guitar takes). drums.json (from renderSong's DLOG) adds a Drums lane; pass - to skip.
 theme.json may set bg, panel, grid, cream, gold (hex) and palette (list of hex, cycled per section).
 """
@@ -90,7 +90,7 @@ def section(t):
 
 def mix(a, b, f): return tuple(int(a[k] + (b[k] - a[k]) * f) for k in range(3))
 
-def main(events, drums, audio, out, fps=60, start=0.0, length=None, scale=1.0, theme=None, tempo_lane=False):
+def main(events, drums, audio, out, fps=60, start=0.0, length=None, scale=1.0, theme=None, tempo_lane=True, bpm_text=False):
     # scale: 1.0 = 1280x720; 1.5 = 1920x1080. Every size below is multiplied by K, so the layout is identical.
     K = scale; W_, H_ = int(round(W * K)), int(round(H * K)); X0_ = int(round(X0 * K)); PX_ = PX * K
     u = lambda v: int(round(v * K))
@@ -112,7 +112,7 @@ def main(events, drums, audio, out, fps=60, start=0.0, length=None, scale=1.0, t
         drum = [[t, 0, d, 100, 'd'] for t, d, p in dr.get('kick', [])] + [[t, 4, d, 100, 'd'] for t, d, p in dr.get('layer', [])] + \
                [[t, 8 + p, d, 100, 'd'] for t, d, p in dr.get('break', [])]
         lanes.append(('Drums', 'Breaks', drum, 56))
-    if BT and tempo_lane: lanes.append(('Tempo', 'Tempo', [], 30))   # the tempo curve (opt-in: --tempo-lane)
+    if BT and tempo_lane: lanes.append(('Tempo', 'Tempo', [], 30))   # the tempo curve (--no-tempo-lane to hide; --bpm-text adds the number)
     top = u(38)
     lay = []
     for label, clip, notes, h in lanes:
@@ -168,7 +168,7 @@ def main(events, drums, audio, out, fps=60, start=0.0, length=None, scale=1.0, t
                 g.rectangle([X0_, y, W_, y + u(9)], fill=mix(BG, col, 0.62)); g.text((X0_ + u(4), y - u(1)), 'Tempo', font=font, fill=mix(col, CREAM, 0.6))
                 pts = [(x, y + u(12) + (h - u(6)) * (1 - (min(220, max(60, bpm_at(p0 + (x - X0_) / PXB))) - 60) / 160)) for x in range(X0_, W_, u(3))]
                 g.line(pts, fill=mix(col, CREAM, 0.4), width=max(2, u(2)))
-                bn = bpm_at(p0); g.text((X0_ + u(8), y + u(12)), f'{bn:.0f} BPM', font=fbig, fill=CREAM if abs(bn - BPM) > 1 else mix(col, CREAM, 0.5))
+                if bpm_text: bn = bpm_at(p0); g.text((X0_ + u(8), y + u(12)), f'{bn:.0f} BPM', font=fbig, fill=CREAM if abs(bn - BPM) > 1 else mix(col, CREAM, 0.5))
                 continue
             i0 = bisect.bisect_left(L['starts'], t - L['maxd'] - 0.01); i1 = bisect.bisect_right(L['starts'], tv)
             vis = [n for n in L['notes'][i0:i1] if n[0] + n[2] >= t]
@@ -199,7 +199,7 @@ def main(events, drums, audio, out, fps=60, start=0.0, length=None, scale=1.0, t
     print('wrote', out)
 
 if __name__ == '__main__':
-    a = sys.argv[1:]; theme = None; tl = '--tempo-lane' in a
-    if tl: a.remove('--tempo-lane')
+    a = sys.argv[1:]; theme = None; tl = '--no-tempo-lane' not in a; bt_ = '--bpm-text' in a
+    a = [x for x in a if x not in ('--no-tempo-lane', '--bpm-text')]
     if '--theme' in a: i = a.index('--theme'); theme = json.load(open(a[i + 1])); del a[i:i + 2]
-    main(a[0], a[1], a[2], a[3], int(a[4]) if len(a) > 4 else 60, scale=float(a[5]) if len(a) > 5 else 1.0, theme=theme, tempo_lane=tl)
+    main(a[0], a[1], a[2], a[3], int(a[4]) if len(a) > 4 else 60, scale=float(a[5]) if len(a) > 5 else 1.0, theme=theme, tempo_lane=tl, bpm_text=bt_)

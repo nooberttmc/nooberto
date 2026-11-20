@@ -94,6 +94,9 @@ Details and the reasoning live in `references/`. These are the ones that cost th
     own dynamics, panned apart) rather than a perfect copy; lead guitar darker (top rolled off ~4.5 kHz) and as loud as
     the instrument it duels with; heavier breaks (tanh drive, +4 dB low shelf, compression); hold the final chord ~4 s.
     Measure buried parts with `scripts/audibility.py` (unmasked share per section; slow: one render per part).
+23. **Guitars: start from apricity's config** (rhythm amp `rhythm`, its GTR EQ, hard-panned takes; lead/harmony
+    chains in references/examples/apricity.js); a listener rejected the reference-matched `modern` tone as "weird".
+    **Pianos**: Salamander Grand + phrase-shaped velocities, rolled chords and pedalling (mixing.md "Realistic piano").
 
 ## How the pieces fit
 - `song.js` defines `guitarEvents()` (every pitched part as notes: `[t_sec, midi, dur_sec, velocity, articulation]`,

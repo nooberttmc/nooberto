@@ -68,3 +68,15 @@ the numbers below are what the listener's ears agreed with.
   at 400-1500 Hz, inaudible). Compare with a residual in dB, not max sample difference.
 - An Edit that swallows the line after a `//` comment can silently disconnect the output (a silent render): always
   check the render's peak/loudness after editing the master chain.
+
+## Realistic piano
+The GM piano in MuseScore General sounds like a MIDI piano. What made it sound played:
+- **Samples**: the Salamander Grand Piano SF2 (Yamaha C5, 16 velocity layers, stereo AB mics; CC-BY 3.0, Alexander
+  Holm; SF2 by FreePats: freepats.zenvoid.org/Piano/SalamanderGrandPiano/SalamanderGrandPiano-SF2-V3+20200602.tar.xz,
+  1.27 GB, keep it out of git). `setup.sh --piano` fetches it.
+- **Velocity**: programmed pianos are usually played too hard and too evenly. Use ~60-95, shaped by the phrase: accent
+  the downbeat, inner voices ~8 softer than the top note, arpeggios arched (louder at the top), a dynamic per section.
+- **Rolled chords**: spread a chord's notes a few ms from the bass up (~6 ms per note) instead of one instant.
+- **Sustain pedal** (`pedal: [[down, up], ...]` on the part -> CC64): change it at each chord in lyrical passages,
+  lifting as the new chord sounds and pressing again ~70 ms later (legato pedalling); leave rhythmic stabs dry.
+- **Mix**: a real stereo grand (don't collapse it), little EQ (a small 250 Hz dip, a touch of 3 kHz), some room.

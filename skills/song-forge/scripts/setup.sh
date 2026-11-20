@@ -27,3 +27,11 @@ need ffmpeg && echo "  ffmpeg ok" || echo "  ffmpeg MISSING"
 python3 -c "import mido, numpy, scipy, PIL" && echo "  python libs ok"
 node -e "require('playwright')" 2>/dev/null && echo "  playwright ok" || echo "  playwright: run from a folder where it's installed, or set NODE_PATH"
 python3 -c "import sys; sys.path.insert(0, '$(dirname "$0")'); import reamp; print('  guitar amp: ' + ('Guitarix (real JCM800 + DS-1)' if reamp.have_guitarix() else 'built-in model'))"
+
+# optional: the Salamander Grand Piano SF2 (1.27 GB, CC-BY 3.0) for realistic piano: bash setup.sh --piano [dest_dir]
+if [ "${1:-}" = "--piano" ]; then
+  DEST="${2:-soundfonts}"; mkdir -p "$DEST"; TMP=$(mktemp -d)
+  curl -L -o "$TMP/sal.tar.xz" "https://freepats.zenvoid.org/Piano/SalamanderGrandPiano/SalamanderGrandPiano-SF2-V3+20200602.tar.xz"
+  tar -xJf "$TMP/sal.tar.xz" -C "$TMP" && mv "$TMP"/SalamanderGrandPiano-SF2-*/*.sf2 "$DEST/SalamanderGrandPiano.sf2" && rm -rf "$TMP"
+  echo "piano: $DEST/SalamanderGrandPiano.sf2 (credit: Salamander Grand Piano by Alexander Holm, CC-BY 3.0)"
+fi
