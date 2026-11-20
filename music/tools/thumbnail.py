@@ -1,9 +1,9 @@
 """Thumbnail for "apricity." in the style of glitchy pixel-icon breakcore covers.
 
 usage: python3 thumbnail.py events.json drums.json song.mp3 out.png
-Background: the song's own arrangement view (from visualize.py), zoomed out, tinted cold and dimmed.
-Centre: a pixel-art winter sun sinking beneath the waves, with a soft glow and drifting snow.
-Below: the title in a pixel font. Scanlines and horizontal glitch bands over everything.
+Background: the song's own arrangement view (from visualize.py), zoomed out and dimmed.
+Centre: a pixel-art sun sinking beneath the waves, with a soft glow and violet sparks.
+Colours from the song video; faint scanlines.
 """
 import sys, os, subprocess, tempfile, random
 import numpy as np
@@ -12,8 +12,8 @@ sys.path.insert(0, os.path.dirname(__file__))
 import visualize
 
 W, H = 1280, 720
-GOLD, CREAM, EMBER = (255, 214, 140), (255, 240, 205), (232, 150, 70)
-COLD_DARK, COLD = (8, 12, 24), (70, 110, 170)
+# the song video's palette (the Drowned Sun fight): ember-black, molten orange, gold, cream, flare red, eclipse violet
+GOLD, CREAM, ORANGE, RED, VIOLET = (255, 208, 96), (255, 240, 192), (255, 176, 64), (255, 80, 48), (192, 96, 255)
 
 def arrangement(events, drums, audio, t=96.0):
     """One frame of the arrangement view, zoomed out so many bars are visible."""
@@ -34,18 +34,19 @@ def icon(grid=40):
         ang = np.pi + (k + 0.5) * np.pi / 7; L = 5 if k % 2 == 0 else 3
         x0, y0 = cx - 0.5 + np.cos(ang) * (r + 2), hy - 0.5 + np.sin(ang) * (r + 2)
         x1, y1 = cx - 0.5 + np.cos(ang) * (r + 2 + L), hy - 0.5 + np.sin(ang) * (r + 2 + L)
-        d.line([(round(x0), round(y0)), (round(x1), round(y1))], fill=GOLD, width=2)
+        d.line([(round(x0), round(y0)), (round(x1), round(y1))], fill=ORANGE, width=2)
     d.line([(cx - 16, hy), (cx + 15, hy)], fill=CREAM)            # the horizon
     for row, half in [(hy + 3, 13), (hy + 6, 10), (hy + 9, 7), (hy + 12, 4)]:   # swells, narrowing
         for x in range(cx - half, cx + half):
             if (x - cx) % 4 == 3: continue                        # little breaks between crests
             near = abs(x - cx + 0.5) / half
-            c = tuple(int(GOLD[i] + ((150, 190, 235)[i] - GOLD[i]) * min(1, near * 1.4)) for i in range(3))
+            f = min(1, near * 1.4); a0, a1, k = (GOLD, ORANGE, f * 2) if f < 0.5 else (ORANGE, RED, f * 2 - 1)
+            c = tuple(int(a0[i] + (a1[i] - a0[i]) * k) for i in range(3))
             d.point((x, row), fill=c)
             if (x - cx) % 4 == 1: d.point((x, row - 1), fill=c)   # a crest pixel above each wave
-    for fx, fy in [(4, 4), (35, 3), (3, 13), (36, 12), (10, 2), (29, 2)]:  # snowflakes: small crosses, in open sky
+    for fx, fy in [(4, 4), (35, 3), (3, 13), (36, 12), (10, 2), (29, 2)]:  # eclipse-violet sparks, in open sky
         for dx, dy in [(0, 0), (1, 0), (-1, 0), (0, 1), (0, -1)]:
-            d.point((fx + dx, fy + dy), fill=(214, 232, 255, 230))
+            d.point((fx + dx, fy + dy), fill=VIOLET + (175,))
     return img
 
 GLYPHS = {   # 5-wide pixel font, rows 0-6 + 2 descender rows
@@ -70,45 +71,24 @@ def pixel_text(text, scale):
     return m.resize((m.width * scale, m.height * scale), Image.NEAREST)
 
 def main(events, drums, audio, out):
-    rnd = random.Random(11)
-    # background: the arrangement, made cold and quiet
-    bg = arrangement(events, drums, audio).resize((W, H))
-    g = np.asarray(bg.convert('L'), np.float32) / 255
-    base = np.array(COLD_DARK, np.float32); tint = np.array(COLD, np.float32)
-    arr = base + (tint - base) * (g[..., None] ** 0.9) * 0.6
+    # background: the arrangement view in its own colours (a Phase I frame), dimmed, with a vignette
+    bg = arrangement(events, drums, audio, t=20.0).resize((W, H))
+    arr = np.asarray(bg, np.float32) * 0.55
     yy, xx = np.mgrid[0:H, 0:W]
-    vign = 1 - 0.55 * np.clip(np.hypot((xx - W / 2) / (W / 2), (yy - H / 2) / (H / 2)) - 0.25, 0, 1)
+    vign = 1 - 0.6 * np.clip(np.hypot((xx - W / 2) / (W / 2), (yy - H / 2) / (H / 2)) - 0.25, 0, 1)
     arr *= vign[..., None]
-    # a faint warm halo behind the sun
-    halo = np.exp(-(((xx - W / 2) ** 2 + (yy - 250) ** 2) / (2 * 200.0 ** 2)))
-    arr += np.array([60, 38, 14], np.float32) * halo[..., None]
-    img = Image.fromarray(np.clip(arr, 0, 255).astype(np.uint8))
-    # icon + glow
-    ic = icon(); s = 10; big = ic.resize((ic.width * s, ic.height * s), Image.NEAREST)
-    ox, oy = (W - big.width) // 2, 285 - big.height // 2
+    halo = np.exp(-(((xx - W / 2) ** 2 + (yy - H / 2 + 20) ** 2) / (2 * 220.0 ** 2)))   # warm light behind the sun
+    arr += np.array([70, 34, 8], np.float32) * halo[..., None]
+    img = Image.fromarray(np.clip(arr, 0, 255).astype(np.uint8)).convert('RGBA')
+    # the icon, centred, with a glow
+    ic = icon(); s = 12; big = ic.resize((ic.width * s, ic.height * s), Image.NEAREST)
+    ox, oy = (W - big.width) // 2, (H - big.height) // 2
     glow = Image.new('RGBA', (W, H), (0, 0, 0, 0)); glow.paste(big, (ox, oy), big)
-    glow = glow.filter(ImageFilter.GaussianBlur(18))
-    img = Image.alpha_composite(img.convert('RGBA'), Image.blend(Image.new('RGBA', (W, H), (0, 0, 0, 0)), glow, 0.75))
+    glow = glow.filter(ImageFilter.GaussianBlur(20))
+    img = Image.alpha_composite(img, Image.blend(Image.new('RGBA', (W, H), (0, 0, 0, 0)), glow, 0.75))
     img.alpha_composite(big, (ox, oy))
-    # title
-    tx = pixel_text('apricity.', 7); tcol = Image.new('RGBA', tx.size, CREAM + (255,)); tcol.putalpha(tx)
-    tglow = Image.new('RGBA', (W, H), (0, 0, 0, 0)); tx0, ty0 = (W - tx.width) // 2, 545
-    tglow.paste(tcol, (tx0, ty0), tcol); tglow = tglow.filter(ImageFilter.GaussianBlur(8))
-    img = Image.alpha_composite(img, Image.blend(Image.new('RGBA', (W, H), (0, 0, 0, 0)), tglow, 0.6))
-    img.alpha_composite(tcol, (tx0, ty0))
-    # glitch: shifted horizontal bands, bright hairlines, scanlines
     a = np.asarray(img.convert('RGB')).copy()
-    keep = [(oy - 10, oy + big.height + 10), (ty0 - 10, ty0 + tx.height + 10)]   # icon and title stay clean
-    n = 0
-    while n < 14:
-        y0 = rnd.randrange(0, H - 8); hgt = rnd.randrange(2, 9); sh = rnd.randrange(-40, 40)
-        if any(y0 < b and y0 + hgt > a0 for a0, b in keep): continue
-        a[y0:y0 + hgt] = np.roll(a[y0:y0 + hgt], sh, axis=1); n += 1
-    for _ in range(22):
-        y0 = rnd.randrange(0, H); x0 = rnd.randrange(0, W - 200); ln = rnd.randrange(80, 520)
-        c = np.array(rnd.choice([GOLD, (160, 200, 255), CREAM]), np.float32)
-        a[y0, x0:x0 + ln] = np.clip(a[y0, x0:x0 + ln] * 0.6 + c * 0.4, 0, 255)
-    a[::3] = (a[::3] * 0.86).astype(np.uint8)
+    a[::3] = (a[::3] * 0.88).astype(np.uint8)   # faint, even scanlines
     Image.fromarray(a).save(out)
     print('wrote', out)
 
