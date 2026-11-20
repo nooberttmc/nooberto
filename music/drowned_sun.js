@@ -83,25 +83,30 @@ function guitarEvents() {
     return [up, dn];
   };
   const sc0 = (c, tr) => SCALE.map(x => (x + 6 + tr) % 12).indexOf(c) < 0;   // a chord tone outside the key (raised 7th)
+  // Ornaments, placed by hand (sparingly, on the notes that carry the phrase):
+  //  - grace note (acciaccatura): a quick step from below, played just BEFORE the beat (it borrows time from the
+  //    previous note) so the main note keeps its weight; used on notes reached by a leap
+  //  - trill: at the half-cadence (G# over C#, theme bar 4): starts on the upper note, four even 16ths, ends on
+  //    the main note, then holds it
+  // Light on the first statement, fullest on the return, a little lighter again in Phase III.
   const melody = (t0, line, tr, notes, twin, orn) => {
     const gi = Math.round(t0 / BAR), longest = line.reduce((a, n, i) => n[2] > line[a][2] ? i : a, 0);
     line.forEach(([s, m, l], i) => {
-      const bend = gi % 2 === 0 && i === longest && l >= 6, rel = gi % 4 === 3 && i === line.length - 1 && l >= 4;
+      const kind = (orn || []).filter(o => o[0] === i).map(o => o[1])[0];
+      const bend = !kind && gi % 2 === 0 && i === longest && l >= 6, rel = gi % 4 === 3 && i === line.length - 1 && l >= 4;
       const art = bend && rel ? 'bendrel' : bend ? 'bend' : rel ? 'release' : 'lead';
       const mm = m + tr + LO, t = t0 + s * STEP;
       if (twin) note(P.harm, t, below(mm, notes), l * STEP * 0.97, 106, art);
-      const h = (gi * 7 + i * 13 + (orn || 0) * 5) % 10, kind = (gi + i + (orn || 0)) % 3;
-      if (!orn || bend || h >= orn + 1 || l < 2) { note(P.lead, t, mm, l * STEP * 0.97, 114, art); return; }
-      const [up, dn] = neighbours(mm, tr, notes), q = STEP * 0.75;   // ornament note length: long enough to hear each pitch
-      if (kind === 0 && l >= 6) {        // trill: main-upper-main-upper, then hold the main note
-        [mm, up, mm, up].forEach((n, k) => note(P.lead, t + k * q, n, q * 0.9, 118, 'open'));
-        note(P.lead, t + 4 * q, mm, l * STEP * 0.97 - 4 * q, 112, art);
-      } else if (kind === 2 && l >= 4 && i === line.length - 1) {   // turn: upper-main-lower, into the main note
-        [up, mm, dn].forEach((n, k) => note(P.lead, t + k * q, n, q * 0.9, 118, 'open'));
-        note(P.lead, t + 3 * q, mm, l * STEP * 0.97 - 3 * q, 112, art);
-      } else {                           // grace note: a quick neighbour just before the beat lands
-        note(P.lead, t, gi % 2 ? up : dn, q * 0.9, 118, 'open');
-        note(P.lead, t + q, mm, l * STEP * 0.97 - q, 114, art);
+      if (!kind) { note(P.lead, t, mm, l * STEP * 0.97, 114, art); return; }
+      const [up, dn] = neighbours(mm, tr, notes);
+      if (kind === 'trill') {
+        [up, mm, up, mm].forEach((n, k) => note(P.lead, t + k * STEP, n, STEP * 0.9, k % 2 ? 110 : 116, 'open'));
+        note(P.lead, t + 4 * STEP, mm, (l - 4) * STEP * 0.97, 112, art);
+      } else {  // grace: before the beat; the previous lead note gives up the time
+        const q = STEP * 0.7, prev = P.lead[P.lead.length - 1];
+        if (prev && prev[0] < t - q && prev[0] + prev[2] > t - q) prev[2] = t - q - prev[0] - 0.004;
+        note(P.lead, t - q, dn, q * 0.92, 104, 'open');
+        note(P.lead, t, mm, l * STEP * 0.97, 116, art);
       }
     });
   };
@@ -143,7 +148,11 @@ function guitarEvents() {
     } else if (sec === 'a1' || sec === 'a2' || sec === 'a3') { // the main theme
       const twin = sec !== 'a1' || b >= 8;
       pat(t0, r, b % 8 === 7 ? CHUG_END : (sec === 'a2' ? DRIVE : CHUG), sec === 'a2');
-      const orn = { a1: 1, a2: 2, a3: 3 }[sec];
+      // ornament plan per section bar: [note index, kind] (theme bars: 0 F#m, 2 D, 3 C# cadence, 4 Bm)
+      const G0 = [4, 'grace'], G2 = [3, 'grace'], G4 = [2, 'grace'], T3 = [0, 'trill'];
+      const orn = ({ a1: { 2: [G2], 10: [G2], 11: [T3] },
+                     a2: { 0: [G0], 3: [T3], 10: [G2], 11: [T3], 12: [G4] },
+                     a3: { 3: [T3], 4: [G4], 8: [G0], 11: [T3] } }[sec] || {})[b];
       if (b % 8 === 7 && b === 15) { melody(t0, THEME_A[7].slice(0, 2), tr, notes, twin, orn); scaleDown(t0, 85 + tr, tr, 8, 8); }
       else melody(t0, THEME_A[b % 8], tr, notes, twin, orn);
       // drops stay lean: guitars, bass, lead and drums carry them; strings sit an octave up, brass only marks phrases
@@ -165,7 +174,8 @@ function guitarEvents() {
     } else if (sec === 'clx') { // staccato chord stabs, everyone on the same rhythm
       pat(t0, r, STABS, true);
       const top = CLX_TOP[b % 8];
-      STAB.forEach((s, i) => { const m = top[i] + tr + LO; note(P.lead, at(s), m, STEP * 2.2, 124, 'open'); note(P.harm, at(s), below(m, notes), STEP * 1.6, 108, 'open');
+      STAB.forEach((s, i) => { const m = top[i] + tr + LO, len = ((STAB[i + 1] == null ? 16 : STAB[i + 1]) - s) * STEP + 0.012;   // legato: ring into the next note
+        note(P.lead, at(s), m, len, 120, 'legato'); note(P.harm, at(s), below(m, notes), len, 106, 'legato');
         if (i === 0 || i === 3) chord(P.brass, at(s), str, STEP * 1.5, 112); });
       chord(P.strings, t0, str.map(n => n + 12), BAR, 76);
       if (b % 2 === 0) timp(t0, ch, tr, 118);
@@ -195,8 +205,8 @@ function guitarEvents() {
     rhythmL: part(P.rhythm, { amp: 'rhythm', humanize: 6 }),
     rhythmR: part(P.rhythm, { amp: 'rhythm', humanize: 6, cents: 6 }),
     bass: part(P.bass, { program: 34, amp: 'bass', humanize: 3 }),
-    lead: part(P.lead, { amp: 'lead', humanize: 0 }),
-    harmony: part(P.harm, { amp: 'lead', humanize: 4, cents: -5 }),
+    lead: part(P.lead, { amp: 'lead', humanize: 4, lag: 3, velvar: 6 }),   // human: -1..+7 ms, a little dynamic variation
+    harmony: part(P.harm, { amp: 'lead', humanize: 4, lag: 6, velvar: 6, cents: -5 }),
     piano: part(P.piano, { program: 0, humanize: 6 }),
     strings: part(P.strings, { program: 48 }),
     low: part(P.low, { program: 43 }),
@@ -261,7 +271,7 @@ async function renderSong() {
   // bass: owns 45-250 Hz under the guitars; the sub synth owns the very bottom
   await stem('bass', 0, -20, 0, false, [HP(45), PK(350, -3, 1), PK(900, 2, 1), LP(2600)], 0.5);
   // lead: on top, with presence where the rhythm guitars were scooped
-  await stem('lead', 0.0, -13.5, 0.14, true, [HP(170), PK(450, -2.5, 1), PK(2300, 3, 0.9), LP(7500)]);
+  await stem('lead', 0.0, -13.5, 0.14, true, [HP(140), PK(700, 1.5, 0.9), PK(1900, 2, 1), LP(6000)]);   // body + presence, no shrill top
   await stem('harmony', 0.3, -25.5, 0.2, true, [HP(260), PK(2000, 1.5, 0.9), LP(6000)]);
   await stem('piano', -0.15, -21, 0.4, false, [HP(110)]);
   await stem('strings', 0.25, -27, 0.45, false, [HP(320), LP(8000)]);

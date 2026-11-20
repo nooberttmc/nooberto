@@ -26,17 +26,29 @@ def write_midi(part, path, seed):
     tr.append(mido.Message('control_change', channel=0, control=100, value=0, time=0))
     tr.append(mido.Message('control_change', channel=0, control=6, value=2, time=0))
     ev = []; hum = part.get('humanize', 0) / 1000.0
+    lag = part.get('lag', 0) / 1000.0; velvar = part.get('velvar', 7)   # a player sits slightly behind the grid; small dynamics
     cents = part.get('cents', 0); base = int(8192 * cents / 200)   # constant detune, kept under every bend
     if cents:
         for ch in (0, 1): tr.append(mido.Message('pitchwheel', channel=ch, pitch=base, time=0))
     PB = lambda t, v: ev.append((t, 2, ('pitchwheel', 0, base + int(v), 0)))   # v in 1/4096 semitone, range +-2
+    notes = []
     for t, m, d, v, art in part['notes']:
-        jt = rnd.uniform(-hum, hum) if hum else 0.0
+        jt = lag + (rnd.uniform(-hum, hum) if hum else 0.0)
         ch = 1 if art == 'mute' else 0
-        vel = max(30, min(127, int(v + (rnd.randint(-7, 7) if hum else 0))))
-        ev.append((t + jt, 1, ('note_on', ch, int(m), vel)))
-        ev.append((t + jt + d, 0, ('note_off', ch, int(m), 0)))
-        if art in ('lead', 'bend', 'release', 'bendrel'):
+        vel = max(30, min(127, int(v + (rnd.randint(-velvar, velvar) if hum else 0))))
+        notes.append([t, jt, d, ch, int(m), vel, art])
+    # a note may not ring into the next note of the same pitch (its note-off would cut the new note short)
+    last = {}
+    for n in sorted(notes, key=lambda n: n[0] + n[1]):
+        k = (n[3], n[4])
+        if k in last:
+            p = last[k]; start = n[0] + n[1]
+            if p[0] + p[1] + p[2] > start - 0.002: p[2] = max(0.01, start - 0.002 - p[0] - p[1])
+        last[k] = n
+    for t, jt, d, ch, m, vel, art in notes:
+        ev.append((t + jt, 1, ('note_on', ch, m, vel)))
+        ev.append((t + jt + d, 0, ('note_off', ch, m, 0)))
+        if art in ('lead', 'bend', 'release', 'bendrel'):  # ('legato' and 'open' notes: no bends or vibrato)
             t0 = t + jt; vib_from = 0.18
             if art in ('bend', 'bendrel'):  # pick a whole step low, then bend up to pitch (eased)
                 bl = min(0.16, d * 0.35); n = 10
