@@ -162,10 +162,11 @@ function guitarEvents() {
   const E8 = slot => T(gi, slot * 2), D8 = (slot, len, k) => (T(gi, (slot + len) * 2) - T(gi, slot * 2)) * k;
   const last = {};   // the last pitch per line, for grace-note direction
   // a melodic line into a part, with its ornaments. who: 'gtr' (lead guitar) or 'brass' (brass section + synth double)
+  const GTR_OCT = -12;   // the guitars play an octave below where the lines are written: heavier, clear of the brass
   function line(who, notes, opt) {
     const o = opt || {}, up = o.up || 0, vel = o.vel || 112, sc = barScale(X.pc);
     for (const n of notes) {
-      const [s, m0, l, orn] = n, m = (o.harm ? third(m0, X.pc) : m0) + up, t = E8(s), d = D8(s, l, l <= 1 ? 0.92 : 0.97);
+      const [s, m0, l, orn] = n, m = (o.harm ? third(m0, X.pc) : m0) + up + (who === 'gtr' ? GTR_OCT : 0), t = E8(s), d = D8(s, l, l <= 1 ? 0.92 : 0.97);
       const dests = who === 'gtr' ? [o.harm ? P.harmony : P.lead] : [P.brass, P.synth];
       if (orn === 'g' && !o.harm) {   // grace note: a step below when climbing to it, above when falling, ~75 ms before the beat
         let g = m - 1; while (!sc.includes(((g % 12) + 12) % 12)) g -= 1;   // always from the scale step below: an upward flick
@@ -197,7 +198,7 @@ function guitarEvents() {
   const PEDAL = [];
   const pedalBar = () => PEDAL.push([T(gi, 0) + 0.07, T(gi + 1, 0) + 0.015]);
   const pdyn = () => ({ intro: -14, A: -4, B: -2, C: -10, A2: 2, drop: 0, S: 0, F: 2, end: 2, hold: 0 })[X.sec] || 0;   // section dynamics
-  const pkey = (t, m, d, v) => P.piano.push([t, m, d, Math.max(30, Math.min(124, Math.round(v + pdyn()))), 'open']);
+  const pkey = (t, m, d, v) => P.piano.push([t, m, d, Math.max(40, Math.min(127, Math.round(v + 16 + pdyn()))), 'open']);   // +16: played harder
   const rolled = (t, ms, d, v, top) => ms.slice().sort((a, b) => a - b).forEach((m, i, arr) => pkey(t + i * 0.006, m, d, i === arr.length - 1 ? v + (top || 4) : i === 0 ? v : v - 8));
   const pianoStab = (pc, slots) => slots.forEach((s, j) => { const v = j === 0 ? 92 : 80;   // dry stabs, the downbeat accented
     rolled(E8(s), [into(36 + pc, 36, 47), ...triad(pc).map(c => into(c + 60, 60, 71))], D8(s, 1, 0.85), v); });
@@ -213,7 +214,7 @@ function guitarEvents() {
     if (sec === 'hold') { if (b === 0) {   // one big tonic chord at full energy (cut at ~1.8 s)
         const H = 4.2;   // the held chord rings ~4 s
         for (const n of [41, 48, 53]) P.rhythm.push([E8(0), n, H, 126, 'open']); P.bass.push([E8(0), 29, H, 120, 'open']);
-        P.lead.push([E8(0), 77, H, 120, 'bend']); P.harmony.push([E8(0), 72, H, 112, 'lead']); P.brass.push([E8(0), 72, H, 120, 'open'], [E8(0), 77, H, 118, 'open']); P.synth.push([E8(0), 77, H, 116, 'open']);
+        P.lead.push([E8(0), 65, H, 120, 'bend']); P.harmony.push([E8(0), 60, H, 112, 'lead']); P.brass.push([E8(0), 72, H, 120, 'open'], [E8(0), 77, H, 118, 'open']); P.synth.push([E8(0), 77, H, 116, 'open']);
         bell(0, 65, 124, 6.5); bell(0, 68, 118, 6.5); bell(0, 72, 120, 6.5); bell(0, 77, 116, 6.5);   // ~30 dB down by 6.5 s: inaudible after
         [65, 68, 72].forEach(m => P.strings.push([E8(0), m, H, 100, 'open'])); [60, 65, 68].forEach(m => P.choir.push([E8(0), m, H, 104, 'open']));
         P.timp.push([E8(0), 41, 1.5, 127, 'open']); rolled(E8(0), [29, 41, 65, 68, 72], H, 100, 6); PEDAL.push([E8(0) + 0.05, E8(0) + H]); }
