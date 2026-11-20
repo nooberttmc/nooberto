@@ -33,7 +33,24 @@ const STAB = [0, 3, 6, 8, 11, 14];
 const CLX_TOP = [[81, 80, 78, 81, 85, 81], [83, 81, 80, 78, 76, 78], [81, 78, 74, 78, 81, 86], [85, 83, 81, 78, 81, 83],
   [83, 78, 74, 78, 83, 86], [85, 83, 81, 83, 85, 86], [85, 80, 77, 80, 85, 89], [83, 80, 77, 73, 77, 80]];
 const LO = -12;  // every lead line sits an octave lower: darker, heavier, less piercing
-const SCALE = [0, 2, 3, 5, 7, 8, 10];  // natural minor from the tonic
+const SCALE = [0, 2, 3, 5, 7, 8, 10];
+// Phase III run section, written out bar by bar (chords D A E F#m | Bm F#m G C#7 | D A E F#m, in F# minor before the lift)
+const B3_LINE = [
+  [[0, 74, 1], [1, 78, 1], [2, 81, 1], [3, 86, 1], [4, 85, 2], [6, 81, 2], [8, 78, 4], [12, 81, 4]],   // D: the motif, rising
+  [[0, 73, 1], [1, 76, 1], [2, 81, 1], [3, 85, 1], [4, 83, 2], [6, 81, 2], [8, 76, 4], [12, 80, 4]],   // A: same shape
+  [[0, 71, 1], [1, 76, 1], [2, 80, 1], [3, 83, 1], [4, 81, 2], [6, 80, 2], [8, 76, 4], [12, 78, 4]],   // E: same shape, leading home
+  [[0, 78, 8], [8, 73, 8]],                                                                              // F#m: resolve
+  [[0, 86, 3], [3, 85, 3], [6, 83, 2], [8, 81, 3], [11, 83, 3], [14, 78, 2]],                            // Bm: call (stab rhythm)
+  [[0, 78, 3], [3, 80, 3], [6, 81, 2], [8, 85, 3], [11, 83, 3], [14, 81, 2]],                            // F#m: answer
+  [[0, 86, 1], [1, 85, 1], [2, 83, 1], [3, 81, 1], [4, 79, 2], [6, 78, 2], [8, 79, 4], [12, 83, 4]],   // G (bII): a dark fall
+  [[0, 80, 2], [2, 77, 2], [4, 80, 2], [6, 83, 2], [8, 85, 6], [14, 83, 2]],                            // C#7: tension
+  [[0, 81, 2], [2, 86, 2], [4, 85, 2], [6, 86, 2], [8, 90, 8]],                                          // D: the high point (bent)
+  [[0, 88, 6], [6, 85, 2], [8, 81, 8]],                                                                  // A: coming down
+  [[0, 83, 1], [1, 81, 1], [2, 80, 1], [3, 78, 1], [4, 76, 1], [5, 74, 1], [6, 73, 1], [7, 71, 1],
+   [8, 73, 2], [10, 76, 2], [12, 80, 2], [14, 83, 2]],                                                   // E: fall, then climb back
+  [[0, 85, 8], [8, 78, 8]],                                                                              // F#m: home
+];
+const B3_TWIN = [3, 4, 5, 7, 8, 9, 11];   // the harmony guitar doubles the held and stab bars, not the runs  // natural minor from the tonic
 const RUNS = [[1, 2, 1, 3, 2, 1, 2, 0, 1, 0, 1, 2], [0, 1, 2, 3, 2, 3, 4, 3, 2, 1, 2, 1], [3, 2, 1, 2, 0, 1, 0, -1, 0, 1, 2, 3]];
 
 function bars() {
@@ -158,20 +175,10 @@ function guitarEvents() {
       // drops stay lean: guitars, bass, lead and drums carry them; strings sit an octave up, brass only marks phrases
       chord(P.strings, t0, str.map(n => n + 12), BAR, 72);
       if (b % 4 === 0) { timp(t0, ch, tr, 108); chord(P.brass, t0, str, STEP * 3, 104); }
-    } else if (sec === 'b3') { // Phase III runs: 12 bars that keep changing - runs, stabs, triplets, an octave leap, a bend, a fall
-      const v = voicing(notes, 73), twinNote = (t, m, len, art) => { note(P.lead, t, m + LO, len, 116, art); note(P.harm, t, below(m + LO, notes), len, 104, art); };
-      pat(t0, r, b === 4 ? STABS : b === 9 ? DRIVE : b === 5 ? CHUG : GALLOP, true);
-      if (b === 3 || b === 7 || b === 11) melody(t0, [[0, v[2], 8], [8, v[1], 8]], 0, notes, true);          // two half notes
-      else if (b === 4) {                                                                                    // chord stabs, legato
-        const tops = [v[2], v[1], v[2], v[0] + 12, v[2], v[1]];
-        STAB.forEach((s, i) => twinNote(at(s), tops[i], ((STAB[i + 1] == null ? 16 : STAB[i + 1]) - s) * STEP + 0.012, 'legato'));
-      } else if (b === 5) {                                                                                  // triplet arpeggio, up and back down
-        const arp = [v[0], v[1], v[2], v[0] + 12, v[1] + 12, v[2] + 12, v[1] + 12, v[0] + 12, v[2], v[1], v[0], v[1]];
-        arp.forEach((m, i) => note(P.lead, t0 + i * STEP * 4 / 3, m + LO, STEP * 4 / 3 * 0.92, 118 + (i % 3 === 0 ? 6 : 0), 'open'));
-      } else if (b === 8) runBar(t0, notes, 1, false, 80);                                                    // the run, climbing higher
-      else if (b === 9) { twinNote(t0, v[2] + 12, STEP * 12 * 0.97, 'bend'); twinNote(at(12), v[1] + 12, STEP * 4 * 0.97, 'release'); }   // a long bend
-      else if (b === 10) scaleDown(t0, v[2] + 12, tr, 16, 0);                                                 // a falling scale into the end
-      else runBar(t0, notes, b, true);
+    } else if (sec === 'b3') { // Phase III runs: one written 12-bar phrase (F# minor shapes, played a half step up in G minor)
+      const line = B3_LINE[b], stabs = b === 4 || b === 5;
+      pat(t0, r, stabs ? STABS : b === 3 || b === 7 || b === 11 ? CHUG_END : b === 9 ? DRIVE : GALLOP, true);   // guitars lock to the lead
+      melody(t0, line, tr, notes, B3_TWIN.indexOf(b) >= 0);
       chord(P.strings, t0, str.map(n => n + 12), BAR, 72);
       if (b % 2 === 0) chord(P.brass, t0, str, STEP * 2, 110);
       if (b % 4 === 0) timp(t0, ch, tr, 112);
@@ -274,8 +281,8 @@ async function renderSong() {
   const RIDE = {}; let DRUM_DB = () => 0;
   // level changes never jump: every change glides over the bar before the downbeat it belongs to (a section boundary is always at least 2 bars from the next, so glides never overlap)
   function glide(param, a, c, b) {
-    if (a === c) return; const v = d => Math.pow(10, d / 20), t = b * BAR, half = BAR;   // full-bar glides
-    param.setValueAtTime(v(a), t - half); param.linearRampToValueAtTime(v(c), t);   // the change happens over the bar before
+    if (a === c) return; const v = d => Math.pow(10, d / 20), t = b * BAR, half = BAR * 2;   // two-bar glides
+    param.setValueAtTime(v(a), t - half); param.linearRampToValueAtTime(v(c), t);   // the change happens over the two bars before
   }   // per-part level riding (automation), on top of the static levels
   const GUITARS = ['rhythmL', 'rhythmR', 'bass', 'lead', 'harmony'];
   async function stem(name, pan, targetDb, verbAmt, useDelay, eq, duck) {
@@ -319,12 +326,12 @@ async function renderSong() {
     // energy contour: pull back before the big moments so they hit harder (0-indexed bars)
     const verse = b => (b >= 24 && b < 32) || (b >= 48 && b < 56);   // run section 1st half; theme return 1st half
     const tease = b => b >= 8 && b < 16;                               // first statement of the theme
-    const gtrPull = b => tease(b) ? -1.5 : verse(b) ? -3 : 0;
+    const gtrPull = b => 0;   // pull-backs are arrangement only now (no level changes)
     const adj = { rhythmL: b => (p3(b) ? -3 : 0) + (inter(b) ? -4 : 0) + gtrPull(b), rhythmR: b => (p3(b) ? -3 : 0) + (inter(b) ? -4 : 0) + gtrPull(b),
-                  lead: b => (p3(b) ? 2 : 0) + (inter(b) ? (b < START.inter + 6 ? -6 : -3) : 0) + (verse(b) ? -1 : tease(b) ? -0.5 : 0), harmony: b => (p3(b) ? 1 : 0) + (verse(b) ? -1 : 0),
-                  piano: b => inter(b) ? 2 : 0, bass: b => (inter(b) ? -2 : 0) + (verse(b) ? -2 : 0), low: b => inter(b) ? -3 : 0,
+                  lead: b => (p3(b) ? 2 : 0) + (inter(b) ? (b < START.inter + 6 ? -6 : -3) : 0), harmony: b => p3(b) ? 1 : 0,
+                  piano: b => inter(b) ? 2 : 0, bass: b => inter(b) ? -2 : 0, low: b => inter(b) ? -3 : 0,
                   brass: b => verse(b) || b === 62 || b === 63 ? -60 : 0 };   // brass sits out the pull-backs   // the interlude belongs to the piano: the band steps back around it
-    DRUM_DB = b => inter(b) ? -2 : tease(b) ? -2.5 : verse(b) ? -5 : (b === 62 || b === 63) ? -60 : 0;   // drums drop out for the 2 bars before the climax
+    DRUM_DB = b => inter(b) ? -2 : (b === 62 || b === 63) ? -60 : 0;   // drums drop out for the 2 bars before the climax
     for (const k in adj) if (RIDE[k]) for (let b = 1; b < BARS.length; b++) glide(RIDE[k].gain, adj[k](b - 1), adj[k](b), b);
   }
 

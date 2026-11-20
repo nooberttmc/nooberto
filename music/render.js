@@ -10,6 +10,7 @@ for (let i = 2; i < args.length; i++) {
   if (args[i] === '--events') opt.events = args[++i];
   else if (args[i] === '--stem') { const [k, v] = args[++i].split('='); opt.stems[k] = v; }
   else if (args[i] === '--gain') opt.gain = +args[++i];
+  else if (args[i] === '--level') opt.level = args[++i];   // "FROM:UNTIL" seconds: run tools/level.py on the mix
 }
 const pcm = p => execSync(`ffmpeg -loglevel error -i "${p}" -ac 1 -ar 44100 -f f32le -`, { maxBuffer: 1 << 30 });
 (async () => {
@@ -43,6 +44,7 @@ const pcm = p => execSync(`ffmpeg -loglevel error -i "${p}" -ac 1 -ar 44100 -f f
   if (r.drums) fs.writeFileSync(path.join(__dirname, 'stems', 'drums.json'), JSON.stringify(r.drums));
   const wav = path.join(__dirname, file.replace(/\.js$/, '.wav')), mp3 = path.join(__dirname, title + '.mp3');
   fs.writeFileSync(wav, Buffer.from(r.wav, 'base64'));
+  if (opt.level) { const [a0, a1] = opt.level.split(':'); execSync(`python3 "${path.join(__dirname, 'tools', 'level.py')}" "${wav}" "${wav}" --hold-from ${a0} --hold-until ${a1}`, { stdio: 'inherit' }); }
   execSync(`ffmpeg -y -loglevel error -i "${wav}" -af "volume=${opt.gain == null ? 3 : opt.gain}dB,alimiter=limit=0.89:level=false" -codec:a libmp3lame -b:a 192k -metadata title="${title}" -metadata artist="Emberwake" "${mp3}"`);
   fs.unlinkSync(wav);
   console.log('rendered', r.seconds.toFixed(1) + 's', 'raw peak', r.peak.toFixed(2), '->', mp3);
