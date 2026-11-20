@@ -100,7 +100,7 @@ def main(events, drums, audio, out, fps=60, start=0.0, length=None):
                     e = b
                     while e + 1 in L['bars'] and (e + 1) * BAR < t + view: e += 1
                     xa = max(X0, X0 + (b * BAR - t) * PX); xb = min(W, X0 + ((e + 1) * BAR - t) * PX) - 1
-                    g.rectangle([xa, y, xb, y + 9], fill=mix(BG, col, 0.62))
+                    if xb > xa: g.rectangle([xa, y, xb, y + 9], fill=mix(BG, col, 0.62))
                     if xb - xa > 60: g.text((xa + 4, y - 1), L['clip'] + ' ' + str(b // 8 + 1), font=font, fill=mix(col, CREAM, 0.6))
                     b = e + 1
                 else: b += 1
@@ -110,7 +110,7 @@ def main(events, drums, audio, out, fps=60, start=0.0, length=None):
                 ny = y + 12 + (h - 6) * (1 - (n[1] - L['lo']) / span) if span > 1 else y + 12 + h / 2 - 4
                 playing = n[0] <= t < n[0] + n[2]
                 c = CREAM if playing else mix(col, CREAM, 0.55)
-                g.rectangle([max(X0, x1), ny, max(X0 + 1, x2 - 1), ny + 2], fill=c)
+                xa = max(X0, x1); g.rectangle([xa, ny, max(xa + 1, x2 - 1), ny + 2], fill=c)
                 if playing: g.rectangle([X0, ny - 1, X0 + 3, ny + 3], fill=GOLD)
         # automation lane: the song's loudness, scrolling like a volume curve
         ay = auto_y + 16; ah = H - ay - 10
