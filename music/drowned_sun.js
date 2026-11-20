@@ -83,12 +83,10 @@ function guitarEvents() {
     return [up, dn];
   };
   const sc0 = (c, tr) => SCALE.map(x => (x + 6 + tr) % 12).indexOf(c) < 0;   // a chord tone outside the key (raised 7th)
-  // Ornaments, placed by hand (sparingly, on the notes that carry the phrase):
-  //  - grace note (acciaccatura): a quick step from below, played just BEFORE the beat (it borrows time from the
-  //    previous note) so the main note keeps its weight; used on notes reached by a leap
-  //  - trill: at the half-cadence (G# over C#, theme bar 4): starts on the upper note, four even 16ths, ends on
-  //    the main note, then holds it
-  // Light on the first statement, fullest on the return, a little lighter again in Phase III.
+  // Ornaments: grace notes only (acciaccaturas), placed by hand on the notes that carry the phrase.
+  // Each is a quick neighbour played just BEFORE the beat (it borrows time from the previous note), so the main
+  // note keeps its weight. It follows the line: a note the melody climbs to is approached from a step below,
+  // a note it falls to from a step above. No trills (they cluttered the line). 3 / 5 / 4 per theme statement.
   const melody = (t0, line, tr, notes, twin, orn) => {
     const gi = Math.round(t0 / BAR), longest = line.reduce((a, n, i) => n[2] > line[a][2] ? i : a, 0);
     line.forEach(([s, m, l], i) => {
@@ -99,13 +97,11 @@ function guitarEvents() {
       if (twin) note(P.harm, t, below(mm, notes), l * STEP * 0.97, 106, art);
       if (!kind) { note(P.lead, t, mm, l * STEP * 0.97, 114, art); return; }
       const [up, dn] = neighbours(mm, tr, notes);
-      if (kind === 'trill') {
-        [up, mm, up, mm].forEach((n, k) => note(P.lead, t + k * STEP, n, STEP * 0.9, k % 2 ? 110 : 116, 'open'));
-        note(P.lead, t + 4 * STEP, mm, (l - 4) * STEP * 0.97, 112, art);
-      } else {  // grace: before the beat; the previous lead note gives up the time
+      {  // grace: before the beat; the previous lead note gives up the time
         const q = STEP * 0.7, prev = P.lead[P.lead.length - 1];
+        const fromAbove = prev && prev[1] > mm;
         if (prev && prev[0] < t - q && prev[0] + prev[2] > t - q) prev[2] = t - q - prev[0] - 0.004;
-        note(P.lead, t - q, dn, q * 0.92, 104, 'open');
+        note(P.lead, t - q, fromAbove ? up : dn, q * 0.92, 104, 'open');
         note(P.lead, t, mm, l * STEP * 0.97, 116, art);
       }
     });
@@ -148,11 +144,12 @@ function guitarEvents() {
     } else if (sec === 'a1' || sec === 'a2' || sec === 'a3') { // the main theme
       const twin = sec !== 'a1' || b >= 8;
       pat(t0, r, b % 8 === 7 ? CHUG_END : (sec === 'a2' ? DRIVE : CHUG), sec === 'a2');
-      // ornament plan per section bar: [note index, kind] (theme bars: 0 F#m, 2 D, 3 C# cadence, 4 Bm)
-      const G0 = [4, 'grace'], G2 = [3, 'grace'], G4 = [2, 'grace'], T3 = [0, 'trill'];
-      const orn = ({ a1: { 2: [G2], 10: [G2], 11: [T3] },
-                     a2: { 0: [G0], 3: [T3], 10: [G2], 11: [T3], 12: [G4] },
-                     a3: { 3: [T3], 4: [G4], 8: [G0], 11: [T3] } }[sec] || {})[b];
+      // grace-note plan per section bar: [note index] -> the theme notes reached by a leap or a fall
+      // (theme bar.note: 0.4 A, 1.2 B falling, 2.3 A, 3.0 G# falling, 4.2 B, 5.0 A, 6.2 G)
+      const g = i => [[i, 'grace']];
+      const orn = ({ a1: { 2: g(3), 10: g(3), 12: g(2) },
+                     a2: { 0: g(4), 3: g(0), 6: g(2), 10: g(3), 13: g(0) },
+                     a3: { 1: g(2), 4: g(2), 8: g(4), 14: g(2) } }[sec] || {})[b];
       if (b % 8 === 7 && b === 15) { melody(t0, THEME_A[7].slice(0, 2), tr, notes, twin, orn); scaleDown(t0, 85 + tr, tr, 8, 8); }
       else melody(t0, THEME_A[b % 8], tr, notes, twin, orn);
       // drops stay lean: guitars, bass, lead and drums carry them; strings sit an octave up, brass only marks phrases
