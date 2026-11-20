@@ -12,7 +12,12 @@ BPM, TPB = 120, 960
 NAMES = {'lead': 'Lead Guitar', 'harmony': 'Harmony Guitar', 'rhythmL': 'Rhythm Guitar L', 'rhythmR': 'Rhythm Guitar R',
          'bass': 'Bass', 'piano': 'Piano', 'strings': 'Strings', 'low': 'Low Strings', 'brass': 'Brass',
          'organ': 'Organ', 'timp': 'Timpani'}
-tick = lambda sec: int(round(sec * BPM / 60 * TPB))
+BT = None   # tempo map: start time of every bar (events.json "bar_times"); ticks then follow the bars
+def tick(sec):
+    if BT is None: return int(round(sec * BPM / 60 * TPB))
+    import bisect
+    b = max(0, min(len(BT) - 2, bisect.bisect_right(BT, sec) - 1)); f = (sec - BT[b]) / (BT[b + 1] - BT[b])
+    return int(round((b + f) * 4 * TPB))
 
 def track(name, notes, channel, program=None):
     tr = mido.MidiTrack(); tr.append(mido.MetaMessage('track_name', name=name, time=0))
@@ -27,15 +32,19 @@ def track(name, notes, channel, program=None):
     return tr
 
 def main(events, drums, out, title='song', key=None):
-    global BPM
-    ev = json.load(open(events)); parts = ev['parts']; BPM = ev.get('bpm', 120)
+    global BPM, BT
+    ev = json.load(open(events)); parts = ev['parts']; BPM = ev.get('bpm', 120); BT = ev.get('bar_times')
     dr = json.load(open(drums)) if drums and drums != '-' else {}
     mid = mido.MidiFile(ticks_per_beat=TPB)
     meta = mido.MidiTrack(); mid.tracks.append(meta)
     meta.append(mido.MetaMessage('track_name', name=title, time=0))
-    meta.append(mido.MetaMessage('set_tempo', tempo=mido.bpm2tempo(BPM), time=0))
     meta.append(mido.MetaMessage('time_signature', numerator=4, denominator=4, time=0))
     if key: meta.append(mido.MetaMessage('key_signature', key=key, time=0))
+    if BT:   # one tempo per bar (its average), so the MIDI follows the song's speed-ups and slow-downs
+        last = 0
+        for b in range(len(BT) - 1):
+            at = b * 4 * TPB; meta.append(mido.MetaMessage('set_tempo', tempo=mido.bpm2tempo(240 / (BT[b + 1] - BT[b])), time=at - last)); last = at
+    else: meta.append(mido.MetaMessage('set_tempo', tempo=mido.bpm2tempo(BPM), time=0))
     ch = 0
     for k in parts:
         p = parts[k]; name = p.get('label') or NAMES.get(k, k)

@@ -6,7 +6,8 @@ Tracks are stacked down the screen with their names on the left; every note is a
 playhead at the left edge and lights up as it sounds; each track's clip strips cover the bars it plays in, in the
 colour of the current section.
 events.json is the song's guitarEvents() export. Read from it: "bpm", "sections" ([[name, bars], ...]),
-optional "colors" ({section: "#rrggbb"}), and per part optional "label" (lane name) and "lane" (parts with the same
+optional "colors" ({section: "#rrggbb"}), optional "bar_times" (start time of every bar, for songs with tempo changes:
+the video scrolls at constant speed, so slow passages stretch out and speed-ups bunch up), and per part optional "label" (lane name) and "lane" (parts with the same
 lane share one, e.g. two rhythm guitar takes). drums.json (from renderSong's DLOG) adds a Drums lane; pass - to skip.
 theme.json may set bg, panel, grid, cream, gold (hex) and palette (list of hex, cycled per section).
 """
@@ -22,15 +23,23 @@ hx = lambda h: tuple(int(h.lstrip('#')[i:i + 2], 16) for i in (0, 2, 4))
 THEME = {'bg': '#090406', 'panel': '#120808', 'grid': '#22100e', 'cream': '#fff0c0', 'gold': '#ffd060',
          'palette': ['#ffb040', '#ff5030', '#c060ff', '#ffd060']}
 BG = PANEL = GRID = CREAM = GOLD = None
-BPM, BAR, SECTIONS, PHASE, sec_at = 120, 2.0, [('song', 9999)], {}, [(0.0, 'song')]
+BPM, BAR, SECTIONS, PHASE, sec_at, BT = 120, 2.0, [('song', 9999)], {}, [(0.0, 'song')], None
+
+def bar_start(b):   # start time of bar b: from the song's tempo map (bar_times) if it has one, else a constant tempo
+    if BT is None: return b * BAR
+    return BT[b] if 0 <= b < len(BT) else BT[-1] + (b - len(BT) + 1) * BAR if b >= len(BT) else b * BAR
+
+def bar_of(t):
+    if BT is None: return int(t // BAR)
+    return max(0, bisect.bisect_right(BT, t) - 1) if t < BT[-1] else len(BT) - 1 + int((t - BT[-1]) // BAR)
 NICE = {'lead': 'Lead Guitar', 'harmony': 'Harmony', 'rhythmL': 'Rhythm Gtrs', 'rhythmR': 'Rhythm Gtrs', 'bass': 'Bass', 'piano': 'Piano',
         'strings': 'Strings', 'low': 'Low Strings', 'brass': 'Brass', 'organ': 'Organ', 'timp': 'Timpani', 'synth': 'Synth', 'pad': 'Pad'}
 
 def configure(ev, theme=None):
-    global BG, PANEL, GRID, CREAM, GOLD, BPM, BAR, SECTIONS, PHASE, sec_at
+    global BG, PANEL, GRID, CREAM, GOLD, BPM, BAR, SECTIONS, PHASE, sec_at, BT
     th = dict(THEME, **(theme or {}))
     BG, PANEL, GRID, CREAM, GOLD = (hx(th[k]) for k in ('bg', 'panel', 'grid', 'cream', 'gold'))
-    BPM = ev.get('bpm', 120); BAR = 60 / BPM * 4
+    BPM = ev.get('bpm', 120); BAR = 60 / BPM * 4; BT = ev.get('bar_times')   # tempo map: start time of every bar
     SECTIONS = [tuple(x) for x in ev.get('sections', [['song', 9999]])]
     pal = [hx(c) for c in th['palette']]; order = []
     for n, _ in SECTIONS:
@@ -38,7 +47,8 @@ def configure(ev, theme=None):
     cols = ev.get('colors', {})
     PHASE = {n: hx(cols[n]) if n in cols else pal[i % len(pal)] for i, n in enumerate(order)}
     sec_at = []; t = 0.0
-    for name, n in SECTIONS: sec_at.append((t, name)); t += n * BAR
+    g0 = 0
+    for name, n in SECTIONS: sec_at.append((bar_start(g0), name)); g0 += n
 
 def section(t):
     i = bisect.bisect_right([s[0] for s in sec_at], t) - 1
@@ -75,7 +85,7 @@ def main(events, drums, audio, out, fps=60, start=0.0, length=None, scale=1.0, t
         ps = [n[1] for n in notes] or [60]
         lo, hi = min(ps), max(ps)
         lay.append(dict(label=label, clip=clip, notes=notes, starts=[n[0] for n in notes], y=top, h=h, lo=lo, hi=max(hi, lo + 1),
-                        maxd=max([n[2] for n in notes] or [0]), bars=set(b for n in notes for b in range(int(n[0] / BAR), int((n[0] + n[2] - 1e-3) / BAR) + 1))))
+                        maxd=max([n[2] for n in notes] or [0]), bars=set(b for n in notes for b in range(bar_of(n[0]), bar_of(n[0] + n[2] - 1e-3) + 1))))
         top += h + u(13)
     # stretch the lanes to fill the screen
     k = (H_ - u(44) - u(13) * len(lay)) / sum(L['h'] for L in lay); y = u(38)
@@ -105,23 +115,23 @@ def main(events, drums, audio, out, fps=60, start=0.0, length=None, scale=1.0, t
         st = max(s for s, n in sec_at if s <= t + 1e-9); prev = PHASE[section(st - 0.01)] if st > 0 else col
         col = mix(prev, col, min(1, (t - st) / 1.2))
         # ruler: bar numbers scroll with the music
-        b0 = int(t / BAR)
-        for b in range(b0, b0 + int(view / BAR) + 2):
-            x = X0_ + (b * BAR - t) * PX_
+        b = bar_of(t)
+        while bar_start(b) < t + view:
+            x = X0_ + (bar_start(b) - t) * PX_; b += 1   # (b is now this bar's 1-based number)
             if x < X0_: continue
-            g.line([x, u(22), x, u(32)], fill=(110, 70, 50), width=max(1, u(1))); g.text((x + u(3), u(20)), str(b + 1), font=font, fill=(150, 110, 90))
+            g.line([x, u(22), x, u(32)], fill=(110, 70, 50), width=max(1, u(1))); g.text((x + u(3), u(20)), str(b), font=font, fill=(150, 110, 90))
             g.line([x, u(34), x, H_], fill=GRID, width=max(1, u(1)))
         for L in lay:
             y, h = L['y'], L['h']
             i0 = bisect.bisect_left(L['starts'], t - L['maxd'] - 0.01); i1 = bisect.bisect_right(L['starts'], t + view)
             vis = [n for n in L['notes'][i0:i1] if n[0] + n[2] >= t]
             # clip strips (drawn from the bars, so a strip scrolls off the left edge like the notes do), like pattern blocks, over the bars this track plays in, in the phase colour
-            b = int(t / BAR)
-            while b * BAR < t + view:
+            b = bar_of(t)
+            while bar_start(b) < t + view:
                 if b in L['bars']:
                     e = b
-                    while e + 1 in L['bars'] and (e + 1) * BAR < t + view: e += 1
-                    xa = max(X0_, X0_ + (b * BAR - t) * PX_); xb = min(W_, X0_ + ((e + 1) * BAR - t) * PX_) - 1
+                    while e + 1 in L['bars'] and bar_start(e + 1) < t + view: e += 1
+                    xa = max(X0_, X0_ + (bar_start(b) - t) * PX_); xb = min(W_, X0_ + (bar_start(e + 1) - t) * PX_) - 1
                     if xb > xa: g.rectangle([xa, y, xb, y + u(9)], fill=mix(BG, col, 0.62))
                     if xb - xa > u(60): g.text((xa + u(4), y - u(1)), L['clip'] + ' ' + str(b // 8 + 1), font=font, fill=mix(col, CREAM, 0.6))
                     b = e + 1

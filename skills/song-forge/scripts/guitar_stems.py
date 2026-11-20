@@ -8,7 +8,8 @@ Open notes use the part's "program" (default GM 27, clean electric guitar), palm
 Note articulations: "open" (plain), "mute" (palm mute, on mute_program), "lead" (vibrato on long notes), "bend" (picked
 a whole step low, bent up into pitch), "release" (sags a semitone as it ends), "bendrel" (both), "legato" (plain; give it
 a length that overlaps the next note by ~12 ms so lines connect).
-Per-part options: program, mute_program, sf, amp ("rhythm" | "lead" | "bass" | "none"), humanize (ms of random timing),
+Per-part options: record (False = don't record; the part is synthesized in renderSong but its notes still feed the
+video and MIDI export), program, mute_program, sf, amp ("rhythm" | "lead" | "bass" | "none"), humanize (ms of random timing),
 lag (ms the player sits behind the grid), velvar (+- velocity variation), cents (constant detune, e.g. a second
 take), release (SoundFont NRPN offset for the release envelope in timecents: -1800 = ~25 ms, -1400 = ~45 ms; the
 default ~200 ms tail makes fast notes overlap and intermodulate inside distortion, which sounds scratchy/fizzy).
@@ -90,6 +91,7 @@ def main(events, outdir):
     os.makedirs(outdir, exist_ok=True)
     parts = json.load(open(events))['parts']
     for i, (name, part) in enumerate(parts.items()):
+        if part.get('record') is False: continue   # synthesized in renderSong (e.g. a synth lead): notes only, no recording
         mid, di, out = [os.path.join(outdir, f'{name}{s}') for s in ('.mid', '_di.wav', '.wav')]
         write_midi(part, mid, seed=i * 101 + 7)
         subprocess.run(['fluidsynth', '-ni', '-q', '-R', '0', '-C', '0', '-g', '0.7', '-r', '44100', '-F', di, SF[part.get('sf', 'musescore')], mid], check=True)

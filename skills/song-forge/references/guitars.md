@@ -26,6 +26,15 @@ Heaviness was mostly *tone*, not gain: compare our lead against the reference's 
 voice (+6 dB around 380 Hz, -11 dB at 2.6 kHz) plus moderate drive (pre-drive 8, JCM800 -4, DS-1 0.9) matched it within
 ~2 dB per band while fast notes stayed ~68% harmonically clean. More gain than that only muddied fast notes.
 
+## Matching a reference's guitar tone
+Measure, don't eyeball. Isolate the reference's guitars with its side channel (L-R: hard-panned guitars live there),
+take its octave-band profile, and re-amp a clean recording of your part with candidate settings until the profiles
+match (`references/` workflow: render the part's MIDI to a DI once, then loop `reamp.main(...)` + compare; each try
+takes seconds). Judging tone from a spectrogram picture once produced the opposite of the reference ("dark" when it
+was actually a scooped, bright modern tone). `amp: 'modern'` (scooped modern metal: big 90-250 Hz, mids pulled back,
+presence and sizzle to ~10 kHz) matched a breakcore/metal reference within 0.9 dB per band; modes and their settings
+are one table (`MODES`) in reamp.py, so add a new voice there when a reference needs one.
+
 ## Rhythm guitars
 - Two takes hard-panned L/R. They must be *different takes* or the stereo collapses to mono: different humanize seed,
   looser timing (9 ms) and dynamics (+-10), slight detune (+8 cents), and a different voicing (root-fifth vs

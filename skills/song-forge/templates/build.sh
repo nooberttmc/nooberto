@@ -10,7 +10,7 @@ VIDEO=0; EXTRA=()
 while [ $# -gt 0 ]; do case "$1" in --video) VIDEO=1; shift;; *) EXTRA+=("$1" "$2"); shift 2;; esac; done
 node "$SF/render.js" "$SONG" "$TITLE" --events "$STEMS/events.json"              # 1. the notes
 python3 "$SF/guitar_stems.py" "$STEMS/events.json" "$STEMS"                       # 2. record every part
-ARGS=$(python3 -c "import json,sys; print(' '.join(f'--stem {k}={sys.argv[2]}/{k}.wav' for k in json.load(open(sys.argv[1]))['parts']))" "$STEMS/events.json" "$STEMS")
+ARGS=$(python3 -c "import json,sys; print(' '.join(f'--stem {k}={sys.argv[2]}/{k}.wav' for k, p in json.load(open(sys.argv[1]))['parts'].items() if p.get('record') is not False))" "$STEMS/events.json" "$STEMS")
 node "$SF/render.js" "$SONG" "$TITLE" $ARGS "${EXTRA[@]}"                         # 3. mix + master -> MP3
 MP3="$DIR/$(echo "$TITLE" | sed 's#[\\/:*?"<>|]##g; s/\.$//').mp3"
 python3 "$SF/analyze.py" "$MP3"                                                   # 4. measure it

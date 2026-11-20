@@ -72,10 +72,12 @@ Details and the reasoning live in `references/`. These are the ones that cost th
 10. **Feedback loops must have gain < 1** (the ping-pong echo once blew up a render). (mixing.md)
 11. **At most 1-2 breaks at once**; change breaks between sections; avoid "bouncing" accelerating rolls if disliked.
 12. **Endings need a coda**, then one low note that rings out; no abrupt stops, no dead space. (composition.md)
-13. **Leads an octave down** read heavier and less shrill.
+13. **Leads an octave down** read heavier and less shrill (for guitar leads; bright synth leads can sit higher).
 14. **Check edits to the master chain** by looking at the render's peak/loudness: a swallowed line once made a
     silent render.
-15. **Renders aren't bit-identical** (echo scheduling); compare mixes by residual dB, not max sample difference.
+15. **Tempo effects need a tempo map** (`T(bar, step)` for all timing, `bar_times` exported). (composition.md 5b)
+16. **Measure tone against the reference's isolated guitars** (side channel), never by eye. (guitars.md)
+17. **Renders aren't bit-identical** (echo scheduling); compare mixes by residual dB, not max sample difference.
 
 ## How the pieces fit
 - `song.js` defines `guitarEvents()` (every pitched part as notes: `[t_sec, midi, dur_sec, velocity, articulation]`,
@@ -85,7 +87,7 @@ Details and the reasoning live in `references/`. These are the ones that cost th
 - `scripts/render.js` runs it in headless Chromium (`--events`, `--stem`, `--breaks`, `--gain`, `--level`, `--dip`,
   `--free`, `--artist`, `--solo`/`--norm`/`--wav-out` for stems). See its header.
 - `scripts/guitar_stems.py` records parts (per-part options: program, sf, amp, humanize, lag, velvar, cents, release;
-  articulations open/mute/lead/bend/release/bendrel/legato) and calls `scripts/reamp.py` (amp chain, cabinet voices,
+  articulations open/mute/lead/bend/release/bendrel/legato; amp rhythm/dark/lead/bass/none) and calls `scripts/reamp.py` (amp chain, cabinet voices,
   `LEAD` settings, fallback model).
 - `scripts/level.py` (slow leveler), `scripts/analyze.py` (measurement), `scripts/prepare_breaks.py` (loops ->
   trimmed MP3 + slice map), `scripts/visualize.py` (video), `scripts/export_midi.py` + `scripts/export_stems.sh`

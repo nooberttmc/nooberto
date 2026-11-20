@@ -66,10 +66,21 @@ What worked, from research and listener feedback:
   arrangement, not by turning things down (see mixing.md: consistent levels).
 - For a game loop, keep the loop region (first theme .. end of the last main section) separate from intro/coda/ending.
 
+## 5b. Tempo effects
+Real tempo changes are a strong effect (and look great in the visualizer, which scrolls at constant speed so slow
+passages stretch out): an intro that accelerates into the song, a brake (199 -> ~60 BPM over one bar, with a closing
+low-pass and the kick bending down like a tape stop) right before a drop that slams back at full tempo, a two-bar
+"slow motion" at half speed that snaps back, a final brake into the last chord. Implement them with a tempo map:
+every bar has a start and end tempo, precompute the time of every 16th (`T(bar, step)`), and route *all* timing
+(notes, chords, drum hits) through it. Export `bar_times` from guitarEvents() so visualize.py and export_midi.py follow
+the map. Example: the "vbuh-style" song (music/vessel_style/song.js in the project that produced this skill).
+
 ## 6. Endings
 - Abrupt endings were called out. Add a coda: the main theme broadened (every note twice as long) over ringing chords
   and half-time drums, then thin out (piano returns, long notes over bII and the dominant, a timpani roll), then the
   final gesture (a two-octave fall into one low note that rings ~6 s with a ~5 s fade).
+- For a constant-energy song, end at full energy: everything until the last bar, then one big held chord (~1.8 s),
+  a hard cut of the dry signal, and only the reverb tail (~2 s). A coda/wind-down suits songs with a dynamic arc.
 - "End on a lower note": the last melodic note low (e.g. G3), with the bass/organ/low strings on the tonic below.
 
 ## 7. Drums and breakbeats in the arrangement

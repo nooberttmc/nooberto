@@ -5,3 +5,5 @@ music/stems/
 __pycache__/
 music/*.mp4
 music/fl_export/
+music/vessel_style/stems/
+music/**/*.mp4

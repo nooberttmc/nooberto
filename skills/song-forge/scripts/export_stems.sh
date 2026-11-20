@@ -10,7 +10,7 @@ TITLE="song"; KEY=""
 while [ $# -gt 0 ]; do case "$1" in --title) TITLE="$2"; shift 2;; --key) KEY="$2"; shift 2;; *) echo "unknown $1"; exit 2;; esac; done
 mkdir -p "$OUT/stems_wav"
 PARTS=$(python3 -c "import json,sys; print(' '.join(json.load(open(sys.argv[1]))['parts']))" "$STEMS_DIR/events.json")
-STEM_ARGS=""; for p in $PARTS; do STEM_ARGS="$STEM_ARGS --stem $p=$STEMS_DIR/$p.wav"; done
+STEM_ARGS=""; for p in $PARTS; do [ -f "$STEMS_DIR/$p.wav" ] && STEM_ARGS="$STEM_ARGS --stem $p=$STEMS_DIR/$p.wav"; done   # recorded parts only (synth parts render inside the song)
 # 1) the whole song uncompressed, to find one shared scale for every stem
 PEAK=$(node "$HERE/render.js" "$SONG" x $STEM_ARGS --solo all --wav-out "$OUT/.all.wav" | awk '/peak/ {print $NF}')
 NORM=$(python3 -c "print(0.89 / $PEAK)"); rm -f "$OUT/.all.wav"

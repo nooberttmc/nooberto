@@ -1,6 +1,6 @@
 """Re-amp a clean guitar DI through real Guitarix amp-sim plugins plus a 4x12 cabinet curve.
 
-usage: python3 reamp.py in.wav out.wav [rhythm|lead|bass]
+usage: python3 reamp.py in.wav out.wav [rhythm|dark|modern|lead|bass]   (see MODES)
 Chain: tighten (high-pass) -> overdrive boost -> GxJCM800 preamp -> GxBossDS1 -> 4x12 cabinet EQ.
 """
 import sys, subprocess, tempfile, os, shutil
@@ -28,15 +28,25 @@ def cabinet(x, fs, bright=False, voice=None):
              'lead': [(150, 2.0, 0.9), (550, 3.0, 0.8), (900, 3.0, 0.9), (1600, 0.0, 1.2), (2700, -5.0, 1.0), (4200, -6.0, 1.0)],
              # heavy lead (Iridescent-like): thick 250-1000 Hz body, the 2-5 kHz bite pulled well down
              'heavy': [(180, 3.0, 0.8), (380, 6.0, 0.8), (700, 5.0, 0.8), (1300, -1.0, 1.0), (2600, -11.0, 0.8), (4200, -6.0, 1.0)],
+             'modern': [(90, 10.0, 0.8), (200, 7.0, 0.9), (350, -3.0, 1.0), (750, 2.0, 0.9), (1000, -1.0, 0.9), (2800, -2.0, 0.9), (5000, -4.0, 0.9)],
              'dark': [(120, 3.0, 0.9), (380, 2.5, 0.8), (750, 5.0, 0.8), (1500, 0.0, 1.2), (2600, -8.0, 0.9), (4000, -9.0, 1.0)]}[voice]
     for f0, g, q in peaks:
         b, a = biquad_peak(f0, g, q, fs); x = signal.lfilter(b, a, x)
-    sos = signal.butter(4, {'bright': 5200, 'lead': 4600, 'heavy': 4400, 'dark': 3800}[voice], 'lowpass', fs=fs, output='sos'); x = signal.sosfilt(sos, x)
-    sos = signal.butter(2, {'bright': 7500, 'lead': 6500, 'heavy': 7000, 'dark': 5500}[voice], 'lowpass', fs=fs, output='sos'); x = signal.sosfilt(sos, x)
+    sos = signal.butter(4, {'bright': 5200, 'lead': 4600, 'heavy': 4400, 'dark': 3800, 'modern': 9000}[voice], 'lowpass', fs=fs, output='sos'); x = signal.sosfilt(sos, x)
+    sos = signal.butter(2, {'bright': 7500, 'lead': 6500, 'heavy': 7000, 'dark': 5500, 'modern': 11000}[voice], 'lowpass', fs=fs, output='sos'); x = signal.sosfilt(sos, x)
     return x
 
 # lead amp settings (tunable): pre-drive amount, JCM800 gain, DS-1 drive
 LEAD = {'k': 8, 'gain': -4, 'drive': 0.9, 'voice': 'heavy'}   # heavy, Iridescent-like (fast notes stay ~68% clean)
+# amp settings per mode: pre-amp high-pass, overdrive amount, JCM800 tone stack + gain, DS-1 drive + tone, cabinet voice
+#   rhythm: tight, cuts through a dense mix   dark: thick low wall, no top   modern: scooped modern metal (big lows,
+#   deep mid scoop, presence/sizzle up to ~8 kHz), the tone of most current metal/hardcore rhythm guitars
+MODES = {'rhythm': dict(hp=90, k=3.5, bass=0.6, mid=0.7, treble=0.4, gain=-12, drive=0.8, tone=0.15, voice='bright'),
+         'dark':   dict(hp=90, k=6.5, bass=0.6, mid=0.55, treble=0.3, gain=-6, drive=0.95, tone=0.15, voice='heavy'),
+         'modern': dict(hp=60, k=7.0, bass=0.8, mid=0.3, treble=0.7, gain=-6, drive=0.95, tone=0.55, voice='modern')}
+def settings(mode):
+    if mode == 'lead': return dict(hp=90, k=LEAD['k'], bass=0.7, mid=0.8, treble=0.35, gain=LEAD['gain'], drive=LEAD['drive'], tone=0.15, voice=LEAD['voice'])
+    return MODES[mode]
 
 def compress(x, fs, thresh_db, ratio, attack, release):
     """Feed-forward peak compressor (smoothed envelope) with makeup gain."""
@@ -56,7 +66,7 @@ def have_guitarix():
 def amp_fallback(x, fs, mode):
     """Pure-Python stand-in for the JCM800 preamp + DS-1 when Guitarix isn't available (macOS/Windows):
     two cascaded clipping stages with a mid-heavy tone stack between them. Close in character, not identical."""
-    gain = {'rhythm': 6.0, 'lead': 4.0 + LEAD['k'] * 0.6}[mode]
+    gain = 4.0 + settings(mode)['k'] * 0.7
     y = np.tanh(gain * x + 0.15 * x * x)                                   # stage 1, slightly asymmetric (tube-like)
     y = y + 0.8 * signal.sosfilt(signal.butter(1, [600, 1600], 'bandpass', fs=fs, output='sos'), y)   # mid push
     y = signal.sosfilt(signal.butter(2, 4500, 'lowpass', fs=fs, output='sos'), y)
@@ -76,32 +86,32 @@ def main(inp, out, mode='rhythm'):
         y = signal.sosfilt(signal.butter(4, 2600, 'lowpass', fs=fs, output='sos'), y)
         y = signal.sosfilt(signal.butter(2, 32, 'highpass', fs=fs, output='sos'), y)
         wavfile.write(out, fs, (y / (np.max(np.abs(y)) + 1e-9) * 0.9).astype(np.float32)); return
-    x = signal.sosfilt(signal.butter(2, 90, 'highpass', fs=fs, output='sos'), x)
+    S = settings(mode)
+    x = signal.sosfilt(signal.butter(2, S['hp'], 'highpass', fs=fs, output='sos'), x)
     pad = int(0.6 * fs)  # the plugins click as they start up: let that happen in silence, then trim it away
     x = x / (np.max(np.abs(x)) + 1e-9)
     # overdrive pedal in front of the amp (tube-screamer style): mid hump, then hard soft-clipping
     mid = signal.sosfilt(signal.butter(1, [500, 1800], 'bandpass', fs=fs, output='sos'), x)
-    k = {'rhythm': 3.5, 'lead': LEAD['k']}[mode]   # rhythm: tight; lead: singing but articulate (sustain comes from compression)
+    k = S['k']   # rhythm: tight; lead: singing but articulate (sustain comes from compression)
     x = np.tanh(k * (x + 1.5 * mid)) / np.tanh(k)
     x = signal.sosfilt(signal.butter(2, 5000, 'lowpass', fs=fs, output='sos'), x)
     x = np.concatenate([np.zeros(pad), x / (np.max(np.abs(x)) + 1e-9) * 0.5])
     if not have_guitarix():
         print('reamp: Guitarix/lv2file not found, using the built-in amp model', file=sys.stderr)
         y = amp_fallback(x[pad:], fs, mode)
-        y = cabinet(y, fs, voice=LEAD['voice'] if mode == 'lead' else 'bright')
+        y = cabinet(y, fs, voice=S['voice'])
         if mode == 'lead': y = compress(y / (np.max(np.abs(y)) + 1e-9), fs, thresh_db=-20, ratio=5, attack=0.004, release=0.09)
         wavfile.write(out, fs, (y / (np.max(np.abs(y)) + 1e-9) * 0.9).astype(np.float32)); return
     with tempfile.TemporaryDirectory() as d:
         a, c, e = [os.path.join(d, n) for n in ('a.wav', 'c.wav', 'e.wav')]
         wavfile.write(a, fs, (x * 32767).astype(np.int16))  # the JCM800 plugin needs 16-bit input
-        lv2(a, c, 'gx_jcm800pre_#_jcm800pre_', {'P6v': 1.0, 'Bass': 0.7 if mode == 'lead' else 0.6, 'Middle': {'rhythm': 0.7, 'lead': 0.8}[mode],
-                                                'Treble': 0.35 if mode == 'lead' else 0.4, 'WET_DRY': 100, 'GAIN': {'rhythm': -12, 'lead': LEAD['gain']}[mode]})
-        lv2(c, e, 'gx_bossds1_#_bossds1_', {'DRIVE': {'rhythm': 0.8, 'lead': LEAD['drive']}[mode], 'TONE': 0.15, 'LEVEL': -8, 'BYPASS': 1})  # BYPASS 1 = pedal on; dark tone, less fizz
+        lv2(a, c, 'gx_jcm800pre_#_jcm800pre_', {'P6v': 1.0, 'Bass': S['bass'], 'Middle': S['mid'], 'Treble': S['treble'], 'WET_DRY': 100, 'GAIN': S['gain']})
+        lv2(c, e, 'gx_bossds1_#_bossds1_', {'DRIVE': S['drive'], 'TONE': S['tone'], 'LEVEL': -8, 'BYPASS': 1})  # BYPASS 1 = pedal on
         fs2, y = wavfile.read(e)
     y = y.astype(np.float32)
     if y.ndim > 1: y = y.mean(axis=1)
     if np.max(np.abs(y)) > 2: y /= 32768.0
-    y = cabinet(y, fs2, voice=LEAD['voice'] if mode == 'lead' else 'bright')[pad:]
+    y = cabinet(y, fs2, voice=S['voice'])[pad:]
     if mode == 'lead':  # sustain from a compressor, not more distortion: held notes stay up, quick notes keep their pitch
         y = compress(y / (np.max(np.abs(y)) + 1e-9), fs2, thresh_db=-20, ratio=5, attack=0.004, release=0.09)
     y = y / (np.max(np.abs(y)) + 1e-9) * 0.9
