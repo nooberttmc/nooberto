@@ -278,7 +278,7 @@ async function renderSong() {
   // bass: owns 45-250 Hz under the guitars; the sub synth owns the very bottom
   await stem('bass', 0, -20, 0, false, [HP(45), PK(350, -3, 1), PK(900, 2, 1), LP(2600)], 0.5);
   // lead: on top, with presence where the rhythm guitars were scooped
-  await stem('lead', 0.0, -12.5, 0.14, true, [HP(140), PK(700, 1.5, 0.9), PK(1900, 2, 1), LP(6000)]);   // body + presence, no shrill top
+  await stem('lead', 0.0, -12.5, 0.14, true, [HP(110), PK(700, 1.5, 0.9), PK(1900, 1, 1), LP(6500)]);   // heavy body, a touch of presence
   await stem('harmony', 0.55, -25.5, 0.2, true, [HP(260), PK(2000, 1.5, 0.9), LP(6000)]);
   await stem('piano', -0.3, -21, 0.4, false, [HP(110)]);
   await stem('strings', 0.65, -27, 0.45, false, [HP(320), ['highshelf', 6000, 3, 0.7], LP(14000)]);   // a little air
