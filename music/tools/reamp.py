@@ -18,13 +18,16 @@ def biquad_peak(f0, gain_db, q, fs):
     b = [1 + al * A, -2 * np.cos(w), 1 - al * A]; a = [1 + al / A, -2 * np.cos(w), 1 - al / A]
     return np.array(b) / a[0], np.array(a) / a[0]
 
-def cabinet(x, fs):
-    """A 4x12 with thick low mids: weight at 100-1200 Hz, the 2-5 kHz fizz pulled back, steep roll-off above 4.5 kHz."""
+def cabinet(x, fs, bright=False):
+    """A 4x12 with thick low mids: weight at 100-1200 Hz, the 2-5 kHz fizz pulled back, steep roll-off above 4.5 kHz.
+    bright (rhythm guitars): a more open speaker, so the pick attack and edge come through instead of a muffled wall."""
     sos = signal.butter(2, 80, 'highpass', fs=fs, output='sos'); x = signal.sosfilt(sos, x)
-    for f0, g, q in [(120, 3.0, 0.9), (380, 2.5, 0.8), (750, 5.0, 0.8), (1500, 0.0, 1.2), (2600, -8.0, 0.9), (4000, -9.0, 1.0)]:
+    peaks = [(120, 3.0, 0.9), (380, 1.5, 0.8), (750, 3.5, 0.8), (1500, 0.0, 1.2), (2600, -4.0, 1.0), (4000, -3.0, 1.0)] if bright else \
+            [(120, 3.0, 0.9), (380, 2.5, 0.8), (750, 5.0, 0.8), (1500, 0.0, 1.2), (2600, -8.0, 0.9), (4000, -9.0, 1.0)]
+    for f0, g, q in peaks:
         b, a = biquad_peak(f0, g, q, fs); x = signal.lfilter(b, a, x)
-    sos = signal.butter(4, 3800, 'lowpass', fs=fs, output='sos'); x = signal.sosfilt(sos, x)
-    sos = signal.butter(2, 5500, 'lowpass', fs=fs, output='sos'); x = signal.sosfilt(sos, x)
+    sos = signal.butter(4, 5200 if bright else 3800, 'lowpass', fs=fs, output='sos'); x = signal.sosfilt(sos, x)
+    sos = signal.butter(2, 7500 if bright else 5500, 'lowpass', fs=fs, output='sos'); x = signal.sosfilt(sos, x)
     return x
 
 def main(inp, out, mode='rhythm'):
@@ -59,7 +62,7 @@ def main(inp, out, mode='rhythm'):
     y = y.astype(np.float32)
     if y.ndim > 1: y = y.mean(axis=1)
     if np.max(np.abs(y)) > 2: y /= 32768.0
-    y = cabinet(y, fs2)[pad:]
+    y = cabinet(y, fs2, bright=(mode == 'rhythm'))[pad:]
     if mode == 'lead':  # a second gain stage: squash the lead into a thick, sustaining wall, then re-darken
         y = y / (np.max(np.abs(y)) + 1e-9)
         y = np.tanh(4.0 * y)
