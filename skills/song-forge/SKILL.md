@@ -89,6 +89,11 @@ Details and the reasoning live in `references/`. These are the ones that cost th
     harmonic-minor leading tone only over V. Build the song from those devices, then run check_notes.js. (composition.md 1b)
 21. **Test a fix you can't hear by checking it's connected**: a hi-hat whose connect() calls ended up inside a comment
     played nothing for a whole round ("I can't hear the drums").
+22. **Listener preferences from the duel round**: bells only as chords and sparse where the arrangement is dense;
+    grace notes flicking UP from the step below; harmony lines as a second player (own part: +9 ms lag, -6 cents,
+    own dynamics, panned apart) rather than a perfect copy; lead guitar darker (top rolled off ~4.5 kHz) and as loud as
+    the instrument it duels with; heavier breaks (tanh drive, +4 dB low shelf, compression); hold the final chord ~4 s.
+    Measure buried parts with `scripts/audibility.py` (unmasked share per section; slow: one render per part).
 
 ## How the pieces fit
 - `song.js` defines `guitarEvents()` (every pitched part as notes: `[t_sec, midi, dur_sec, velocity, articulation]`,
