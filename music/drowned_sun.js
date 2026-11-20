@@ -92,15 +92,15 @@ function guitarEvents() {
       if (twin) note(P.harm, t, below(mm, notes), l * STEP * 0.97, 106, art);
       const h = (gi * 7 + i * 13 + (orn || 0) * 5) % 10, kind = (gi + i + (orn || 0)) % 3;
       if (!orn || bend || h >= orn + 1 || l < 2) { note(P.lead, t, mm, l * STEP * 0.97, 114, art); return; }
-      const [up, dn] = neighbours(mm, tr, notes), q = STEP / 3;   // 16th-note triplets for the quick notes
+      const [up, dn] = neighbours(mm, tr, notes), q = STEP * 0.75;   // ornament note length: long enough to hear each pitch
       if (kind === 0 && l >= 6) {        // trill: main-upper-main-upper, then hold the main note
-        [mm, up, mm, up].forEach((n, k) => note(P.lead, t + k * q, n, q * 1.02, 122, 'open'));
+        [mm, up, mm, up].forEach((n, k) => note(P.lead, t + k * q, n, q * 0.9, 118, 'open'));
         note(P.lead, t + 4 * q, mm, l * STEP * 0.97 - 4 * q, 112, art);
       } else if (kind === 2 && l >= 4 && i === line.length - 1) {   // turn: upper-main-lower, into the main note
-        [up, mm, dn].forEach((n, k) => note(P.lead, t + k * q, n, q * 1.02, 122, 'open'));
+        [up, mm, dn].forEach((n, k) => note(P.lead, t + k * q, n, q * 0.9, 118, 'open'));
         note(P.lead, t + 3 * q, mm, l * STEP * 0.97 - 3 * q, 112, art);
       } else {                           // grace note: a quick neighbour just before the beat lands
-        note(P.lead, t, gi % 2 ? up : dn, q * 1.02, 120, 'open');
+        note(P.lead, t, gi % 2 ? up : dn, q * 0.9, 118, 'open');
         note(P.lead, t + q, mm, l * STEP * 0.97 - q, 114, art);
       }
     });
@@ -187,12 +187,16 @@ function guitarEvents() {
       note(P.piano, tEnd, 31, BAR * 3, 110); note(P.piano, tEnd, 19, BAR * 3, 110); note(P.timp, tEnd, 31, BAR, 127);
     }
   }
+  const quick = n => n[4] === 'open' && n[2] < STEP * 2.5;
+  P.fast = P.lead.filter(quick).map(n => [n[0], n[1], Math.min(n[2], STEP * 0.95), n[3], 'open']);
+  P.lead = P.lead.filter(n => !quick(n)); P.harm = P.harm.filter(n => !quick(n));
   const part = (notes, o) => Object.assign({ sf: 'musescore', amp: 'none', humanize: 3, notes }, o);
   return { bpm: BPM, parts: {
     rhythmL: part(P.rhythm, { amp: 'rhythm', humanize: 6 }),
     rhythmR: part(P.rhythm, { amp: 'rhythm', humanize: 6, cents: 6 }),
     bass: part(P.bass, { program: 34, amp: 'bass', humanize: 3 }),
     lead: part(P.lead, { amp: 'lead', humanize: 0 }),
+    leadfast: part(P.fast, { amp: 'fast', humanize: 0 }),
     harmony: part(P.harm, { amp: 'lead', humanize: 4, cents: -5 }),
     piano: part(P.piano, { program: 0, humanize: 6 }),
     strings: part(P.strings, { program: 48 }),
@@ -234,7 +238,7 @@ async function renderSong() {
     return n;
   }
   const RIDE = {};   // per-part level riding (automation), on top of the static levels
-  const GUITARS = ['rhythmL', 'rhythmR', 'bass', 'lead', 'harmony'];
+  const GUITARS = ['rhythmL', 'rhythmR', 'bass', 'lead', 'leadfast', 'harmony'];
   async function stem(name, pan, targetDb, verbAmt, useDelay, eq, duck) {
     if (!has('stem/' + name)) return;
     const buf = await loadAsset('stem/' + name, ctx), d = buf.getChannelData(0);
@@ -259,6 +263,7 @@ async function renderSong() {
   await stem('bass', 0, -20, 0, false, [HP(45), PK(350, -3, 1), PK(900, 2, 1), LP(2600)], 0.5);
   // lead: on top, with presence where the rhythm guitars were scooped
   await stem('lead', 0.0, -13.5, 0.18, true, [HP(170), PK(450, -2.5, 1), PK(2100, 3, 0.9), LP(6000)]);
+  await stem('leadfast', 0.0, -14, 0.06, false, [HP(200), PK(450, -2, 1), PK(2500, 3, 1), LP(8000)]);
   await stem('harmony', 0.3, -25.5, 0.2, true, [HP(260), PK(2000, 1.5, 0.9), LP(6000)]);
   await stem('piano', -0.15, -21, 0.4, false, [HP(110)]);
   await stem('strings', 0.25, -27, 0.45, false, [HP(320), LP(8000)]);
@@ -267,19 +272,19 @@ async function renderSong() {
   await stem('organ', -0.1, -27, 0.45, false, [HP(120)]);
   await stem('timp', 0, -21, 0.3, false, [HP(45), PK(300, -2, 1)]);
 
-  // riding the faders: in bars where the lead plays mostly fast or short notes, it comes up and the rhythm
-  // guitars step back, so runs, trills and stabs read as clearly as the long notes
+  // riding the faders, bar by bar:
+  //  - where the lead plays mostly fast notes, the rhythm guitars step back so runs, trills and stabs read clearly
+  //  - in Phase III (the G minor return, bars 89-120) the wall is bigger, so the rhythm guitars sit lower and the lead higher
   {
-    const lead = guitarEvents().parts.lead.notes, fast = new Set(), all = {}, quick = {};
+    const ev = guitarEvents().parts, lead = ev.lead.notes.concat(ev.leadfast.notes), fast = new Set(), all = {}, quick = {};
     for (const n of lead) { const b = Math.floor(n[0] / BAR); all[b] = (all[b] || 0) + 1; if (n[2] < STEP * 2.5) quick[b] = (quick[b] || 0) + 1; }
     for (const b in all) if ((quick[b] || 0) >= 5 && quick[b] / all[b] >= 0.6) fast.add(+b);
-    const db = v => Math.pow(10, v / 20);
-    for (let b = 0; b < BARS.length; b++) {
-      const on = fast.has(b), was = fast.has(b - 1); if (on === was) continue;
-      const t = b * BAR;
-      for (const [k, v] of [['lead', 3.5], ['harmony', 2], ['rhythmL', -2], ['rhythmR', -2]]) if (RIDE[k]) {
-        RIDE[k].gain.setValueAtTime(db(on ? 0 : v), t - 0.06); RIDE[k].gain.linearRampToValueAtTime(db(on ? v : 0), t);
-      }
+    const p3 = b => b >= 88 && b < 120, db = v => Math.pow(10, v / 20);
+    const adj = { rhythmL: b => (fast.has(b) ? -2.5 : 0) + (p3(b) ? -3 : 0), rhythmR: b => (fast.has(b) ? -2.5 : 0) + (p3(b) ? -3 : 0),
+                  lead: b => p3(b) ? 2 : 0, leadfast: b => p3(b) ? 2 : 0, harmony: b => p3(b) ? 1 : 0 };
+    for (const k in adj) if (RIDE[k]) for (let b = 1; b < BARS.length; b++) {
+      const a = adj[k](b - 1), c = adj[k](b); if (a === c) continue;
+      RIDE[k].gain.setValueAtTime(db(a), b * BAR - 0.06); RIDE[k].gain.linearRampToValueAtTime(db(c), b * BAR);
     }
   }
 
