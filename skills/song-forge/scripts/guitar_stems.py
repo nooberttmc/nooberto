@@ -13,7 +13,8 @@ video and MIDI export), program, mute_program, sf, amp ("rhythm" | "lead" | "bas
 lag (ms the player sits behind the grid), velvar (+- velocity variation), cents (constant detune, e.g. a second
 take), release (SoundFont NRPN offset for the release envelope in timecents: -1800 = ~25 ms, -1400 = ~45 ms; the
 default ~200 ms tail makes fast notes overlap and intermodulate inside distortion, which sounds scratchy/fizzy).
-A note never rings into the next note of the same pitch (its note-off would cut the new note short).
+A note never rings into the next note of the same pitch (its note-off would cut the new note short). Monophonic parts
+(amp "lead" by default, or "mono": true) never overlap at all, so bends/vibrato can't bleed into the previous note.
 """
 import sys, os, json, math, random, subprocess
 import mido
@@ -61,6 +62,14 @@ def write_midi(part, path, seed):
             p = last[k]; start = n[0] + n[1]
             if p[0] + p[1] + p[2] > start - 0.002: p[2] = max(0.01, start - 0.002 - p[0] - p[1])
         last[k] = n
+    # a monophonic line (a lead guitar: one string at a time; default for amp "lead", or "mono": true) ends each note
+    # just before the next starts: pitch bends and vibrato share the MIDI channel, so an overlapping tail would be bent
+    # by the next note's bend / vibrato (heard as glitchy pitch wobbles)
+    if part.get('mono', part.get('amp') == 'lead'):
+        seq = sorted([n for n in notes if n[3] == 0], key=lambda n: n[0] + n[1])
+        for p, n in zip(seq, seq[1:]):
+            start = n[0] + n[1]
+            if p[0] + p[1] + p[2] > start - 0.004: p[2] = max(0.02, start - 0.004 - p[0] - p[1])
     for t, jt, d, ch, m, vel, art in notes:
         ev.append((t + jt, 1, ('note_on', ch, m, vel)))
         ev.append((t + jt + d, 0, ('note_off', ch, m, 0)))

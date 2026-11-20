@@ -8,7 +8,7 @@ colour of the current section.
 events.json is the song's guitarEvents() export. Read from it: "bpm", "sections" ([[name, bars], ...]),
 optional "colors" ({section: "#rrggbb"}), optional "bar_times" (start time of every bar) and "bar_tempi" ([start, end] BPM per bar) for
 songs with tempo changes: the video scrolls by musical position like a DAW, so the whole view visibly slows down in a
-brake and rushes in a speed-up, and a Tempo lane shows the BPM curve and the current value; and per part optional "label" (lane name) and "lane" (parts with the same
+brake and rushes in a speed-up, and (with --tempo-lane) a Tempo lane shows the BPM curve and the current value; and per part optional "label" (lane name) and "lane" (parts with the same
 lane share one, e.g. two rhythm guitar takes). drums.json (from renderSong's DLOG) adds a Drums lane; pass - to skip.
 theme.json may set bg, panel, grid, cream, gold (hex) and palette (list of hex, cycled per section).
 """
@@ -90,7 +90,7 @@ def section(t):
 
 def mix(a, b, f): return tuple(int(a[k] + (b[k] - a[k]) * f) for k in range(3))
 
-def main(events, drums, audio, out, fps=60, start=0.0, length=None, scale=1.0, theme=None):
+def main(events, drums, audio, out, fps=60, start=0.0, length=None, scale=1.0, theme=None, tempo_lane=False):
     # scale: 1.0 = 1280x720; 1.5 = 1920x1080. Every size below is multiplied by K, so the layout is identical.
     K = scale; W_, H_ = int(round(W * K)), int(round(H * K)); X0_ = int(round(X0 * K)); PX_ = PX * K
     u = lambda v: int(round(v * K))
@@ -112,7 +112,7 @@ def main(events, drums, audio, out, fps=60, start=0.0, length=None, scale=1.0, t
         drum = [[t, 0, d, 100, 'd'] for t, d, p in dr.get('kick', [])] + [[t, 4, d, 100, 'd'] for t, d, p in dr.get('layer', [])] + \
                [[t, 8 + p, d, 100, 'd'] for t, d, p in dr.get('break', [])]
         lanes.append(('Drums', 'Breaks', drum, 56))
-    if BT: lanes.append(('Tempo', 'Tempo', [], 30))   # the tempo curve
+    if BT and tempo_lane: lanes.append(('Tempo', 'Tempo', [], 30))   # the tempo curve (opt-in: --tempo-lane)
     top = u(38)
     lay = []
     for label, clip, notes, h in lanes:
@@ -126,6 +126,9 @@ def main(events, drums, audio, out, fps=60, start=0.0, length=None, scale=1.0, t
     k = (H_ - u(44) - u(13) * len(lay)) / sum(L['h'] for L in lay); y = u(38)
     for L in lay: L['h'] = int(L['h'] * k); L['y'] = y; y += L['h'] + u(13)
     dur = float(subprocess.run(['ffprobe', '-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', audio], capture_output=True, text=True).stdout)
+    # the video runs until the last note has passed the playhead (no notes left on screen), even past the audio (padded)
+    last_note = max((n[0] + n[2] for L in lay for n in L['notes']), default=0)
+    dur = max(dur, last_note + 0.4)
     try: font = ImageFont.truetype('/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf', u(10)); fbig = ImageFont.truetype('/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf', u(11))
     except OSError: font = fbig = ImageFont.load_default()
     # static backdrop: panel, track names, lane shading
@@ -138,7 +141,7 @@ def main(events, drums, audio, out, fps=60, start=0.0, length=None, scale=1.0, t
         d.ellipse([X0_ - u(16), L['y'] + L['h'] - u(2), X0_ - u(10), L['y'] + L['h'] + u(4)], outline=(120, 70, 50))
         d.line([X0_, L['y'] + L['h'] + u(11), W_, L['y'] + L['h'] + u(11)], fill=(26, 12, 12), width=max(1, u(1)))
     cmd = ['ffmpeg', '-y', '-loglevel', 'error', '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-s', f'{W_}x{H_}', '-r', str(fps), '-i', '-', '-ss', str(start), '-i', audio,
-           '-c:v', 'libx264', '-preset', 'medium', '-crf', '20', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-b:a', '192k', '-shortest', '-movflags', '+faststart', out]
+           '-c:v', 'libx264', '-preset', 'medium', '-crf', '20', '-pix_fmt', 'yuv420p', '-af', 'apad', '-c:a', 'aac', '-b:a', '192k', '-t', f'{(length or dur - start):.3f}', '-movflags', '+faststart', out]
     enc = subprocess.Popen(cmd, stdin=subprocess.PIPE)
     PXB = PX_ * BAR                     # pixels per bar (at the nominal tempo, the same scroll speed as before)
     viewB = (W_ - X0_) / PXB
@@ -196,6 +199,7 @@ def main(events, drums, audio, out, fps=60, start=0.0, length=None, scale=1.0, t
     print('wrote', out)
 
 if __name__ == '__main__':
-    a = sys.argv[1:]; theme = None
+    a = sys.argv[1:]; theme = None; tl = '--tempo-lane' in a
+    if tl: a.remove('--tempo-lane')
     if '--theme' in a: i = a.index('--theme'); theme = json.load(open(a[i + 1])); del a[i:i + 2]
-    main(a[0], a[1], a[2], a[3], int(a[4]) if len(a) > 4 else 60, scale=float(a[5]) if len(a) > 5 else 1.0, theme=theme)
+    main(a[0], a[1], a[2], a[3], int(a[4]) if len(a) > 4 else 60, scale=float(a[5]) if len(a) > 5 else 1.0, theme=theme, tempo_lane=tl)
