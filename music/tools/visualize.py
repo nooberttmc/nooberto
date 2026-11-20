@@ -85,7 +85,6 @@ def main(events, drums, audio, out, fps=60, start=0.0, length=None):
             if x < X0: continue
             g.line([x, 22, x, 32], fill=(110, 70, 50)); g.text((x + 3, 20), str(b + 1), font=font, fill=(150, 110, 90))
             g.line([x, 34, x, H], fill=GRID)
-        g.text((X0 + 6, 4), f'The Drowned Sun  —  {SEC_NAME[sec]}', font=fbig, fill=col)
         for L in lay:
             y, h = L['y'], L['h']
             i0 = bisect.bisect_left(L['starts'], t - L['maxd'] - 0.01); i1 = bisect.bisect_right(L['starts'], t + view)

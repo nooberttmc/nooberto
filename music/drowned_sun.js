@@ -72,13 +72,37 @@ function guitarEvents() {
   });
   // pitch bends, used sparingly: every other bar the longest held note is bent up into pitch,
   // and every fourth bar the phrase's last note sags down as it ends
-  const melody = (t0, line, tr, notes, twin) => {
+  // ornaments for the main theme: grace notes, short trills and turns, a few more each time the theme returns
+  // (orn 1..3), always resolving to the written note so the melody keeps its shape. Neighbours come from the key,
+  // with the chord's own tones taking priority (E# over E on C#).
+  const neighbours = (m, tr, notes) => {
+    const cp = notes.map(n => ((n % 12) + 12) % 12), sc = SCALE.map(x => (x + 6 + tr) % 12)
+      .filter(p => !cp.some(c => sc0(c, tr) && Math.abs(((c - p + 18) % 12) - 6) === 5 && c !== p)).concat(cp);
+    const ok = n => sc.indexOf(((n % 12) + 12) % 12) >= 0;
+    let up = m + 1; while (!ok(up)) up++; let dn = m - 1; while (!ok(dn)) dn--;
+    return [up, dn];
+  };
+  const sc0 = (c, tr) => SCALE.map(x => (x + 6 + tr) % 12).indexOf(c) < 0;   // a chord tone outside the key (raised 7th)
+  const melody = (t0, line, tr, notes, twin, orn) => {
     const gi = Math.round(t0 / BAR), longest = line.reduce((a, n, i) => n[2] > line[a][2] ? i : a, 0);
     line.forEach(([s, m, l], i) => {
       const bend = gi % 2 === 0 && i === longest && l >= 6, rel = gi % 4 === 3 && i === line.length - 1 && l >= 4;
       const art = bend && rel ? 'bendrel' : bend ? 'bend' : rel ? 'release' : 'lead';
-      const mm = m + tr + LO; note(P.lead, t0 + s * STEP, mm, l * STEP * 0.97, 114, art);
-      if (twin) note(P.harm, t0 + s * STEP, below(mm, notes), l * STEP * 0.97, 106, art);
+      const mm = m + tr + LO, t = t0 + s * STEP;
+      if (twin) note(P.harm, t, below(mm, notes), l * STEP * 0.97, 106, art);
+      const h = (gi * 7 + i * 13 + (orn || 0) * 5) % 10, kind = (gi + i + (orn || 0)) % 3;
+      if (!orn || bend || h >= orn + 1 || l < 2) { note(P.lead, t, mm, l * STEP * 0.97, 114, art); return; }
+      const [up, dn] = neighbours(mm, tr, notes), q = STEP / 3;   // 16th-note triplets for the quick notes
+      if (kind === 0 && l >= 6) {        // trill: main-upper-main-upper, then hold the main note
+        [mm, up, mm, up].forEach((n, k) => note(P.lead, t + k * q, n, q * 0.95, k % 2 ? 100 : 110, 'open'));
+        note(P.lead, t + 4 * q, mm, l * STEP * 0.97 - 4 * q, 112, art);
+      } else if (kind === 2 && l >= 4 && i === line.length - 1) {   // turn: upper-main-lower, into the main note
+        [up, mm, dn].forEach((n, k) => note(P.lead, t + k * q, n, q * 0.95, 104, 'open'));
+        note(P.lead, t + 3 * q, mm, l * STEP * 0.97 - 3 * q, 112, art);
+      } else {                           // grace note: a quick neighbour just before the beat lands
+        note(P.lead, t, gi % 2 ? up : dn, q * 0.9, 100, 'open');
+        note(P.lead, t + q, mm, l * STEP * 0.97 - q, 114, art);
+      }
     });
   };
   const runBar = (t0, notes, fig, twin, base) => {
@@ -119,8 +143,9 @@ function guitarEvents() {
     } else if (sec === 'a1' || sec === 'a2' || sec === 'a3') { // the main theme
       const twin = sec !== 'a1' || b >= 8;
       pat(t0, r, b % 8 === 7 ? CHUG_END : (sec === 'a2' ? DRIVE : CHUG), sec === 'a2');
-      if (b % 8 === 7 && b === 15) { melody(t0, THEME_A[7].slice(0, 2), tr, notes, twin); scaleDown(t0, 85 + tr, tr, 8, 8); }
-      else melody(t0, THEME_A[b % 8], tr, notes, twin);
+      const orn = { a1: 1, a2: 2, a3: 3 }[sec];
+      if (b % 8 === 7 && b === 15) { melody(t0, THEME_A[7].slice(0, 2), tr, notes, twin, orn); scaleDown(t0, 85 + tr, tr, 8, 8); }
+      else melody(t0, THEME_A[b % 8], tr, notes, twin, orn);
       // drops stay lean: guitars, bass, lead and drums carry them; strings sit an octave up, brass only marks phrases
       chord(P.strings, t0, str.map(n => n + 12), BAR, 72);
       if (b % 4 === 0) { timp(t0, ch, tr, 108); chord(P.brass, t0, str, STEP * 3, 104); }
