@@ -37,12 +37,17 @@ def icon(grid=80):
             if dist <= r:
                 f = min(1, (dist / r) ** 1.6 * 1.15)              # heart -> cream towards the rim
                 px[x, y] = tuple(int(heart[i] + (CREAM[i] - heart[i]) * f) for i in range(3)) + (255,)
+    rays = Image.new('L', (grid, grid), 0); rd = ImageDraw.Draw(rays)
     for k in range(7):                                            # seven rays over the upper half
         ang = np.pi + (k + 0.5) * np.pi / 7; L = 10 if k % 2 == 1 else 7
         x0, y0 = cx - 0.5 + np.cos(ang) * (r + 4), hy - 0.5 + np.sin(ang) * (r + 4)
         x1, y1 = cx - 0.5 + np.cos(ang) * (r + 4 + L), hy - 0.5 + np.sin(ang) * (r + 4 + L)
         nx, ny = -np.sin(ang) * 1.5, np.cos(ang) * 1.5            # a solid bar, 3 px wide, square ends
-        d.polygon([(x0 + nx, y0 + ny), (x1 + nx, y1 + ny), (x1 - nx, y1 - ny), (x0 - nx, y0 - ny)], fill=ORANGE)
+        rd.polygon([(x0 + nx, y0 + ny), (x1 + nx, y1 + ny), (x1 - nx, y1 - ny), (x0 - nx, y0 - ny)], fill=255)
+    m = np.asarray(rays) > 0                                      # clean-up: a 2x2 opening drops stray single pixels
+    er = m[:-1, :-1] & m[1:, :-1] & m[:-1, 1:] & m[1:, 1:]
+    op = np.zeros_like(m); op[:-1, :-1] |= er; op[1:, :-1] |= er; op[:-1, 1:] |= er; op[1:, 1:] |= er
+    for y, x in zip(*np.nonzero(op)): px[x, y] = ORANGE + (255,)
     d.rectangle([cx - 32, hy, cx + 31, hy + 1], fill=CREAM)       # the horizon
     def wave_col(x, half):                                        # gold reflection in the middle -> orange -> red
         f = min(1, abs(x - cx + 0.5) / half * 1.4)
