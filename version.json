@@ -1,8 +1,8 @@
 {
-  "versionCode": 19,
-  "versionName": "2.7",
+  "versionCode": 20,
+  "versionName": "2.8",
   "apk": "https://raw.githubusercontent.com/nooberttmc/nooberto/claude/android-game-apk-w2q4io/Emberwake.apk",
   "notes": [
-    "Final boss music: the main theme now has grace notes, trills and turns"
+    "Final boss music: guitars swell in gently at the start; lead a touch louder"
   ]
 }

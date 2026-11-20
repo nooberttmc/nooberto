@@ -233,6 +233,7 @@ async function renderSong() {
     for (const [type, f, g, q] of eq || []) { const b = ctx.createBiquadFilter(); b.type = type; b.frequency.value = f; if (g != null) b.gain.value = g; b.Q.value = q || 0.7; n.connect(b); n = b; }
     return n;
   }
+  const GUITARS = ['rhythmL', 'rhythmR', 'bass', 'lead', 'harmony'];
   async function stem(name, pan, targetDb, verbAmt, useDelay, eq, duck) {
     if (!has('stem/' + name)) return;
     const buf = await loadAsset('stem/' + name, ctx), d = buf.getChannelData(0);
@@ -240,6 +241,10 @@ async function renderSong() {
     const rms = Math.sqrt(sum / Math.max(1, n)) || 1e-3, src = ctx.createBufferSource(); src.buffer = buf;
     const g = ctx.createGain(); g.gain.value = Math.pow(10, targetDb / 20) / rms; const p = ctx.createStereoPanner(); p.pan.value = pan;
     src.connect(g); let out = eqChain(g, eq);
+    if (GUITARS.indexOf(name) >= 0) { // the guitars arrive softly at bar 5 and swell to full level as the main theme starts (bar 9)
+      const f = ctx.createGain(); f.gain.setValueAtTime(Math.pow(10, -14 / 20), 0); f.gain.setValueAtTime(Math.pow(10, -14 / 20), 4 * BAR);
+      f.gain.exponentialRampToValueAtTime(1, 8 * BAR); out.connect(f); out = f;
+    }
     if (duck) { const dg = ctx.createGain(); out.connect(dg); out = dg; ducks.push([dg, duck]); }
     out.connect(p); p.connect(dry); send(p, verbAmt, useDelay); src.start(0);
   }
@@ -251,7 +256,7 @@ async function renderSong() {
   // bass: owns 45-250 Hz under the guitars; the sub synth owns the very bottom
   await stem('bass', 0, -20, 0, false, [HP(45), PK(350, -3, 1), PK(900, 2, 1), LP(2600)], 0.5);
   // lead: on top, with presence where the rhythm guitars were scooped
-  await stem('lead', 0.0, -14.5, 0.18, true, [HP(170), PK(450, -2.5, 1), PK(2100, 3, 0.9), LP(6000)]);
+  await stem('lead', 0.0, -13.5, 0.18, true, [HP(170), PK(450, -2.5, 1), PK(2100, 3, 0.9), LP(6000)]);
   await stem('harmony', 0.3, -25.5, 0.2, true, [HP(260), PK(2000, 1.5, 0.9), LP(6000)]);
   await stem('piano', -0.15, -21, 0.4, false, [HP(110)]);
   await stem('strings', 0.25, -27, 0.45, false, [HP(320), LP(8000)]);
