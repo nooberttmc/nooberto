@@ -157,7 +157,7 @@ function guitarEvents() {
       if (b % 4 === 0) { timp(t0, ch, tr, 108); chord(P.brass, t0, str, STEP * 3, 104); }
     } else if (sec === 'b1' || sec === 'b3') { // flowing 16th runs over the gallop
       pat(t0, r, GALLOP, true);
-      if (b % 4 === 3) melody(t0, [[0, voicing(notes, 73)[2], 16]], 0, notes, true);
+      if (b % 4 === 3) { const v = voicing(notes, 73); melody(t0, [[0, v[2], 8], [8, v[1], 8]], 0, notes, true); }   // two half notes
       else runBar(t0, notes, b, sec === 'b3' || b >= 8);
       chord(P.strings, t0, str.map(n => n + 12), BAR, 70);
       if (b % 2 === 0) chord(P.brass, t0, str, STEP * 2, sec === 'b3' ? 110 : 100);
@@ -180,7 +180,7 @@ function guitarEvents() {
       pianoBar(t0, notes, ch, tr, 96, true);
       pat(t0, r, b === 7 ? DRIVE : EIGHTHS);
       lowStr(84 + b * 3);
-      if (b >= 4) melody(t0, b === 7 ? [[0, 74, 8], [8, 78, 4], [12, 81, 4]] : [[0, voicing(notes, 73)[0], 16]], 0, notes, b >= 6);
+      if (b >= 4) { const v = voicing(notes, 73); melody(t0, b === 7 ? [[0, 74, 8], [8, 78, 4], [12, 81, 4]] : [[0, v[0], 8], [8, v[1], 8]], 0, notes, b >= 6); }
       if (b >= 6) for (let s = 0; s < 16; s += 4) timp(at(s), ch, tr, 90 + b * 4 + s);
     } else if (b === 0) { // outro: G minor; the lead falls two octaves and everything lands on one low G
       pc(t0, 43, STEP * 3, 'open', 124); for (let s = 3; s < 16; s++) pc(at(s), 43, STEP * 0.9, s % 4 === 0 ? 'open' : 'mute', 110);
@@ -285,8 +285,10 @@ async function renderSong() {
     for (const n of lead) { const b = Math.floor(n[0] / BAR); all[b] = (all[b] || 0) + 1; if (n[2] < STEP * 2.5) quick[b] = (quick[b] || 0) + 1; }
     for (const b in all) if ((quick[b] || 0) >= 5 && quick[b] / all[b] >= 0.6) fast.add(+b);
     const p3 = b => b >= 88 && b < 120, db = v => Math.pow(10, v / 20);
-    const adj = { rhythmL: b => (fast.has(b) ? -2.5 : 0) + (p3(b) ? -3 : 0), rhythmR: b => (fast.has(b) ? -2.5 : 0) + (p3(b) ? -3 : 0),
-                  lead: b => (p3(b) ? 2 : 0) + (fast.has(b) ? 1.5 : 0), harmony: b => p3(b) ? 1 : 0 };
+    const inter = b => b >= 80 && b < 88;
+    const adj = { rhythmL: b => (fast.has(b) ? -2.5 : 0) + (p3(b) ? -3 : 0) + (inter(b) ? -3 : 0), rhythmR: b => (fast.has(b) ? -2.5 : 0) + (p3(b) ? -3 : 0) + (inter(b) ? -3 : 0),
+                  lead: b => (p3(b) ? 2 : 0) + (fast.has(b) ? 1.5 : 0), harmony: b => p3(b) ? 1 : 0,
+                  piano: b => b >= 80 && b < 88 ? 8 : 0 };   // the interlude belongs to the piano
     for (const k in adj) if (RIDE[k]) for (let b = 1; b < BARS.length; b++) {
       const a = adj[k](b - 1), c = adj[k](b); if (a === c) continue;
       RIDE[k].gain.setValueAtTime(db(a), b * BAR - 0.06); RIDE[k].gain.linearRampToValueAtTime(db(c), b * BAR);
