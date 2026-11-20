@@ -25,7 +25,7 @@ def arrangement(events, drums, audio, t=96.0):
         return Image.open(png).convert('RGB')
 
 def icon(grid=80):
-    """A sun setting into the sea: a half disc shading from warm gold at its heart to cream at the rim, bold rays,
+    """A sun setting into the sea: a half disc shading from warm gold at its heart to cream at the rim, seven bold rays,
     four smooth swells narrowing to the horizon with the sun's reflection down their middle, and ember twinkles.
     Drawn on an 80x80 grid, then scaled with hard pixel edges."""
     img = Image.new('RGBA', (grid, grid), (0, 0, 0, 0)); d = ImageDraw.Draw(img); px = img.load()
@@ -37,11 +37,12 @@ def icon(grid=80):
             if dist <= r:
                 f = min(1, (dist / r) ** 1.6 * 1.15)              # heart -> cream towards the rim
                 px[x, y] = tuple(int(heart[i] + (CREAM[i] - heart[i]) * f) for i in range(3)) + (255,)
-    for k in range(1, 6):                                         # five rays over the upper half
+    for k in range(7):                                            # seven rays over the upper half
         ang = np.pi + (k + 0.5) * np.pi / 7; L = 10 if k % 2 == 1 else 7
         x0, y0 = cx - 0.5 + np.cos(ang) * (r + 4), hy - 0.5 + np.sin(ang) * (r + 4)
         x1, y1 = cx - 0.5 + np.cos(ang) * (r + 4 + L), hy - 0.5 + np.sin(ang) * (r + 4 + L)
-        d.line([(round(x0), round(y0)), (round(x1), round(y1))], fill=ORANGE, width=3)
+        nx, ny = -np.sin(ang) * 1.5, np.cos(ang) * 1.5            # a solid bar, 3 px wide, square ends
+        d.polygon([(x0 + nx, y0 + ny), (x1 + nx, y1 + ny), (x1 - nx, y1 - ny), (x0 - nx, y0 - ny)], fill=ORANGE)
     d.rectangle([cx - 32, hy, cx + 31, hy + 1], fill=CREAM)       # the horizon
     def wave_col(x, half):                                        # gold reflection in the middle -> orange -> red
         f = min(1, abs(x - cx + 0.5) / half * 1.4)
