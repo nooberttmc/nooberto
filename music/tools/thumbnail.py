@@ -2,7 +2,7 @@
 
 usage: python3 thumbnail.py events.json drums.json song.mp3 out.png
 Background: the song's own arrangement view (from visualize.py), zoomed out and dimmed.
-Centre: a pixel-art sun sinking beneath the waves, with a soft glow and violet sparks.
+Centre: a pixel-art sun sinking beneath the waves, with a soft glow and ember sparks.
 Colours from the song video; faint scanlines.
 """
 import sys, os, subprocess, tempfile, random
@@ -44,9 +44,9 @@ def icon(grid=40):
             c = tuple(int(a0[i] + (a1[i] - a0[i]) * k) for i in range(3))
             d.point((x, row), fill=c)
             if (x - cx) % 4 == 1: d.point((x, row - 1), fill=c)   # a crest pixel above each wave
-    for fx, fy in [(4, 4), (35, 3), (3, 13), (36, 12), (10, 2), (29, 2)]:  # eclipse-violet sparks, in open sky
+    for fx, fy in [(4, 4), (35, 3), (3, 13), (36, 12), (10, 2), (29, 2)]:  # ember sparks (gold), in open sky
         for dx, dy in [(0, 0), (1, 0), (-1, 0), (0, 1), (0, -1)]:
-            d.point((fx + dx, fy + dy), fill=VIOLET + (175,))
+            d.point((fx + dx, fy + dy), fill=GOLD + (200,))
     return img
 
 GLYPHS = {   # 5-wide pixel font, rows 0-6 + 2 descender rows
