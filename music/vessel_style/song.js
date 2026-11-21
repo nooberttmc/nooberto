@@ -343,7 +343,7 @@ async function renderSong() {
   // ---- section dynamics: the whole mix rides down for the two pull-backs (the breakdown and the pre-drop), so the full
   // sections feel huge; the arrangement thins there too. Glides over half a bar like every other ride. ----
   const SECT_DB = x => x.sec === 'intro' ? (x.b < 4 ? -4 : -2)
-    : x.sec === 'C' ? (x.b < 8 ? -7 : x.b < 12 ? -4 : -3 + (x.b - 12))          // breakdown: -7, then builds back to 0
+    : x.sec === 'C' ? (x.b < 8 ? -4 : x.b < 12 ? -2.5 : -2 + 0.5 * (x.b - 12))   // breakdown: -4, then builds back to 0
     : x.sec === 'A2' ? (x.k < 4 ? -8 : x.k < 6 ? -6 : x.k === 6 ? -4 : -2) : 0;   // pre-drop: -8, rising into the brake
   const sectRide = ctx.createGain(); master.connect(sectRide);
   sectRide.connect(brakeLP); eqChain(brakeLP, [['lowshelf', 90, -1.5], PK(250, 2, 0.8), PK(800, -4, 0.7)]).connect(comp); comp.connect(ctx.destination);
@@ -428,7 +428,7 @@ async function renderSong() {
 
   // ---------------- drums: chopped breakbeats over a distorted hardcore kick, changing every 4 bars ----------------
   const drumBus = ctx.createGain(); drumBus.gain.value = DRUMS_ON ? 1.22 : 0;
-  const drumRide = ctx.createGain(); levelRide(drumRide, x => x.sec === 'C' && x.b < 8 ? -4 : x.sec === 'A2' && x.k < 6 ? -4 : 0);
+  const drumRide = ctx.createGain(); levelRide(drumRide, x => x.sec === 'C' && x.b < 8 ? -2 : x.sec === 'A2' && x.k < 6 ? -4 : 0);
   eqChain(drumBus, [HP(30), PK(380, -3, 1), PK(4500, 1.5, 0.9)]).connect(drumRide); drumRide.connect(dry); send(drumRide, 0.05);
   const kickBus = ctx.createGain(); kickBus.gain.value = 0.9;
   const kickDrive = ctx.createWaveShaper(); { const c = new Float32Array(2048); for (let i = 0; i < 2048; i++) { const x = i / 1023.5 - 1; c[i] = Math.tanh(7 * x) / Math.tanh(7); } kickDrive.curve = c; kickDrive.oversample = '2x'; }
@@ -476,74 +476,55 @@ async function renderSong() {
     A1: 'K.g.S..gK.K.S.g.', A2: 'K..gS.g.KK..S..g', TS: 'K.....S...K...S.', DN: 'KgSgK.SgKgS.KSgS',
     HF: 'K.......S.......', ST: 'K..K..S.K..K..S.' };
   const fill = (gi, from, big, name) => { for (let s = from; s < 16; s++) { slice(name, gi, s, INFO[name] ? INFO[name].snare : 0, 1, 0.6 + 0.4 * (s - from) / (16 - from)); if (big && s >= 12) tom(T(gi, s), s < 14, 0.8); } };
-  // Every section's drums have a job (they follow the bass's 3+3+2, frame the duel, make room for the guitar fills):
-  //  intro  silent while piano + bells play; kicks lock to the ostinato's 3+3+2 when the band enters; a snare build into A
-  //  A      kick on the ostinato's 3+3+2 hits, snare on beat 3 (half time) under the held octaves; full time (2 & 4) once the
-  //         arp enters at bar 9; a fill only at the phrase ends
-  //  B      the duel: one steady groove per pass so the call and answer are the focus (amen, four-on-the-floor kick);
-  //         pass 2 is busier as the guitar takes the lead; the last 4 bars (guitar + brass in harmony) are punctuated with
-  //         kicks + crash on the melody's 3+3+2; fills at each 8-bar phrase end
-  //  C      half time: kick 1, snare 3, ride; the last 4 bars build (8ths, 16ths, toms) into the tutti
-  //  A2     tutti hits with the band on the 3+3+2; the brake bar rolls down with the tempo
-  //  drop   pass 1 (guitar harmony) four-on-the-floor + backbeat over the bloodfire break; pass 2 (octaves) adds the
-  //         double kicks; pass 3 (guitar fills between the brass's long notes) thins to kick, backbeat and ride
-  //  S      busy chops under the guitar runs, unison hits with the brass stabs, 8th-note kicks under the unison line,
-  //         a snare + tom build over the pivot bar
-  //  F/end  the final theme: groove, busier in the answer phrase; crash on phrase starts; the end like the drop's pass 2
+  // Drums: in every section only TWO sounds - the hardcore kick and ONE break (played mostly as its own groove, so the
+  // break's snare and hats do the work), with fills cut from that same break. A crash marks section starts only.
+  //  intro  silent while piano + bells play; the kick enters on the ostinato's 3+3+2; the break's snare leads into A
+  //  A      amen (yki): kick on the 3+3+2 with the bass; the break's snare on beat 3, then its full groove from bar 9
+  //  B      amen (df) groove under the duel; the last 4 bars punctuate the harmonized melody on the 3+3+2
+  //  C      half time: kick 1, the break's snare on 3, its ghosts on the 8ths; the last 4 bars build with its snare
+  //  A2     the pull-back: kick on the 3+3+2 and the break's snare, quiet; one beat of snare into the brake
+  //  drop   bloodfire groove over four-on-the-floor; pass 2 adds one kick pushing into each next bar (in moderation)
+  //  S      amen (yki) groove under the guitar runs; kick + the break's snare in unison with the brass stabs; 8th kicks
+  //         under the unison line
+  //  F/end  amen (df) groove / bloodfire groove over four-on-the-floor
   for (const x of BARS) {
     const { sec, b, k, gi } = x, at = s => T(gi, s), brake = BRAKES.includes(gi);
     const four = v => { for (const s of [0, 4, 8, 12]) kick(at(s), v || (s === 0 ? 1 : 0.9), brake ? 1 - 0.13 * s / 4 : 1); };
     const tres = v => [0, 6, 12].forEach(s => kick(at(s), v || 1));   // the ostinato's 3+3+2
-    const hats8 = v => { for (let s = 0; s < 16; s += 2) hat(at(s), (s % 4 === 2 ? 1 : 0.6) * (v || 1), s % 4 === 2); };
-    const hats16 = v => { for (let s = 0; s < 16; s++) hat(at(s), (s % 4 === 2 ? 1 : s % 2 ? 0.4 : 0.6) * (v || 1), s % 4 === 2); };
-    const rideQ = v => { for (let s = 0; s < 16; s += 4) ride(at(s), (s ? 0.7 : 1) * (v || 1)); };
-    const back = (v, brk) => [4, 12].forEach(s => { snare(at(s), v || 0.8); if (brk) slice(brk, gi, s, INFO[brk] ? INFO[brk].snare : 0, 2, 0.8); });
-    const roll = (from, to) => { for (let s = from; s < 16; s++) snare(at(s), 0.3 + 0.5 * (s - from) / (16 - from)); };
-    if (sec === 'hold') { if (b === 0) { kick(at(0), 1.05); crash(at(0), 1); snare(at(0), 0.8); } continue; }
+    const sn = (brk, s, v, len) => slice(brk, gi, s, INFO[brk] ? INFO[brk].snare : 0, len || 2, v || 0.9);
+    const endFill = (brk, from) => { for (let s = from; s < 16; s++) sn(brk, s, 0.55 + 0.35 * (s - from) / (16 - from), 1); };   // even 16ths, no rolls that change speed
+    const brkOf = { intro: 'amen_yki', A: 'amen_yki', B: 'amen_df', C: 'amen_df', A2: 'amen_yki', drop: 'bloodfire', S: 'amen_yki', F: 'amen_df', end: 'bloodfire' }[sec];
+    if (sec === 'hold') { if (b === 0) { kick(at(0), 1.05); crash(at(0), 0.9); } continue; }
+    if (b === 0 && sec !== 'intro' && sec !== 'C' && sec !== 'A2') crash(at(0), sec === 'drop' ? 1 : 0.8);
     if (sec === 'intro') {
-      if (b >= 4) { tres(0.85); hats8(0.6); }
-      if (b === 7) { snare(at(4), 0.5); snare(at(8), 0.6); roll(12); }
+      if (b >= 4) tres(0.85);
+      if (b === 7) { sn(brkOf, 8, 0.6); endFill(brkOf, 12); }
     } else if (sec === 'A') {
-      tres(); if (k === 0) crash(at(0), 0.9);
-      if (b < 8) { slice('amen_yki', gi, 8, INFO.amen_yki ? INFO.amen_yki.snare : 0, 2, 0.9); snare(at(8), 0.6); chop('amen_yki', gi, '..g...g...g...g.', 0.7); hats8(0.6); }
-      else { back(0.6, 'amen_yki'); chop('amen_yki', gi, '..g..g....g..g..', 0.7); hats16(0.5); }
-      if (k === 7) fill(gi, 12, false, 'amen_df');
+      tres();
+      if (b < 8) sn(brkOf, 8, 0.85); else groove(brkOf, gi, b, 0.85, k === 7 ? 12 : 16);
+      if (k === 7) endFill(brkOf, 12);
     } else if (sec === 'B') {
-      const pass = Math.floor(b / 16), together = pass === 1 && b >= 28;
-      if (together) { tres(); [0, 6, 12].forEach(s => crash(at(s), s ? 0.45 : 0.8)); back(0.7); rideQ(0.8); }
-      else if (pass === 0) { four(); chop('amen_yki', gi, k === 7 ? 'K.g.S..gK.K.....' : PAT.A1, 0.85); hats8(0.55); }
-      else { four(); chop('amen_df', gi, k === 7 ? 'KgSgK.SgKgS.....' : PAT.DN, 0.8); rideQ(0.8); }
-      if (k === 0) crash(at(0), b % 16 === 0 ? 1 : 0.7);
-      if (k === 7 && !together) fill(gi, 12, b % 16 === 15, 'amen_yki');
+      if (b >= 28) { tres(); [4, 12].forEach(s => sn(brkOf, s, 0.85)); }
+      else { four(); groove(brkOf, gi, b, 0.85, k === 7 ? 12 : 16); if (k === 7) endFill(brkOf, 12); }
     } else if (sec === 'C') {
       kick(at(0), 1); if (b >= 4 && b < 12) kick(at(10), 0.75);
-      if (b < 12) { slice('amen_df', gi, 8, INFO.amen_df ? INFO.amen_df.snare : 0, 2, 0.85); snare(at(8), 0.6); for (let s = 0; s < 16; s += 4) ride(at(s), s % 8 ? 0.6 : 0.9); }
-      else { const step = b === 12 ? 4 : b === 13 ? 2 : 1; for (let s = b === 12 ? 8 : 0; s < 16; s += step) snare(at(s), 0.3 + 0.5 * ((b - 12) * 16 + s) / 64); four(0.75);
-        if (b === 15) for (let s = 8; s < 16; s += 2) tom(at(s), s < 12, 0.8); }
-      if (b === 0 || b === 8) crash(at(0), 0.8);
+      if (b < 12) { sn(brkOf, 8, 0.85); chop(brkOf, gi, '..g.g.g...g.g.g.', 0.5); }
+      else { const step = b === 12 ? 4 : b === 13 ? 2 : 1; for (let s = b === 12 ? 8 : 0; s < 16; s += step) sn(brkOf, s, 0.35 + 0.5 * ((b - 12) * 16 + s) / 64, 1); four(0.75); }
     } else if (sec === 'A2') {
-      if (!brake) { tres(); crash(at(0), 0.9); back(0.7); hats16(0.5); chop('amen_yki', gi, '....S.....g.S...', 0.7); }
-      else { four(); roll(0); }
+      if (!brake) { tres(0.8); [4, 12].forEach(s => sn(brkOf, s, 0.6)); }
+      else { four(); endFill(brkOf, 12); }
     } else if (sec === 'drop' || sec === 'end') {
-      const pass = sec === 'drop' ? Math.floor(b / 8) : 1;
-      if (brake) { four(); roll(0); }
-      else if (pass === 2) { four(); back(0.75); rideQ(0.9); hats8(0.4); }
-      else { four(); if (pass === 1) for (const s of [3, 7, 11, 15]) kick(at(s), 0.5);   // pass 2: kicks pushing into each beat
-        back(0.8); groove('bloodfire', gi, b, 0.5, k === 7 ? 12 : 16); hats16(0.5); }
-      if (k === 0) crash(at(0), 1); else if (k === 4) crash(at(0), 0.6);
-      if (k === 7 && !brake) fill(gi, 12, b === 23, 'bloodfire');
+      const pass = sec === 'drop' ? Math.floor(b / 8) : 0;
+      if (brake) { four(); endFill(brkOf, 12); }
+      else { four(); if (pass === 1 && k % 2 === 1) kick(at(15), 0.55);   // one push into every other bar
+        groove(brkOf, gi, b, pass === 2 ? 0.55 : 0.75, k === 7 ? 12 : 16); if (k === 7) endFill(brkOf, 12); }
     } else if (sec === 'S') {
       const brassBar = b < 12 && b % 2 === 1;
-      if (b >= 12) { for (let s = 0; s < 16; s += 2) kick(at(s), s % 4 ? 0.7 : 1); back(0.8); rideQ(0.9);
-        if (b === 15) { roll(8); for (let s = 8; s < 16; s += 2) tom(at(s), s < 12, 0.7); } }
-      else if (brassBar) { tres(); crash(at(0), 0.6); snare(at(12), 0.8); }
-      else { four(); chop('amen_yki', gi, b % 4 === 0 ? PAT.DN : PAT.A2, 0.75); hats16(0.45); }
-      if (b === 0 || b === 12) crash(at(0), 1);
+      if (b >= 12) { for (let s = 0; s < 16; s += 2) kick(at(s), s % 4 ? 0.7 : 1); groove(brkOf, gi, b, 0.8, b === 15 ? 12 : 16); if (b === 15) endFill(brkOf, 12); }
+      else if (brassBar) { tres(); [6, 12].forEach(s => sn(brkOf, s, 0.9)); }
+      else { four(); groove(brkOf, gi, b, 0.8); }
     } else if (sec === 'F') {
-      four(); chop(b < 8 ? 'amen_yki' : 'amen_df', gi, k === 7 ? '..........' : b < 8 ? PAT.A1 : PAT.DN, 0.8);
-      if (b < 8) hats8(0.55); else rideQ(0.85);
-      if (k === 0) crash(at(0), 1); else if (k === 4) crash(at(0), 0.6);
-      if (k === 7) fill(gi, 8, b === 15, 'amen_yki');
+      four(); groove(brkOf, gi, b, 0.85, k === 7 ? 12 : 16); if (k === 7) endFill(brkOf, 12);
     }
   }
   // ---- the ending: full energy until the cut, then only the reverb tail ----

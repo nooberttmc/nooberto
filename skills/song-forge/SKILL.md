@@ -117,6 +117,10 @@ Details and the reasoning live in `references/`. These are the ones that cost th
     LRA of ~3-8 LU, a pull-back 4-8 LU under the full sections), integrated ~-11 LUFS, `--ceiling -2.5` for <= -1 dBTP.
 27. **No stacked unisons**: give a melody to 1-2 instruments; others stab, answer or rest; strings and choir take turns
     or sit an octave apart. `node scripts/density_check.js song.js` flags 3-way same-rhythm stacks and overlapping pads.
+28. **Drums: two sounds per section** - the kick and ONE break, played mostly as its own groove (its snare and hats do
+    the work), fills cut from the same break, a crash only at section starts. Stacking dense chops, synth snares, hats,
+    rides and toms read as "too many samples"; pushing kicks and snare rolls that speed up / slow down (a roll across a
+    tempo brake) read as a bouncing ball - use them sparingly (one push every other bar; even 16ths on the last beat).
 ## How the pieces fit
 - `song.js` defines `guitarEvents()` (every pitched part as notes: `[t_sec, midi, dur_sec, velocity, articulation]`,
   plus `bpm` and `sections`) and `async renderSong()` (the mix: loads recorded stems via `loadAsset('stem/NAME', ctx)`,
