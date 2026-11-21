@@ -8,7 +8,7 @@ song's ostinato rhythm). One colour on black: details are cut-outs (negative spa
 import sys, os, subprocess, tempfile
 import numpy as np
 from PIL import Image, ImageDraw
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', '..', 'skills', 'song-forge', 'scripts'))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', '..', 'scripts'))   # the skill's visualize.py
 import visualize
 
 W, H = 1280, 720

@@ -27,4 +27,11 @@ Example scripts (for the "apricity." release by "sunkensol"): `references/exampl
   letter to its own width for even spacing.
 - Embed the thumbnail as MP3 cover art: `ffmpeg -i song.mp3 -i cover.png -map 0:a -map 1:v -c:a copy -c:v mjpeg
   -disposition:v attached_pic -id3v2_version 3 -metadata title=... -metadata artist=... out.mp3`.
+- Single-colour variant ("crucible.", `references/examples/art/thumbnail_flat.py`): one hue on black, NO gradients
+  (no glow, no vignette, no shaded fills); the arrangement view recoloured in two flat dim steps of the hue; details as
+  cut-outs (negative space); a 1-cell black outline around the icon instead of a box or glow.
+- Watch for accidental readings at icon size and fix them before sending: two cut-out bubbles in a pot read as eyes
+  (a face); hollow flames open at the bottom read as legs or letters ("MAA"); round flames under a vessel read as
+  wheels (a mine cart); stepped flame sides read as a bar graph; a drip beside a wall reads as a handle. What worked:
+  flame tongues narrowing to a point along curved sides, leaning as they rise, on an ember bed, tips clear of the grate.
 - Filenames: drop a trailing period ("apricity." -> apricity.mp3), keep it in the title tag.
