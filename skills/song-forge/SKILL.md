@@ -110,14 +110,13 @@ Details and the reasoning live in `references/`. These are the ones that cost th
     relative to the mix (LU); set levels against a target table (drums -5, lead -8, each rhythm take -11, bass -12,
     piano -12, strings -15, bells/timp -14, choir -16 as a starting point), master ~-10 LUFS / <= -1 dBTP. It found a
     bass 11 dB and an arp 16 dB too quiet that no one had noticed by ear-proxy.
-26. **Dynamics come from the arrangement + section rides, not a leveler**: a slow leveler (level.py) flattened a song to
-    0.8 LU of loudness range ("one volume for three minutes"). Pick 1-2 pull-backs (the slowdown before the drop, a
-    breakdown), thin them (fewer instruments, one pad, guitars out) and ride the whole mix down 4-8 dB there
-    (SECT_DB in the vessel song), then let the full sections slam. But not too far or too fast: the listener found -4 to
-    -8 LU dips "way too quiet" and abrupt. What worked: dips of ~1-2 LU, rides gliding over a whole bar, the bar before
-    easing down, instruments thinning rather than vanishing (guitars stay, muted), and a breakdown that settles into the
-    pre-drop as one arc (no crescendo into a cliff); check the short-term loudness changes < ~1 dB per second. Measure per section (ebur128 per section; aim for an
-    LRA of ~2.5-4 LU), integrated ~-11 LUFS, `--ceiling -2.5` for <= -1 dBTP.
+26. **Contrast for a constant-energy song: colour, not volume, and one big moment.** Don't flatten everything with a
+    leveler (it gave 0.8 LU: "one volume for three minutes"), but don't carve quiet sections either (-4 to -8 LU dips
+    were "way too quiet", even 1-2 LU dips felt like a hole). What the listener wanted: every section at full energy
+    (within ~1 LU), sections told apart by colour - who leads, bells / choir / synth arp moving in and out, strings and
+    choir trading - and ONE big moment (here the tempo brake into the drop). Build within the groove into that moment:
+    denser break chops every two bars, a fill, a snare roll through the brake bar. Integrated ~-11 LUFS,
+    `--ceiling -2.5` for <= -1 dBTP.
 27. **No stacked unisons**: give a melody to 1-2 instruments; others stab, answer or rest; strings and choir take turns
     or sit an octave apart. `node scripts/density_check.js song.js` flags 3-way same-rhythm stacks and overlapping pads.
 28. **Drums: two sounds per section** - the kick and ONE break, played mostly as its own groove (its snare and hats do
