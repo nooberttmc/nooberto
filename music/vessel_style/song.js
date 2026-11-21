@@ -312,8 +312,8 @@ function guitarEvents() {
     parts: {
     lead: part(P.lead, { amp: 'rhythm', mono: true, label: 'Lead Guitar', humanize: 6, release: -1400 }),   // the rhythm guitars' sound, playing the lead
     harmony: part(P.harmony, { amp: 'rhythm', mono: true, label: 'Harmony Guitar', humanize: 9, velvar: 10, cents: 8, release: -1400 }),   // like rhythmR: a second player   // a second player: a hair late, slightly flat, own dynamics
-    brassL: part(P.brass, { program: 61, label: 'Brass Section', humanize: 8, velvar: 6, cents: -7 }),
-    brassR: part(P.brass, { program: 61, humanize: 10, velvar: 6, cents: 8, lag: 6 }),
+    brassL: part(P.brass, { program: 61, label: 'Brass Section L', humanize: 8, velvar: 6, cents: -7 }),
+    brassR: part(P.brass, { program: 61, label: 'Brass Section R', humanize: 10, velvar: 6, cents: 8, lag: 6 }),
     synth: part(P.synth, { record: false, label: 'Synth Brass', program: 62 }),
     rhythmL: part(P.rhythm, { amp: 'rhythm', humanize: 6, release: -1400 }),   // apricity's guitar setup
     rhythmR: part(P.rhythm.filter(n => !P.rhythm.some(o => o[0] === n[0] && o[1] === n[1] - 12)), { amp: 'rhythm', humanize: 9, velvar: 10, cents: 8, release: -1400 }),
