@@ -125,6 +125,12 @@ Details and the reasoning live in `references/`. These are the ones that cost th
     the work), fills cut from the same break, a crash only at section starts. Stacking dense chops, synth snares, hats,
     rides and toms read as "too many samples"; pushing kicks and snare rolls that speed up / slow down (a roll across a
     tempo brake) read as a bouncing ball - use them sparingly (one push every other bar; even 16ths on the last beat).
+29. **Identify the reference's instruments before arranging, and ask if unsure**: a heavily pedalled, saturated solo
+    piano (azali, "oh nameless sky") measured like a band - a sustained harmonic "wall", low-octave weight, hammer
+    attacks read as quiet percussion - and was first arranged with guitars, pads and drums. The listener corrected it:
+    piano only. Aggression on a solo piano: pounding left-hand octaves in 8ths, right-hand melody in octaves filled with a
+    chord tone, played hard; tanh saturation, dark EQ, a big hall, stereo kept (render.js serves stereo stems as
+    'stem/NAME@L'/'@R'), tape-stop dives (`renderSong()` returns `dives`, applied by scripts/tapestop.py).
 ## How the pieces fit
 - `song.js` defines `guitarEvents()` (every pitched part as notes: `[t_sec, midi, dur_sec, velocity, articulation]`,
   plus `bpm` and `sections`) and `async renderSong()` (the mix: loads recorded stems via `loadAsset('stem/NAME', ctx)`,

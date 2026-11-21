@@ -15,8 +15,10 @@
 //   --solo PART|all|drums  stem export: render one part (master compressor bypassed)
 //   --norm X               stem export: fixed output scale (shared by all stems)
 //   --wav-out FILE         write the raw 16-bit WAV there and stop (no leveler, no limiter, no MP3)
+// Stereo stems are also served per channel as 'stem/NAME@L' and 'stem/NAME@R' (mono 'stem/NAME' as before).
 // The page gets: window.ASSET_NAMES, window.BREAK_INFO, window.SOLO, window.SOLO_NORM, and loadAsset(name, ctx).
 // If renderSong() returns { drums }, it is written to <song dir>/stems/drums.json (for visualize.py / export_midi.py).
+// If it returns { dives: [[t0, t1], ...] }, those windows get a tape-stop pitch dive (tapestop.py) before the limiter.
 const { chromium } = require('playwright');
 const fs = require('fs'), path = require('path'), { execSync } = require('child_process');
 const args = process.argv.slice(2), file = path.resolve(args[0]), title = args[1] || path.basename(file, '.js');
@@ -41,11 +43,15 @@ for (let i = 2; i < args.length; i++) {
   else { console.error('unknown option', a); process.exit(2); }
 }
 const pcm = p => execSync(`ffmpeg -loglevel error -i "${p}" -ac 1 -ar 44100 -f f32le -`, { maxBuffer: 1 << 30 });
+// one channel of a stereo file (for 'stem/NAME@L' / '@R': stereo instruments keep their image)
+const pcmCh = (p, ch) => execSync(`ffmpeg -loglevel error -i "${p}" -af "pan=mono|c0=${ch}" -ar 44100 -f f32le -`, { maxBuffer: 1 << 30 });
+const channels = p => { try { return +execSync(`ffprobe -v error -select_streams a:0 -show_entries stream=channels -of csv=p=0 "${p}"`).toString().trim(); } catch (e) { return 1; } };
 (async () => {
   const assets = {};
   const bdir = path.resolve(opt.breaks || path.join(songDir, 'breaks'));
   if (fs.existsSync(bdir)) for (const f of fs.readdirSync(bdir)) if (/\.(mp3|wav|flac|ogg)$/i.test(f)) assets['break/' + f.replace(/\.[^.]+$/, '')] = pcm(path.join(bdir, f));
-  for (const [k, f] of Object.entries(opt.stems)) assets['stem/' + k] = pcm(path.resolve(f));
+  for (const [k, f] of Object.entries(opt.stems)) { assets['stem/' + k] = pcm(path.resolve(f));
+    if (channels(path.resolve(f)) === 2) { assets['stem/' + k + '@L'] = pcmCh(path.resolve(f), 'c0'); assets['stem/' + k + '@R'] = pcmCh(path.resolve(f), 'c1'); } }
   const info = fs.existsSync(path.join(bdir, 'break_info.json')) ? fs.readFileSync(path.join(bdir, 'break_info.json'), 'utf8') : '{}';
   const b = await chromium.launch();
   const pg = await b.newPage();
@@ -75,6 +81,7 @@ const pcm = p => execSync(`ffmpeg -loglevel error -i "${p}" -ac 1 -ar 44100 -f f
   if (opt.wavOut) { fs.writeFileSync(path.resolve(opt.wavOut), Buffer.from(r.wav, 'base64')); console.log('wrote', opt.wavOut, 'peak', r.peak.toFixed(3)); return; }
   const outDir = path.resolve(opt.out || songDir), wav = path.join(outDir, '.render_tmp.wav'), mp3 = path.join(outDir, title.replace(/[\\/:*?"<>|]/g, '').replace(/\.$/, '') + '.mp3');
   fs.writeFileSync(wav, Buffer.from(r.wav, 'base64'));
+  if (r.dives && r.dives.length) execSync(`python3 "${path.join(__dirname, 'tapestop.py')}" "${wav}" "${wav}" ${r.dives.map(([a, b]) => a.toFixed(3) + ':' + b.toFixed(3)).join(' ')}`, { stdio: 'inherit' });   // tape-stop dives the song asked for
   if (opt.level) {
     const [a0, a1] = opt.level.split(':');
     execSync(`python3 "${path.join(__dirname, 'level.py')}" "${wav}" "${wav}" --hold-from ${a0} --hold-until ${a1}` +

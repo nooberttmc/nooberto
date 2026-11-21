@@ -28,7 +28,7 @@ for (const [part, p] of Object.entries(ev.parts)) {
   }
 }
 // melody vs bass: semitone clashes sounding together
-const mel = ev.parts.lead.notes, bass = ev.parts.bass.notes;
+const mel = ev.parts.lead ? ev.parts.lead.notes : [], bass = ev.parts.bass ? ev.parts.bass.notes : [];
 for (const [t, m, l] of mel) for (const [tb, mb, lb] of bass) {
   if (tb < t + l - 0.02 && t < tb + lb - 0.02) { const iv = ((m - mb) % 12 + 12) % 12; if (iv === 1) { const [b, s] = slot(t); console.log('CLASH b9  ', `lead ${name(m)} vs bass ${name(mb)} bar ${b + 1} slot ${s.toFixed(1)}`); problems++; } }
 }
@@ -44,7 +44,7 @@ for (const [t, m, l] of mel) for (const [tb, mb, lb] of bass) {
       if (Math.round(sl) % 2 === 1 || Math.round(sl) === 2) { const d1 = m - p, d2 = n - m; if (Math.abs(d1) <= 2 && Math.abs(d2) <= 2 && d1 * d2 > 0) byT.get(ts[i]).forEach(mm => passing.add(k + ts[i] + ':' + (mm % 12))); } } }
   const isPassing = (k, t, m) => passing.has(k + t.toFixed(3) + ':' + (m % 12));
   for (let i = 0; i < all.length; i++) for (let j = i + 1; j < all.length && all[j][0] < all[i][1]; j++) {
-    const [a0, a1, am, ak] = all[i], [b0, b1, bm, bk] = all[j]; if (ak === bk) continue;
+    const [a0, a1, am, ak] = all[i], [b0, b1, bm, bk] = all[j]; if (ak === bk && !(ev.parts[ak].sf === 'piano')) continue;   // within one piano part too (a hand can clash with itself)
     const ov = Math.min(a1, b1) - Math.max(a0, b0); if (ov < 0.12) continue;
     const lo = Math.min(am, bm), hi = Math.max(am, bm); if ((hi - lo) % 12 !== 1) continue; if (isPassing(ak, a0, am) || isPassing(bk, b0, bm)) continue;
     const [b] = slot(b0), key = `${b} ${ak}/${bk} ${name(am)}/${name(bm)}`; if (seen.has(key)) continue; seen.add(key);
