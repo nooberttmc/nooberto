@@ -258,18 +258,22 @@ def main_roll(events, audio, out, fps=60, scale=1.0, theme=None):
     cmd = ['ffmpeg', '-y', '-loglevel', 'error', '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-s', f'{W_}x{H_}', '-r', str(fps), '-i', '-', '-i', audio,
            '-c:v', 'libx264', '-preset', 'medium', '-crf', '18', '-pix_fmt', 'yuv420p', '-af', 'apad', '-c:a', 'aac', '-b:a', '192k', '-t', f'{dur:.3f}', '-movflags', '+faststart', out]
     enc = subprocess.Popen(cmd, stdin=subprocess.PIPE)
-    PXB = PX * K * BAR * 1.15; viewB = (W_ - X0r) / PXB
+    # scroll at a CONSTANT speed in real time (Synthesia-style): notes sit where they sound, so rubato shows as wider or
+    # narrower bars instead of the picture lurching (scrolling by musical position jumped at every barline in 3/4)
+    PXS = PX * K * 1.3; viewS = (W_ - X0r) / PXS
     for fi in range(int(dur * fps)):
         t = fi / fps
         img = base.copy(); g = ImageDraw.Draw(img)
         sec = section(t); col = PHASE[sec]
         st = max(s for s, n in sec_at if s <= t + 1e-9); prev = PHASE[section(st - 0.01)] if st > 0 else col
         col = mix(prev, col, min(1, (t - st) / 1.2))
-        p0 = pos(t); tv = time_of(p0 + viewB); X = lambda tt: X0r + (pos(tt) - p0) * PXB
+        tv = t + viewS; X = lambda tt: X0r + (tt - t) * PXS
         g.rectangle([X0r, 0, W_, top - 1], fill=(8, 5, 10))
-        for b in range(max(0, int(p0)), int(p0 + viewB) + 2):      # the ruler: bars and beats
+        b0 = max(0, bisect.bisect_right(BT, t) - 1) if BT else 0
+        for b in range(b0, min(len(BT) - 1, b0 + 64) if BT else 0):   # the ruler: bars and beats at their real times
+            if BT[b] > tv: break
             for q in range(beats):
-                x = X0r + (b + q / beats - p0) * PXB
+                x = X(BT[b] + (BT[b + 1] - BT[b]) * q / beats)
                 if x < X0r or x > W_: continue
                 if q == 0:
                     g.line([x, u(14), x, H_], fill=mix(BG, col, 0.28), width=max(1, u(1))); g.text((x + u(3), u(12)), str(b + 1), font=font, fill=mix(col, CREAM, 0.5))

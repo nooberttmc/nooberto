@@ -132,7 +132,8 @@ function guitarEvents() {
   const tones = () => CH[X.chord];
   const PEDAL = [];
   const pedalBar = () => PEDAL.push([T(gi, 0) + 0.06, T(gi + 1, 0) + 0.012]);
-  const key = (hand, t, m, d, v, art) => P[hand].push([t, m, d, Math.max(26, Math.min(127, Math.round(v))), art || 'open']);
+  const OCT = 12;   // the whole piece sits an octave higher than written (the listener's request)
+  const key = (hand, t, m, d, v, art) => P[hand].push([t, m + OCT, d, Math.max(26, Math.min(127, Math.round(v))), art || 'open']);
   const rolled = (hand, t, ms, d, v, gap) => ms.slice().sort((a, b) => a - b).forEach((m, i, arr) => key(hand, t + i * (gap || 0.014), m, d, i === arr.length - 1 ? v + 4 : v - 4));
   const low = () => into(24 + X.bass, 28, 39);
   const third = () => (tones()[1] - tones()[0] + 12) % 12;
@@ -160,7 +161,7 @@ function guitarEvents() {
       const trim = tt => { const p = P.rh[P.rh.length - 1]; if (p && p[0] + p[2] > tt - 0.01) p[2] = Math.max(0.04, tt - 0.012 - p[0]); };
       if (orn === 'g') { trim(t - 0.06); key('rh', t - 0.06, step(m, -1), 0.055, v - 20); }
       if (orn === 's') { trim(t - 0.1); key('rh', t - 0.1, step(step(m, -1), -1), 0.045, v - 24); key('rh', t - 0.052, step(m, -1), 0.045, v - 18); }
-      if (orn === 'o' && m + 12 <= 108) { trim(t - 0.065); key('rh', t - 0.065, m + 12, 0.06, v - 14); }   // (only on the keyboard: A0..C8)
+      if (orn === 'o' && m + 12 + OCT <= 108) { trim(t - 0.065); key('rh', t - 0.065, m + 12, 0.06, v - 14); }   // (only on the keyboard: A0..C8)
       let mm = m;
       if (orn === 'a' && l >= 2) {   // the appoggiatura: the scale step above, on the beat and leant on, resolving down
         const ap = step(m, 1), d1 = D8(s, 1, 1.0); key('rh', t + lead, ap, d1, v + acc + 6, 'appog'); key('rh', t + 0.004 + lead, ap - 12, d1, v + acc - 6, 'appog');
@@ -189,14 +190,14 @@ function guitarEvents() {
       const climax = sec === 'A2';
       if (climax && b % 2) trip(108); else leap(climax ? 110 : 104);
       const casc = k === 3 && b < 8;   // the melody hands the bar over to a cascade after its first long note
-      melody(casc ? MEL[ph][k].filter(n => n[0] < 3) : MEL[ph][k], climax ? 114 : 106, { up: climax ? 12 : 0 });
-      if (casc) runDown(climax ? 103 : 100, 6, 10, 106);
+      melody(casc ? MEL[ph][k].filter(n => n[0] < 3) : MEL[ph][k], climax ? 116 : 106);   // (the climax: fuller, harder; an octave up would leave the keyboard)
+      if (casc) runDown(95, 6, 10, 106);
       if (k === 7 && b >= 8 && sec === 'A') runUp(88, 8, 5, 108);
       pedalBar();
     } else if (sec === 'B' || sec === 'B2') {
       if (sec === 'B') trip(104); else leap(110);
       melody(MEL[ph][k], sec === 'B2' ? 114 : 108);
-      if (k === 7) runUp(sec === 'B2' ? 100 : 88, 8, 5, 110);
+      if (k === 7) runUp(88, 8, 5, 110);
       pedalBar();
     } else if (sec === 'L') {   // the singing section: soft, slower, the left hand's wide broken chords, the melody in octaves
       wide(84); melody(MEL[ph][k], 84);
@@ -206,12 +207,12 @@ function guitarEvents() {
       const tops = { 0: [83, 79, 83, 88, 83, 79], 1: [88, 83, 88, 91, 88, 83], 2: [84, 81, 84, 89, 84, 81], 3: [89, 84, 89, 93, 89, 84],
         4: [81, 76, 81, 84, 81, 76], 5: [84, 81, 84, 88, 84, 81], 6: [87, 81, 87, 90, 87, 81] };
       if (k < 7) stabs(108, tops[k]);
-      else { const arp = ctones(59, 99); for (let i = 0; i < 12; i++) key('rh', S16(i), arp[Math.min(arp.length - 1, i)], D16(i, 1, 0.9), 92 + i * 2.5); }   // up to D#7
+      else { const arp = ctones(47, 95); for (let i = 0; i < 12; i++) key('rh', S16(i), arp[Math.min(arp.length - 1, i)], D16(i, 1, 0.9), 92 + i * 2.5); }   // B7 rising in 16ths
       pedalBar();
     } else if (sec === 'end') {   // the release: the theme broadens, softer, slower
       if (k % 2 === 0) leap(102); else wide(96);
       melody(k === 3 ? [[0, 88, 2]] : ME[k], 104);
-      if (k === 3) runDown(100, 4, 14, 104);   // E6 struck, then the cascade from E7
+      if (k === 3) runDown(95, 4, 14, 104);   // struck, then the cascade from the top
       pedalBar();
     }
   }
@@ -243,7 +244,7 @@ async function renderSong() {
   const pin = ctx.createGain(); pin.channelCountMode = 'explicit'; pin.channelCount = 2;
   const drive = ctx.createWaveShaper(); { const c = new Float32Array(2048); for (let i = 0; i < 2048; i++) { const x = i / 1023.5 - 1; c[i] = Math.tanh(1.15 * x) / Math.tanh(1.15); } drive.curve = c; drive.oversample = '4x'; }
   pin.connect(drive);
-  const tone = eqChain(drive, [HP(28), ['lowshelf', 100, 1.5], PK(300, -1.5, 0.9), PK(3500, 1.5, 0.9), ['highshelf', 9000, 1]]);
+  const tone = eqChain(drive, [HP(28), ['lowshelf', 140, 2.5], PK(300, -1, 0.9), PK(3500, -1, 0.9), ['highshelf', 9000, -0.5]]);   // an octave higher: more body, no extra presence
   const pc = ctx.createDynamicsCompressor(); pc.threshold.value = -16; pc.ratio.value = 2; pc.attack.value = 0.008; pc.release.value = 0.12; tone.connect(pc);
   // mid/side width: L' = L + k(L-R)/2, R' = R + k(R-L)/2 (the Salamander is already very wide: k < 0 narrows it a touch,
   // to the reference's ~27-40% correlation, safe in mono)

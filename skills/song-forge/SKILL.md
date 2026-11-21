@@ -142,7 +142,8 @@ Details and the reasoning live in `references/`. These are the ones that cost th
 31. **Read the meter from the score**: a reference in 3/4 at 200 needs STEPS = 12 per bar in the tempo map; export
     `eighths_per_bar`, `strong` and `meter` from guitarEvents() so check_notes.js and the piano-roll video follow it.
     For solo piano, `visualize.py --piano-roll events.json song.mp3 out.mp4 60 1.5` draws one big roll with a lit
-    keyboard (each part its own shade, brighter = harder).
+    keyboard (each part its own shade, or one `roll_color`; brighter = harder). It scrolls at a constant speed in real time
+    (scrolling by musical position jumped at every barline in 3/4, and rubato made it lurch).
 32. **"Soul and passion" made concrete** (from research; the listener asked for it): rubato through the tempo map (each
     4-bar phrase pushes ~3% into its middle and broadens ~7% into its cadence; a slower singing section that presses
     back to tempo; a ritardando coda); a crescendo/diminuendo arch inside each phrase; the melody voiced over its
