@@ -181,6 +181,20 @@ Details and the reasoning live in `references/`. These are the ones that cost th
     (A0..C8 - an octave flourish once landed on F#8). It caught a cascade colliding with the melody in the same hand, a
     run spilling into the other hand mid-leap, a "third hand" doubling, and rolled chords held as 8 keys: write rolls and
     sweeps as short keys under the pedal.
+37. **Every song is built for FL Studio (the listener's standing choice)**: they want each song to open in FL as if it
+    was made there - instruments playing the MIDI and FL's own effects, not bounced audio. This pipeline can't run FL,
+    so build every song with an FL-reproducible palette and ship an **FL kit** with it (MIDI + files + a step-by-step
+    "HOW TO BUILD IT IN FL STUDIO.txt" with every setting as a number; example: ardor's kit).
+    - Instruments: SFZ (the house grand: free sfizz VST3 + the Salamander SFZ, Polyphony 256; Retuned keyswitch C#0),
+      SF2 (Fruity Soundfont Player, program numbers as in the song), plain samples (Sampler/Slicex). No sound that only
+      exists inside this pipeline unless it is shipped as a sample or SFZ.
+    - Effects: only what maps onto FL stock plugins - EQ bands (Parametric EQ 2), compressor and limiter (Fruity
+      Limiter COMP/LIMIT), reverb as an exported impulse (Fruity Convolver; render the song's own IR with its send,
+      return and EQ baked in), delay (Fruity Delay 3), width as an L/R mix (Stereo Shaper), level moves as automation
+      clips on Fruity Balance. No Web-Audio-only tricks (custom waveshaper curves, tape-stop dives) without an FL twin.
+    - MIDI: `export_midi.py ... --fl` bakes the sustain pedal into note lengths (FL's import may not pass CC64 to a
+      plugin) and adds the grand's Retuned keyswitch. Give gain staging relative to something the listener can see in
+      FL (e.g. "about 5 dB of gain reduction, up to 9, on bars 5-20"), since a different sampler engine plays at a different level.
 ## How the pieces fit
 - `song.js` defines `guitarEvents()` (every pitched part as notes: `[t_sec, midi, dur_sec, velocity, articulation]`,
   plus `bpm` and `sections`) and `async renderSong()` (the mix: loads recorded stems via `loadAsset('stem/NAME', ctx)`,
