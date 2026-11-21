@@ -66,10 +66,6 @@ def main(events, drums, audio, out):
     arr = lum[..., None] * COL
     ic = icon(); s = 7; big = np.kron(ic, np.ones((s, s), bool))
     ox, oy = (W - big.shape[1]) // 2, (H - big.shape[0]) // 2
-    halo = np.zeros_like(ic)                                    # a 1-cell black outline around the icon (no box, no glow)
-    for dy in (-1, 0, 1):
-        for dx in (-1, 0, 1): halo |= np.roll(np.roll(ic, dy, 0), dx, 1)
-    hb = np.kron(halo, np.ones((s, s), bool)); arr[oy:oy + hb.shape[0], ox:ox + hb.shape[1]][hb] = 0
     reg = arr[oy:oy + big.shape[0], ox:ox + big.shape[1]]; reg[big] = COL
     arr[::3] *= 0.85                                            # faint, even scanlines
     Image.fromarray(np.clip(arr, 0, 255).astype(np.uint8)).save(out); print('wrote', out)

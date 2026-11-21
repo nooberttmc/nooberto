@@ -29,7 +29,7 @@ Example scripts (for the "apricity." release by "sunkensol"): `references/exampl
   -disposition:v attached_pic -id3v2_version 3 -metadata title=... -metadata artist=... out.mp3`.
 - Single-colour variant ("crucible.", `references/examples/art/thumbnail_flat.py`): one hue on black, NO gradients
   (no glow, no vignette, no shaded fills); the arrangement view recoloured in two flat dim steps of the hue; details as
-  cut-outs (negative space); a 1-cell black outline around the icon instead of a box or glow.
+  cut-outs (negative space); no box, glow or outline around the icon (the listener had a black outline removed).
 - Watch for accidental readings at icon size and fix them before sending: two cut-out bubbles in a pot read as eyes
   (a face); hollow flames open at the bottom read as legs or letters ("MAA"); round flames under a vessel read as
   wheels (a mine cart); stepped flame sides read as a bar graph; a drip beside a wall reads as a handle. What worked:
