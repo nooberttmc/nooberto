@@ -2,7 +2,7 @@
 // F# minor, 178 BPM, ~3:10. Built from what the reference does (not its notes): an Andalusian-style descent
 // (i - VII - VI - V), flowing 16th-note runs, galloping octave bass, staccato chord stabs at the climax,
 // a lift up a half step into G minor for the final stretch, and an ending on one low, heavy note.
-// Pitched parts are recorded by tools/guitar_stems.py: sampled instruments (MuseScore General via FluidSynth),
+// Pitched parts are recorded by guitar_stems.py (song-forge scripts): sampled instruments (MuseScore General via FluidSynth),
 // every guitar re-amped through an overdrive, Guitarix JCM800 + DS-1 and a 4x12 cabinet curve.
 // Drums: at most two breakbeats from the pack at any moment, pitched from 160 to 178 BPM.
 const BPM = 178, STEP = 60 / BPM / 4, BAR = STEP * 16;
@@ -88,7 +88,7 @@ function run(notes, base, fig) {
   return fig.map(i => ext[Math.max(0, Math.min(ext.length - 1, i + 1))]);
 }
 
-// ---------------- every pitched part, recorded by tools/guitar_stems.py ----------------
+// ---------------- every pitched part, recorded by guitar_stems.py (song-forge scripts) ----------------
 function guitarEvents() {
   const P = { rhythm: [], bass: [], lead: [], harm: [], piano: [], strings: [], low: [], brass: [], organ: [], timp: [] };
   const note = (arr, t, m, len, vel, art) => arr.push([t, m, len, vel, art || 'open']);
