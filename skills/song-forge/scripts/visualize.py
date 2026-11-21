@@ -137,7 +137,12 @@ def main(events, drums, audio, out, fps=60, start=0.0, length=None, scale=1.0, t
     d.text((u(4), u(4)), 'Instruments', font=font, fill=(200, 170, 150))
     for L in lay:
         d.rectangle([X0_, L['y'], W_, L['y'] + L['h'] + u(10)], fill=(14, 6, 8))
-        d.text((u(4), L['y'] + u(1)), L['label'], font=font, fill=(214, 186, 160))
+        # the track name: wrapped word by word onto extra lines when it doesn't fit the panel (e.g. "Harmony / Guitar")
+        maxw = X0_ - u(4) - u(8); lines = [[]]
+        for w in L['label'].split():
+            if lines[-1] and font.getlength(' '.join(lines[-1] + [w])) > maxw: lines.append([w])
+            else: lines[-1].append(w)
+        for i, ln in enumerate(lines): d.text((u(4), L['y'] + u(1) + i * u(11)), ' '.join(ln), font=font, fill=(214, 186, 160))
         d.ellipse([X0_ - u(16), L['y'] + L['h'] - u(2), X0_ - u(10), L['y'] + L['h'] + u(4)], outline=(120, 70, 50))
         d.line([X0_, L['y'] + L['h'] + u(11), W_, L['y'] + L['h'] + u(11)], fill=(26, 12, 12), width=max(1, u(1)))
     cmd = ['ffmpeg', '-y', '-loglevel', 'error', '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-s', f'{W_}x{H_}', '-r', str(fps), '-i', '-', '-ss', str(start), '-i', audio,
