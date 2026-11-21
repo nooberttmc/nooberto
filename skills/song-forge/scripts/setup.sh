@@ -30,7 +30,7 @@ python3 -c "import sys; sys.path.insert(0, '$(dirname "$0")'); import reamp; pri
 
 # optional: the Salamander Grand Piano SF2 (1.27 GB, CC-BY 3.0) for realistic piano: bash setup.sh --piano [dest_dir]
 if [ "${1:-}" = "--piano" ]; then
-  DEST="${2:-soundfonts}"; mkdir -p "$DEST"; TMP=$(mktemp -d)
+  DEST="${2:-$HOME/.local/share/song-forge}"; mkdir -p "$DEST"; TMP=$(mktemp -d)
   curl -L -o "$TMP/sal.tar.xz" "https://freepats.zenvoid.org/Piano/SalamanderGrandPiano/SalamanderGrandPiano-SF2-V3+20200602.tar.xz"
   tar -xJf "$TMP/sal.tar.xz" -C "$TMP" && mv "$TMP"/SalamanderGrandPiano-SF2-*/*.sf2 "$DEST/SalamanderGrandPiano.sf2" && rm -rf "$TMP"
   echo "piano: $DEST/SalamanderGrandPiano.sf2 (credit: Salamander Grand Piano by Alexander Holm, CC-BY 3.0)"

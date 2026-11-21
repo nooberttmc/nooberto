@@ -94,10 +94,22 @@ Details and the reasoning live in `references/`. These are the ones that cost th
     own dynamics, panned apart) rather than a perfect copy; lead guitar darker (top rolled off ~4.5 kHz) and as loud as
     the instrument it duels with; heavier breaks (tanh drive, +4 dB low shelf, compression); hold the final chord ~4 s.
     Measure buried parts with `scripts/audibility.py` (unmasked share per section; slow: one render per part).
-23. **Guitars: start from apricity's config** (rhythm amp `rhythm`, its GTR EQ, hard-panned takes; lead/harmony
-    chains in references/examples/apricity.js); a listener rejected the reference-matched `modern` tone as "weird".
-    **Pianos**: Salamander Grand + phrase-shaped velocities, rolled chords and pedalling (mixing.md "Realistic piano").
-
+23. **The house guitar and piano (the listener's standing choice: use them whenever a song has guitar or piano)**:
+    - Guitar: every guitar uses the RHYTHM tone - `amp: 'rhythm'`, `release: -1400`, the GTR mix chain
+      `[HP(100), PK(350,-3,1.1), PK(2000,-3.5,1.4), PK(3500,2.5,1), LP(9000)]`. Rhythm: two takes hard L/R (humanize 6 /
+      9, velvar 10, cents 8 on the second). Lead: the same tone, single notes at the written pitch (above the rhythm
+      guitars), centred, `mono: true`, little reverb, no echo. Harmony: a second player like the right take (humanize 9,
+      velvar 10, cents 8), panned ~0.45. (Rejected: the 'lead' amp chain as "weird", the scooped 'modern' tone.)
+    - Piano: the Salamander Grand (`sf: 'piano'`; `bash scripts/setup.sh --piano`), phrase-shaped velocities ~60-120
+      (played hard), chords rolled ~6 ms, sustain pedal per chord in lyrical passages, stabs dry (mixing.md).
+    The template already uses both.
+24. **Every note has a purpose**: fills and countermelodies quote the song's own motifs (e.g. the guitar answers the
+    brass's long notes with the drop's hook on the current chord, rests when the brass moves, tightens into unison);
+    chord-tone sweeps that relate to nothing read as "random".
+25. **Balance by measurement**: `scripts/balance.py` renders each part solo and reports its loudness where it plays
+    relative to the mix (LU); set levels against a target table (drums -5, lead -8, each rhythm take -11, bass -12,
+    piano -12, strings -15, bells/timp -14, choir -16 as a starting point), master ~-10 LUFS / <= -1 dBTP. It found a
+    bass 11 dB and an arp 16 dB too quiet that no one had noticed by ear-proxy.
 ## How the pieces fit
 - `song.js` defines `guitarEvents()` (every pitched part as notes: `[t_sec, midi, dur_sec, velocity, articulation]`,
   plus `bpm` and `sections`) and `async renderSong()` (the mix: loads recorded stems via `loadAsset('stem/NAME', ctx)`,

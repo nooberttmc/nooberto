@@ -1,5 +1,9 @@
 # Guitars: recording and tone
 
+**House default (the listener's standing choice):** every guitar - rhythm, lead and harmony - uses the rhythm tone
+(`amp: 'rhythm'`, release -1400, the GTR mix chain); the lead plays single notes at the written pitch, centred, `mono:
+true`. See SKILL.md lesson 23. The notes below on the 'lead' amp chain are history: that tone was rejected as "weird".
+
 The guitars are sampled (MuseScore General "Clean Electric Guitar" GM 27, palm mutes on GM 28) played by FluidSynth,
 then re-amped: overdrive -> Guitarix JCM800 preamp -> Guitarix DS-1 -> a 4x12 cabinet EQ (scipy) -> (lead) compressor.
 `guitar_stems.py` records, `reamp.py` amps. Settings live in `reamp.py` (`LEAD` dict, cabinet voices).

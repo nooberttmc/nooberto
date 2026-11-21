@@ -103,11 +103,18 @@ def write_midi(part, path, seed):
 
 def soundfont(name, events):
     """A part's "sf": a known name (musescore, fluid) or a path to any .sf2/.sf3 file, absolute or relative to the song
-    folder (the folder holding stems/events.json) - e.g. "soundfonts/TubularBells.sf2"."""
+    folder (the folder holding stems/events.json) - e.g. "soundfonts/TubularBells.sf2". "piano" = the Salamander Grand
+    (SONGFORGE_SF_PIANO, ~/.local/share/song-forge/, or soundfonts/ near the song), falling back to MuseScore's piano."""
     if name in SF: return SF[name]
+    if name == 'piano':   # the default piano: the Salamander Grand (bash setup.sh --piano), else MuseScore's
+        for c in (os.environ.get('SONGFORGE_SF_PIANO', ''), os.path.expanduser('~/.local/share/song-forge/SalamanderGrandPiano.sf2')):
+            if c and os.path.exists(c): return c
+        name = 'soundfonts/SalamanderGrandPiano.sf2'
     base = os.path.dirname(os.path.abspath(events))
-    for c in (name, os.path.join(base, name), os.path.join(os.path.dirname(base), name)):
+    for c in (name, os.path.join(base, name), os.path.join(os.path.dirname(base), name), os.path.join(os.path.dirname(os.path.dirname(base)), name)):
         if os.path.exists(os.path.expanduser(c)): return os.path.expanduser(c)
+    if 'Salamander' in name:
+        print('warning: Salamander Grand Piano not found (bash setup.sh --piano); using the MuseScore piano', file=sys.stderr); return SF['musescore']
     raise SystemExit(f'soundfont not found: {name}')
 
 def main(events, outdir):

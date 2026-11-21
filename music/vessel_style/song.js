@@ -115,15 +115,18 @@ const DROP = {   // the brass section's line (Ab4..Ab5)
        [[0, 76, 4], [4, 79, 2], [6, 72, 2]],
        [[0, 77, 8, 'f']] ],
 };
-const FILLS = [   // the guitar fills the brass's long notes in the drop's last pass (chord-tone 16th sweeps)
-  [[4, 73, 0.5], [4.5, 77, 0.5], [5, 80, 0.5], [5.5, 77, 0.5], [6, 73, 0.5], [6.5, 77, 0.5], [7, 80, 1]],
-  [],
-  [[0, 72, 0.5], [0.5, 68, 0.5], [1, 65, 0.5], [1.5, 68, 0.5], [2, 72, 0.5], [2.5, 77, 0.5], [3, 80, 1], [4, 79, 0.5], [4.5, 77, 0.5], [5, 72, 1]],
-  [],
-  [[0, 80, 0.5], [0.5, 77, 0.5], [1, 73, 0.5], [1.5, 68, 0.5], [2, 73, 0.5], [2.5, 77, 0.5], [3, 80, 1]],
-  [[4, 70, 0.5], [4.5, 75, 0.5], [5, 79, 0.5], [5.5, 82, 0.5], [6, 79, 0.5], [6.5, 75, 0.5], [7, 70, 1]],
-  [[0, 72, 0.5], [0.5, 76, 0.5], [1, 79, 0.5], [1.5, 82, 0.5], [2, 84, 0.5], [2.5, 82, 0.5], [3, 79, 1, 'v']],
-  [],
+// the drop's last pass: while the brass holds a note, the guitar answers with the drop's own hook (the opening rising
+// 5th -> root -> 3rd figure, A-flat D-flat F), placed on the current chord; it rests when the brass moves, quotes the hook in
+// quarters first, then in 8ths (tightening), and joins the brass in unison for the phrase's last two beats
+const FILLS = [
+  [[4, 68, 2], [6, 73, 2]],                       // Db (brass holds F): the hook's start, Ab Db -> into the brass's Eb
+  [],                                             // Eb: the brass moves, the guitar rests
+  [[1, 72, 1], [2, 77, 2], [4, 80, 2]],           // Fm (brass holds F): the hook on F minor, C F Ab
+  [],                                             // Fm: rest
+  [[1, 68, 1], [2, 73, 1], [3, 77, 1]],           // Db (brass holds F): the hook in 8ths, Ab Db F
+  [[4, 70, 1], [5, 75, 1], [6, 79, 2]],           // Eb (brass holds G): Bb Eb G
+  [[1, 67, 1], [2, 72, 1], [3, 76, 1]],           // C7 (brass holds G): G C E
+  [[4, 76, 2], [6, 79, 2]],                       // C7: unison with the brass, E G -> home
 ];
 const sixteen = (ns, from) => ns.map((m, i) => [(from || 0) + i * 0.5, m, 0.5]);
 const SOLO = {   // the trading solo: guitar runs (bars 1, 3, 5, 7, 9, 11), then guitar + brass in unison (bars 13-16)
@@ -266,7 +269,7 @@ function guitarEvents() {
       line('brass', DROP[ph][k]);
       if (pass === 0) line('gtr', DROP[ph][k], { harm: true, vel: 110 });         // guitar a third under the brass
       else if (pass === 1) line('gtr', DROP[ph][k], { up: -12 });               // octaves
-      else { line('gtr', FILLS[k]); if (!FILLS[k].length) line('gtr', DROP[ph][k], { harm: true, vel: 104 }); }   // fills the long notes
+      else line('gtr', FILLS[k]);   // answers the brass's long notes with the hook
       for (const s of [0, 1, 2, 3, 4, 5, 6, 7]) { const c = triad(pc), r = into(60 + c[0], 60, 71), f = into(60 + c[2], 60, 71);   // string ostinato in 8ths
         P.strings.push([E8(s), s % 2 ? f + 12 : r + 12, D8(s, 1, 0.8), s % 2 ? 84 : 96, 'open']); }
       choir(pc, 96); DROP[ph][k].forEach(([s, m, l], i) => pkey(E8(s), m + 12, D8(s, l, 0.95), (l >= 4 ? 90 : 82) + (i === 0 ? 4 : 0))); pedalBar();

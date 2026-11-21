@@ -83,9 +83,15 @@ function guitarEvents() {
     // the right guitar is a different take: looser, root-fifth voicing (no octave), so hard-panned it stays wide
     rhythmR: part(P.rhythm.filter(n => !P.rhythm.some(o => o[0] === n[0] && o[1] === n[1] - 12)), { amp: 'rhythm', humanize: 9, velvar: 10, cents: 8, release: -1400 }),
     bass: part(P.bass, { program: 34, amp: 'bass', humanize: 3, release: -1400 }),
-    lead: part(P.lead, { amp: 'lead', humanize: 4, lag: 3, velvar: 6, release: -1800 }),   // short release: fast notes stay clean
-    harmony: part(P.harm, { amp: 'lead', humanize: 4, lag: 6, velvar: 6, cents: -5, release: -1800 }),
-    piano: part(P.piano, { program: 0, humanize: 6 }),
+    // THE HOUSE GUITAR (the listener's choice): every guitar - rhythm, lead, harmony - uses the rhythm tone (amp 'rhythm',
+    // the GTR chain below, release -1400). The lead plays single notes at the written pitch (above the rhythm guitars);
+    // mono: true keeps bends/vibrato from bleeding between notes. The harmony is a second player like rhythmR.
+    lead: part(P.lead, { amp: 'rhythm', mono: true, humanize: 6, release: -1400 }),
+    harmony: part(P.harm, { amp: 'rhythm', mono: true, humanize: 9, velvar: 10, cents: 8, release: -1400 }),
+    // THE HOUSE PIANO: the Salamander Grand ('piano'; bash scripts/setup.sh --piano), played like a pianist: velocities
+    // ~60-120 shaped by the phrase, chords rolled ~6 ms bass-up, sustain pedal changed per chord in lyrical passages
+    // (pedal: [[down, up], ...]); see references/mixing.md "Realistic piano"
+    piano: part(P.piano, { sf: 'piano', program: 0, humanize: 4, velvar: 5, pedal: [] }),
     strings: part(P.strings, { program: 48 }),
   } };
 }
@@ -136,9 +142,9 @@ async function renderSong() {
   await stem('rhythmL', -1, -13.5, 0.02, false, GTR, 0.12);                                  // hard left / hard right: width
   await stem('rhythmR', 1, -13.5, 0.02, false, GTR, 0.12);
   await stem('bass', 0, -20, 0, false, [HP(45), PK(350, -3, 1), PK(900, 2, 1), LP(2600)], 0.28);
-  await stem('lead', 0, -12.5, 0.14, true, [HP(110), PK(700, 1.5, 0.9), PK(1900, 1, 1), LP(6500)]);   // the loudest thing, centred
-  await stem('harmony', 0.55, -25.5, 0.2, true, [HP(260), PK(2000, 1.5, 0.9), LP(6000)]);
-  await stem('piano', -0.3, -21, 0.4, false, [HP(110)]);
+  await stem('lead', 0, -12.5, 0.08, false, GTR);   // the house guitar tone, centred
+  await stem('harmony', 0.45, -16, 0.08, false, GTR);
+  await stem('piano', -0.15, -14, 0.32, false, [HP(60), PK(250, -2, 1), PK(3000, 1.5, 1)]);   // a real stereo grand, a room around it
   await stem('strings', 0.6, -27, 0.45, false, [HP(320), ['highshelf', 6000, 3, 0.7], LP(14000)]);
 
   // level changes never jump: each glides over the 2 bars before the downbeat it belongs to
