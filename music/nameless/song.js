@@ -14,18 +14,19 @@ const BPM = 172, STEPS = 12, STEP = 60 / BPM / 4, BAR = STEP * STEPS;   // 3/4: 
 
 // ---- harmony ----
 const CH = { Em: [4, 7, 11], C: [0, 4, 7], D: [2, 6, 9], B: [11, 3, 6], B7: [11, 3, 6, 9], A: [9, 1, 4], Am: [9, 0, 4], G: [7, 11, 2],
-  F: [5, 9, 0], Bm: [11, 2, 6] };
+  F: [5, 9, 0], Bm: [11, 2, 6], Cm: [0, 3, 7], E: [4, 8, 11] };
 const bassOf = n => CH[n][0];
 const KEY = [4, 6, 7, 9, 11, 0, 2];   // E natural minor
-const ALT = { 3: 2, 1: 0, 5: 6, 10: 9 };   // a borrowed chord tone replaces the key note it alters: D# for D, C# for C, F for F#
-const barScale = n => { let s = KEY.slice(); for (const c of CH[n]) if (!s.includes(c)) s = s.filter(k => k !== ALT[c]).concat([c]); return s; };
+const ALT = { 3: 2, 1: 0, 5: 6, 10: 9, 8: 7 };   // a borrowed chord tone replaces the key note it alters: D# for D, C# for C, F for F#, G# for G
+const ALTC = { Cm: { 3: 4 } };                  // ... per chord where it differs: in C minor the Eb replaces E
+const barScale = n => { let s = KEY.slice(); for (const c of CH[n]) if (!s.includes(c)) { const r = ALTC[n] && ALTC[n][c] !== undefined ? ALTC[n][c] : ALT[c]; s = s.filter(k => k !== r).concat([c]); } return s; };
 const into = (m, lo, hi) => { while (m < lo) m += 12; while (m > hi) m -= 12; return m; };
 const PROG = {
   IN: ['Em', 'Em', 'Em', 'Em'],
-  PA: ['Em', 'C', 'Am', 'B', 'Em', 'F', 'B7', 'Em'],
+  PA: ['Em', 'Cm', 'Am', 'B', 'Em', 'F', 'B7', 'Em'],        // C minor: bittersweet (the melody avoids E there)
   PA2: ['Em', 'C', 'A', 'B', 'C', 'F', 'B7', 'Em'],
-  PB: ['C', 'D', 'Bm', 'Em', 'Am', 'D', 'G', 'B'],
-  PB2: ['C', 'D', 'Bm', 'Em', 'A', 'F', 'B7', 'B7'],
+  PB: ['Cm', 'D', 'Bm', 'Em', 'Am', 'D', 'G', 'B'],
+  PB2: ['Cm', 'D', 'Bm', 'Em', 'A', 'F', 'B7', 'B7'],
   PL: ['Em', 'C', 'G', 'D', 'Am', 'Em', 'F', 'B7'],         // the singing section
   PL2: ['Em', 'C', 'G', 'B', 'Em', 'Am', 'B7', 'B7'],
   PC: ['Em', 'Em', 'F', 'F', 'Am', 'Am', 'B7', 'B7'],
@@ -60,7 +61,7 @@ const DIVE_BARS = () => [START.C - 1];   // one tape-stop dive, out of the singi
 function bars() {
   const out = []; let gi = 0;
   for (const [sec, n] of SECTIONS) for (let b = 0; b < n; b++, gi++) {
-    const ph = PLAN[sec].length ? PLAN[sec][Math.floor(b / 8) % PLAN[sec].length] : null, prog = ph ? PROG[ph] : ['Em'];
+    const ph = PLAN[sec].length ? PLAN[sec][Math.floor(b / 8) % PLAN[sec].length] : null, prog = ph ? PROG[ph] : [sec === 'hold' ? 'E' : 'Em'];   // the end: E major
     out.push({ sec, b, gi, t0: T(gi, 0), ph, k: b % 8, name: prog[b % prog.length], tr: 0 });
   }
   out.forEach((x, i) => { x.chord = x.name; x.bass = bassOf(x.name); x.next = (out[i + 1] || x).name; });
@@ -151,7 +152,10 @@ function guitarEvents() {
   const PEDAL = [];
   const pedalBar = () => PEDAL.push([T(gi, 0) + 0.06, T(gi + 1, 0) + 0.012]);
   const OCT = 12;   // the whole piece sits an octave higher than written (the listener's request)
-  const key = (hand, t, m, d, v, art) => P[hand].push([t, m + OCT, d, Math.max(26, Math.min(127, Math.round(v))), art || 'open']);
+  const lilt = (t, d) => { if (d < 0.07) return 0; const p = (t - T(gi, 0)) / (T(gi + 1, 0) - T(gi, 0)) * 3, n = Math.round(p);
+    if (Math.abs(p - n) > 0.12) return -7; return n === 0 || n === 3 ? 8 : -3; };   // beat 1 +8, beats 2-3 -3, off-beats -7
+  const key = (hand, t, m, d, v, art) => P[hand].push([t, m + OCT, d, Math.max(26, Math.min(127, Math.round(v + lilt(t, d)))), art || 'open']);
+  const keyA = (hand, t, m, d, v, art) => key(hand, t, m - OCT, d, v, art);   // an absolute pitch (not under the OCT shift)
   const rolled = (hand, t, ms, d, v, gap) => ms.slice().sort((a, b) => a - b).forEach((m, i, arr) => key(hand, t + i * (gap || 0.014), m, d, i === arr.length - 1 ? v + 4 : v - 4));
   const low = () => into(24 + X.bass, 28, 39);
   const third = () => (tones()[1] - tones()[0] + 12) % 12;
@@ -160,17 +164,17 @@ function guitarEvents() {
   const LEVEL = { intro: 0, A: 0, B: 4, L: -3, C: 6, A2: 10, B2: 8, end: 0, hold: 0 };   // the singing section softer, not a hole
   const arch = () => [-6, 0, 6, -2][X.b % 4] + LEVEL[X.sec] + (X.sec === 'L' && X.b >= 4 ? (X.b - 3) * 3 : 0) + (X.sec === 'end' ? -X.b * 1.0 : 0);
   // ---- left hand ----
-  const leap = (v) => { const b = low(); v += arch();
-    key('lh', E8(0), b, D8(0, 1), v + 8); key('lh', E8(0) + 0.006, b - 12 >= 21 ? b - 12 : b + 12, D8(0, 1), v + 2);   // the bass in octaves
-    key('lh', E8(1), b + 7, D8(1, 1), v - 8); key('lh', E8(2), b + 12 + third(), D8(2, 4, 0.98), v - 4); key('lh', E8(3), b + 19, D8(3, 2, 0.95), v - 12); };
-  const trip = (v) => { const b = low(), up = [b, b + 7, b + 12, b + 12 + third(), b + 19, b + 24]; const idx = [0, 1, 2, 3, 4, 5, 4, 3, 2]; v += arch();
-    idx.forEach((j, i) => key('lh', S16(i * 4 / 3), up[j], D16(i * 4 / 3, 4 / 3, 0.98), v + (i === 0 ? 10 : i % 3 === 0 ? 2 : -8) + (j === 5 ? 3 : 0))); };
-  const wide = (v) => { const b = low(), tn = ctones(b + 12, b + 31); v += arch();   // the singing section: a wide 2-octave broken chord in 8ths
-    const seq = [b, tn[0], tn[2] || tn[1], tn[3] || tn[2], tn[2] || tn[1], tn[0]];
-    key('lh', E8(0) + 0.006, b - 12 >= 21 ? b - 12 : b, D8(0, 6, 0.98), v - 2);
-    seq.forEach((m, i) => key('lh', E8(i), m, D8(i, Math.min(2, 6 - i), 0.98), v + [8, -6, -2, 2, -4, -8][i])); };
-  const stomp = (v) => { const b = low(); v += arch(); const lb = b >= 33 ? b - 12 : b;   // accented octaves, an octave down (to A0)
-    for (let q = 0; q < 3; q++) { key('lh', S16(q * 4), lb, D16(q * 4, 4, 0.9), v + (q === 0 ? 12 : 4)); key('lh', S16(q * 4) + 0.004, lb + 12, D16(q * 4, 4, 0.9), v); } };
+  const LB = () => into(24 + X.bass, 24, 35);   // the bass: C1..B1 (absolute)
+  const leap = (v) => { const b = LB(); v += arch();   // the bass octave, then a quick arpeggio leaping up 2-3 octaves
+    keyA('lh', E8(0), b, D8(0, 1, 0.9), v + 10); keyA('lh', E8(0) + 0.005, b + 12, D8(0, 1, 0.9), v + 4);
+    keyA('lh', E8(1), b + 19, D8(1, 1), v - 6); keyA('lh', E8(2), b + 24 + third(), D8(2, 1), v - 4); keyA('lh', E8(3), b + 31, D8(3, 2, 0.92), v - 2); };   // the top lets go before the last 8th (the melody passes there)
+  const trip = (v) => { const b = LB(), up = [b, b + 12, b + 19, b + 24, b + 24 + third(), b + 31, b + 36]; const idx = [0, 1, 2, 3, 4, 5, 6, 5, 4]; v += arch();
+    idx.forEach((j, i) => keyA('lh', S16(i * 4 / 3), up[j], D16(i * 4 / 3, 4 / 3, 0.95), v + (i === 0 ? 10 : -6) + (j === 6 ? 4 : 0))); };   // triplets sweeping 3 octaves
+  const wide = (v) => { const b = LB(); v += arch();
+    keyA('lh', E8(0), b, D8(0, 2, 0.95), v + 8); keyA('lh', E8(0) + 0.005, b + 12, D8(0, 2, 0.95), v + 2);
+    [[1, b + 19], [2, b + 24], [3, b + 24 + third()], [4, b + 31], [5, b + 24 + third()]].forEach(([sl, m]) => keyA('lh', E8(sl), m, D8(sl, 1, 0.95), v - 6)); };
+  const stomp = (v) => { const b = LB(); v += arch();   // accented octaves, low
+    for (let q = 0; q < 3; q++) { keyA('lh', S16(q * 4), b, D16(q * 4, 4, 0.85), v + (q === 0 ? 12 : 4)); keyA('lh', S16(q * 4) + 0.004, b + 12, D16(q * 4, 4, 0.85), v); } };
   // ---- right hand: the melody on top (a hair ahead of the chord), voiced over it; long notes get the chord ----
   const MEL_RANGE = [72, 95];   // the main melody stays within C5..B6 (the listener's request): written pitch, under the OCT shift
   const melody = (notes, v, o) => { o = o || {}; o.up = (o.up || 0) - OCT; const sc = barScale(X.name), step = (m, dir) => { let g = m + dir; while (!sc.includes(((g % 12) + 12) % 12)) g += dir; return g; };
@@ -187,9 +191,20 @@ function guitarEvents() {
         t = E8(s + 1); d = D8(s + 1, l - 1, 0.97); }
       const vv = orn === 'f' ? v - 12 : v + acc;
       const roll = (s === 0 && (X.b % 4 === 0) && l >= 2) ? 0.028 : 0.006;   // phrase starts: the chord rolled up into the melody
-      key('rh', t + lead + (roll > 0.01 ? roll * 3 : 0), mm, d, vv); key('rh', t + lead, mm - 12, d, vv - 10);
+      const dance = !o.float && s === 0 && l >= 4 && orn !== 'a';   // a held note: struck for 3 8ths, then the quick figure (note, lower neighbour, note)
+      const dt = dance ? D8(s, 3, 0.95) : d, dc = Math.min(dt, D8(s, 2, 0.9));   // the chord under it lasts about a beat: struck, not held
+      key('rh', t + lead + (roll > 0.01 ? roll * 3 : 0), mm, dt, vv); key('rh', t + lead, mm - 12, dc, vv - 10);
       if (l >= 2 || s === 0) { const inner = ctones(mm - 11, mm - 1).filter(x => x >= mm - 9).slice(-2);
-        inner.forEach((x, i) => key('rh', t + lead + roll * (i + 1), x, d, vv - 18)); } } };
+        inner.forEach((x, i) => key('rh', t + lead + roll * (i + 1), x, dc, vv - 18)); }
+      if (dance) { const fig = l - 3 >= 3 ? [[3, mm], [4, step(mm, -1)], [5, mm]] : l - 3 === 2 ? [[3, mm], [4, step(mm, -1)]] : [[3, step(mm, -1)]];
+        fig.forEach(([fs, fm]) => { key('rh', E8(fs) + lead, fm, D8(fs, 1, 0.9), v - 4); key('rh', E8(fs) + lead + 0.004, fm - 12, D8(fs, 1, 0.9), v - 14); }); } } };
+  // ---- flourishes as punctuation (one per 8-bar phrase): a rolled chord, five- and four-note groups, one upward run ----
+  const tuplets = (fromTop, target, v) => { const sc = barScale(X.name), st = (m, d) => { let g = m + d; while (!sc.includes(((g % 12) + 12) % 12)) g += d; return g; };
+    const a = fromTop - OCT, tg = target - OCT; v += arch();   // beat 2: five notes turning around the melody note; beat 3: four rising into the next downbeat
+    const five = [a, st(a, 1), a, st(a, -1), a]; let four = [], m = tg; for (let i = 0; i < 4; i++) { m = st(m, -1); four.unshift(m); }
+    five.forEach((n, i) => { key('rh', S16(4 + i * 4 / 5), n, D16(4 + i * 4 / 5, 4 / 5, 0.85), v - 6 + (i === 0 ? 4 : 0)); });
+    four.forEach((n, i) => { key('rh', S16(8 + i), n, D16(8 + i, 1, 0.85), v - 8 + i * 3); }); };
+  const bigRoll = (v) => { const ch = ctones(43, 66); rolled('rh', E8(0), ch, D8(0, 2, 0.9), v + arch() - 8, 0.012); };   // a spread chord rolled up from the downbeat (from it, not before: no notes of the next chord in this bar)
   const stabs = (v, tops) => { v += arch(); tops.forEach((top0, s) => { if (top0 == null) return; const top = top0 - OCT, ch = ctones(top - 11, top).slice(-4);   // the tops carry the melody: in its range
     ch.forEach((m, i) => key('rh', E8(s) + i * 0.004, m, D8(s, 1, 0.8), v + (s === 0 ? 10 : s % 2 ? -10 : -2) - (m === top ? 0 : 10))); }); };
   const runDown = (from, slot16, n, v) => { const sc = barScale(X.name), len = STEPS - slot16; let m = from; v += arch();   // a cascade in the right hand, inside its bar
@@ -197,36 +212,38 @@ function guitarEvents() {
   const runUp = (to, slot16, n, v) => { const sc = barScale(X.name), ns = []; let m = to - 1; v += arch();
     while (ns.length < n) { if (sc.includes(((m % 12) + 12) % 12)) ns.unshift(m); m--; }
     ns.forEach((mm, i) => key('rh', S16(slot16 + i * (4 / n)), mm, D16(slot16 + i * 4 / n, 4 / n, 0.85), v - 14 + i * 4)); };
-  for (const x of bars()) {
+  const lineFor = (y) => y.sec === 'A' ? MEL[y.ph === 'PA' ? 'PAV' : 'PAV2'][y.k] : y.sec === 'end' ? ME[y.k] : MEL[y.ph] ? MEL[y.ph][y.k] : [[0, 88, 6]];
+  const FLOURISH = { 'A:7': 'tup', 'A:15': 'run', 'B:0': 'roll', 'B:7': 'tup', 'B:15': 'tup', 'A2:0': 'roll', 'A2:3': 'casc', 'A2:7': 'tup', 'A2:15': 'tup', 'B2:0': 'roll', 'B2:7': 'tup' };
+  const ALLB = bars(); ALLB.forEach((y, i) => y.nextX = ALLB[i + 1]);
+  for (const x of ALLB) {
     X = x; gi = x.gi; const { sec, b, k, ph } = x;
     if (sec === 'hold') { if (b === 0) { const H = 5.0;   // the last chord, rolled wide over five octaves, fermata
-        rolled('lh', E8(0), [28, 40, 47, 52], 0.5, 108, 0.03); rolled('rh', E8(0) + 0.1, [64, 67, 71, 76, 79, 83, 88, 91], 0.09, 100, 0.024); PEDAL.push([E8(0) + 0.05, E8(0) + H]); } continue; }   // a wide arpeggio, the pedal holds it
+        rolled('lh', E8(0), [28, 40, 47, 52], 0.5, 108, 0.03); rolled('rh', E8(0) + 0.1, [64, 68, 71, 76, 80, 83, 88, 92], 0.09, 100, 0.024); PEDAL.push([E8(0) + 0.05, E8(0) + H]); } continue; }   // a wide arpeggio, the pedal holds it
     if (sec === 'intro') {   // a big rolled chord, then the left hand's leap figure announcing the theme
       if (b === 0) { rolled('lh', E8(0), [28, 35, 40], 0.5, 96, 0.03); rolled('rh', E8(0) + 0.08, [64, 67, 71, 76], 0.5, 92, 0.026); pedalBar(); }
       else { leap(100 + b * 3); melody([[0, 79, 3, b === 1 ? 's' : null], [3, 78, 1], [4, 76, 2]], 96 + b * 4); pedalBar(); }
-    } else if (sec === 'A' || sec === 'A2') {   // the theme, full and hard; the left hand alternates the leap and the triplets
-      const climax = sec === 'A2';
+    } else if (sec === 'A' || sec === 'A2' || sec === 'B' || sec === 'B2') {   // the themes, full and hard: left hand alternating leap and triplets
+      const climax = sec === 'A2' || sec === 'B2', isA = sec[0] === 'A';
       if (b % 2) trip(climax ? 108 : 106); else leap(climax ? 110 : 106);
-      const casc = climax && k === 3 && b < 8;   // the one cascade in the piece (the climax)
-      const line = climax ? MEL[ph][k] : MEL[ph === 'PA' ? 'PAV' : 'PAV2'][k];
-      melody(casc ? line.filter(n => n[0] < 3) : line, climax ? 116 : 110);
-      if (casc) runDown(95, 6, 10, 106);
-      pedalBar();
-    } else if (sec === 'B' || sec === 'B2') {
-      if (b % 2) trip(sec === 'B2' ? 110 : 106); else leap(sec === 'B2' ? 110 : 108);
-      melody(MEL[ph][k], sec === 'B2' ? 114 : 110);
+      const line = lineFor(x), F = FLOURISH[sec + ':' + b];
+      if (F === 'roll') bigRoll(climax ? 104 : 98);
+      if (F === 'casc') { melody(line.filter(n => n[0] < 3), climax ? 116 : 110); runDown(95, 6, 10, 106); }
+      else if (F === 'tup' || F === 'run') { const nx = X.nextX, tg = nx ? lineFor(nx)[0][1] : 88;
+        melody(line.filter(n => n[0] < 2), climax ? 116 : 110);
+        if (F === 'tup') tuplets(line[0][1], tg, climax ? 112 : 106); else runUp(tg, 4, 8, 108); }
+      else melody(line, isA ? (climax ? 116 : 110) : (climax ? 114 : 110));
       pedalBar();
     } else if (sec === 'L') {   // the singing section: slower, softer, the left hand alternating wide broken chords and triplets
-      if (b % 2) trip(86); else wide(88); melody(MEL[ph][k], 88);
+      if (b === 0) bigRoll(80); if (b % 2) trip(86); else wide(88); melody(MEL[ph][k], 88, { float: true });   // floats on purpose: the contrast
       pedalBar();
     } else if (sec === 'C') {   // the octave stomps under repeated chords whose tops carry the line; building
       stomp(110);
       const tops = { 0: [83, 79, 83, 88, 83, 79], 1: [88, 83, 88, 91, 88, 83], 2: [84, 81, 84, 89, 84, 81], 3: [89, 84, 89, 93, 89, 84],
         4: [81, 76, 81, 84, 81, 76], 5: [84, 81, 84, 88, 84, 81], 6: [87, 81, 87, 90, 87, 81], 7: [87, 90, 87, 93, 90, 87] };
-      stabs(108 + (k === 7 ? 6 : 0), tops[k]);
+      stabs(108 + (k === 7 ? 6 : 0), tops[k]); if (k === 7) bigRoll(108);
       pedalBar();
     } else if (sec === 'end') {   // the release: the theme broadens, slower
-      if (k % 2 === 0) leap(102); else wide(96);
+      if (k % 2 === 0) leap(102); else wide(96); if (k === 0) bigRoll(98);
       melody(ME[k], 104);
       pedalBar();
     }

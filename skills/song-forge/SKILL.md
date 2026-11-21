@@ -156,6 +156,14 @@ Details and the reasoning live in `references/`. These are the ones that cost th
     hard, the left hand alternating a bass-fifth-tenth leap with triplet arpeggios bar by bar, appoggiaturas at peaks,
     a broadening coda. When the listener names a stretch they like ("1:10 to the end"), map it to the sections and
     rebuild the rest in that style.
+35. **Writing like a reference's driving piano** (detailed listener notes, measured against the score): the left hand
+    hits a very low bass octave on beat 1 (C1..B1) and leaps 2-3 octaves up in a quick arpeggio (that leap is much of
+    the energy); the right hand STRIKES a thick chord on beat 1 (about a beat long) and moves the top on beats 2-3 (a
+    held note becomes note - lower neighbour - note), so it dances instead of floating; beat 1 clearly harder (+8
+    velocity, beats 2-3 -3, off-beats -7); one flourish per 8-bar phrase as punctuation (rolled chords, 5- and 4-note
+    groups, one upward run, one cascade - the listener dislikes many long runs); chromatic colour by changing a chord
+    where the melody allows (C minor for C when the melody avoids E; a Picardy E major at the end); pedal every bar.
+    Rolled chords start ON the beat (one rolled before it put the next chord's Eb under the previous chord).
 33. **Playable by a human**: `node scripts/check_playable.js song.js` (one part per hand: rh, lh) flags chords over a
     10th or over 5 notes, keys held beyond 5, jumps a hand can't make in the time, and notes off the 88-key keyboard
     (A0..C8 - an octave flourish once landed on F#8). It caught a cascade colliding with the melody in the same hand, a
