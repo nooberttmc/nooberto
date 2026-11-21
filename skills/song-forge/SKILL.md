@@ -131,6 +131,18 @@ Details and the reasoning live in `references/`. These are the ones that cost th
     piano only. Aggression on a solo piano: pounding left-hand octaves in 8ths, right-hand melody in octaves filled with a
     chord tone, played hard; tanh saturation, dark EQ, a big hall, stereo kept (render.js serves stereo stems as
     'stem/NAME@L'/'@R'), tape-stop dives (`renderSong()` returns `dives`, applied by scripts/tapestop.py).
+30. **The house grand is the Salamander SFZ, played by scripts/piano_render.py** (`sf: 'grand'`): the SF2 conversion
+    has no velocity tracking, hammer/release/pedal noises or string resonance, so a hard keystroke doesn't "slam". The
+    SFZ (git clone --depth 1 https://github.com/sfzinstruments/SalamanderGrandPiano, 1.4 GB, CC-BY 3.0) has 16 velocity
+    layers; piano_render.py reads it (defines applied in order: the file redefines $VEL per layer) and plays the layer
+    for each velocity (measured: vel 25 -> 127 = +20 dB and the brightness 438 -> 1005 Hz), the Retuned tuning set, the
+    pedal (CC64), release noises scaled by how long the key was held. sfizz would do it too, but building it was not
+    allowed here. Mix it as a real grand: a trace of saturation, small EQ moves (-1.5 dB 300 Hz, +1.5 dB 3.5 kHz, air),
+    a hall with ~25 ms pre-delay; narrow the AB-miked image a little (~40% correlation) for mono safety.
+31. **Read the meter from the score**: a reference in 3/4 at 200 needs STEPS = 12 per bar in the tempo map; export
+    `eighths_per_bar`, `strong` and `meter` from guitarEvents() so check_notes.js and the piano-roll video follow it.
+    For solo piano, `visualize.py --piano-roll events.json song.mp3 out.mp4 60 1.5` draws one big roll with a lit
+    keyboard (each part its own shade, brighter = harder).
 ## How the pieces fit
 - `song.js` defines `guitarEvents()` (every pitched part as notes: `[t_sec, midi, dur_sec, velocity, articulation]`,
   plus `bpm` and `sections`) and `async renderSong()` (the mix: loads recorded stems via `loadAsset('stem/NAME', ctx)`,

@@ -35,3 +35,10 @@ if [ "${1:-}" = "--piano" ]; then
   tar -xJf "$TMP/sal.tar.xz" -C "$TMP" && mv "$TMP"/SalamanderGrandPiano-SF2-*/*.sf2 "$DEST/SalamanderGrandPiano.sf2" && rm -rf "$TMP"
   echo "piano: $DEST/SalamanderGrandPiano.sf2 (credit: Salamander Grand Piano by Alexander Holm, CC-BY 3.0)"
 fi
+
+# optional: the Salamander Grand Piano SFZ (1.4 GB, CC-BY 3.0) for the house grand (sf: 'grand', piano_render.py):
+#   bash setup.sh --grand    -> ~/.local/share/song-forge/SalamanderGrandPiano
+if [ "${1:-}" = "--grand" ]; then
+  mkdir -p "$HOME/.local/share/song-forge" && git clone --depth 1 https://github.com/sfzinstruments/SalamanderGrandPiano "$HOME/.local/share/song-forge/SalamanderGrandPiano"
+  pip install -q soundfile mido numpy
+fi

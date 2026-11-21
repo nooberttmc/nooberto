@@ -91,7 +91,7 @@ function guitarEvents() {
     // THE HOUSE PIANO: the Salamander Grand ('piano'; bash scripts/setup.sh --piano), played like a pianist: velocities
     // ~60-120 shaped by the phrase, chords rolled ~6 ms bass-up, sustain pedal changed per chord in lyrical passages
     // (pedal: [[down, up], ...]); see references/mixing.md "Realistic piano"
-    piano: part(P.piano, { sf: 'piano', program: 0, humanize: 4, velvar: 5, pedal: [] }),
+    piano: part(P.piano, { sf: 'grand', program: 0, humanize: 4, velvar: 5, pedal: [] }),   // the SFZ grand (piano_render.py); falls back to the SF2
     strings: part(P.strings, { program: 48 }),
   } };
 }

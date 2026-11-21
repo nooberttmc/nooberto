@@ -8,7 +8,8 @@ Open notes use the part's "program" (default GM 27, clean electric guitar), palm
 Note articulations: "open" (plain), "mute" (palm mute, on mute_program), "lead" (vibrato on long notes), "bend" (picked
 a whole step low, bent up into pitch), "release" (sags a semitone as it ends), "bendrel" (both), "legato" (plain; give it
 a length that overlaps the next note by ~12 ms so lines connect).
-Per-part options: pedal ([[t_down, t_up], ...] sustain pedal, CC64), sf (a SoundFont name or a path, e.g. "soundfonts/TubularBells.sf2"), record (False = don't record; the part is synthesized in renderSong but its notes still feed the
+Per-part options: pedal ([[t_down, t_up], ...] sustain pedal, CC64), sf (a SoundFont name or a path, or 'grand' = the
+Salamander SFZ through piano_render.py: velocity layers + hammer/release/pedal noises; falls back to the SF2 piano), e.g. "soundfonts/TubularBells.sf2"), record (False = don't record; the part is synthesized in renderSong but its notes still feed the
 video and MIDI export), program, mute_program, sf, amp ("rhythm" | "lead" | "bass" | "none"), humanize (ms of random timing),
 lag (ms the player sits behind the grid), velvar (+- velocity variation), cents (constant detune, e.g. a second
 take), release (SoundFont NRPN offset for the release envelope in timecents: -1800 = ~25 ms, -1400 = ~45 ms; the
@@ -117,6 +118,15 @@ def soundfont(name, events):
         print('warning: Salamander Grand Piano not found (bash setup.sh --piano); using the MuseScore piano', file=sys.stderr); return SF['musescore']
     raise SystemExit(f'soundfont not found: {name}')
 
+def grand_sfz(events):
+    """The Salamander Grand Piano V3 SFZ (sfzinstruments edition), if installed: SONGFORGE_GRAND_SFZ, ~/.local/share/song-forge/,
+    or soundfonts/sfz/ near the song."""
+    base = os.path.dirname(os.path.abspath(events)); name = os.path.join('SalamanderGrandPiano', 'Salamander Grand Piano V3.sfz')
+    for c in (os.environ.get('SONGFORGE_GRAND_SFZ', ''), os.path.expanduser('~/.local/share/song-forge/' + name),
+              *[os.path.join(d, 'soundfonts', 'sfz', name) for d in (base, os.path.dirname(base), os.path.dirname(os.path.dirname(base)))]):
+        if c and os.path.exists(c): return c
+    return None
+
 def main(events, outdir):
     os.makedirs(outdir, exist_ok=True)
     parts = json.load(open(events))['parts']
@@ -124,7 +134,12 @@ def main(events, outdir):
         if part.get('record') is False: continue   # synthesized in renderSong (e.g. a synth lead): notes only, no recording
         mid, di, out = [os.path.join(outdir, f'{name}{s}') for s in ('.mid', '_di.wav', '.wav')]
         write_midi(part, mid, seed=i * 101 + 7)
-        subprocess.run(['fluidsynth', '-ni', '-q', '-R', '0', '-C', '0', '-g', '0.7', '-r', '44100', '-F', di, soundfont(part.get('sf', 'musescore'), events), mid], check=True)
+        if part.get('sf') == 'grand' and grand_sfz(events):   # the SFZ Salamander through piano_render.py: velocity layers,
+            import piano_render                                # hammer/release noises, pedal, string resonance
+            piano_render.render(mid, di, grand_sfz(events), part.get('tuning', 'retuned'))
+        else:
+            sfn = 'piano' if part.get('sf') == 'grand' else part.get('sf', 'musescore')   # no SFZ: the SF2 piano
+            subprocess.run(['fluidsynth', '-ni', '-q', '-R', '0', '-C', '0', '-g', '0.7', '-r', '44100', '-F', di, soundfont(sfn, events), mid], check=True)
         if part.get('amp', 'rhythm') == 'none': os.replace(di, out)
         else: reamp.main(di, out, part['amp']); os.remove(di)
         print('recorded', name)

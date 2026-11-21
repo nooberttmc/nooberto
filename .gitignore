@@ -10,3 +10,4 @@ music/**/*.mp4
 music/soundfonts/SalamanderGrandPiano.sf2
 music/nameless/stems/*.wav
 music/nameless/ref*.wav
+music/soundfonts/sfz/

@@ -10,7 +10,9 @@ const SONG = path.resolve(process.argv[2] || 'song.js');
 eval(fs.readFileSync(SONG, 'utf8') + ';global.G = guitarEvents; global.QUAL = typeof QUAL !== "undefined" ? QUAL : {}; global.SCALE_ = typeof SCALE !== "undefined" ? SCALE : null;');
 const ev = G(), bt = ev.bar_times, ch = ev.chords || [], HM = ev.harmony, N = 'C Db D Eb E F Gb G Ab A Bb B'.split(' ');
 const barOf = t => { let b = 0; while (b + 1 < bt.length && bt[b + 1] <= t + 1e-6) b++; return b; };
-const slot = t => { const b = barOf(t); return [b, (t - bt[b]) / (bt[b + 1] - bt[b]) * 8]; };
+// meter: guitarEvents() may export eighths_per_bar (default 8 = 4/4) and strong (the strong 8th slots; default the 3+3+2 hits)
+const EPB = ev.eighths_per_bar || 8, STRONG = ev.strong || (EPB === 8 ? [0, 3, 6] : [...Array(EPB).keys()].filter(k => k % 2 === 0));
+const slot = t => { const b = barOf(t); return [b, (t - bt[b]) / (bt[b + 1] - bt[b]) * EPB]; };
 const SC = SCALE_ || [5, 7, 8, 10, 0, 1, 3, 4], LEADING = 4, V = 0;   // F minor defaults
 let problems = 0;
 const name = m => N[m % 12] + (Math.floor(m / 12) - 1);
@@ -22,8 +24,8 @@ for (const [part, p] of Object.entries(ev.parts)) {
     const iv = cps.map(c => (c - pc + 12) % 12), tag = `${part.padEnd(8)} bar ${String(b + 1).padStart(3)} slot ${s.toFixed(1).padStart(4)} ${name(m).padEnd(4)} over ${N[pc]}${iv[1] === 3 ? 'm' : iv.length > 3 ? '7' : ''}`;
     if (!SCb.includes(mp)) { console.log('OUT OF KEY ', tag); problems++; continue; }
     if (!HM && mp === LEADING && pc !== V) { console.log('E NOT ON V ', tag); problems++; }
-    const strong = Math.abs(s - Math.round(s)) < 0.05 && [0, 3, 6].includes(Math.round(s));
-    const longEnough = len > (bt[b + 1] - bt[b]) / 8 * 1.2;
+    const strong = Math.abs(s - Math.round(s)) < 0.05 && STRONG.includes(Math.round(s));
+    const longEnough = len > (bt[b + 1] - bt[b]) / EPB * 1.2;
     if (!cps.includes(mp) && strong && longEnough && !/bass|piano|rhythm|timp|arp/.test(part)) { console.log('NON-CHORD  ', tag, `(${(len * 1000) | 0} ms)`); problems++; }
   }
 }

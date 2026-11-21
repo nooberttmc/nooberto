@@ -226,7 +226,84 @@ def main(events, drums, audio, out, fps=60, start=0.0, length=None, scale=1.0, t
     fix_true_peak(out, audio)
     print('wrote', out, f'(audio true peak {true_peak(out):+.1f} dBTP)')
 
+def main_roll(events, audio, out, fps=60, scale=1.0, theme=None):
+    """One big piano roll: a vertical keyboard on the left whose keys light up as they're played, every note of every
+    part at its real pitch (each part its own shade, brighter = played harder), black-key rows shaded, octave lines
+    labelled, a bar/beat ruler on top, the section colour shifting with the song."""
+    K = scale; W_, H_ = int(round(W * K)), int(round(H * K)); u = lambda v: int(round(v * K))
+    ev = json.load(open(events)); configure(ev, theme); parts = ev['parts']
+    beats = (ev.get('meter') or [4, 4])[0]
+    notes = []
+    names = list(parts)
+    for pi, (k, p) in enumerate(parts.items()):
+        for n in p.get('notes', []): notes.append((n[0], int(n[1]), n[2], n[3] if len(n) > 3 else 100, pi))
+    notes.sort()
+    lo = min(n[1] for n in notes); hi = max(n[1] for n in notes)
+    lo = lo - lo % 12; hi = hi + (11 - hi % 12)                    # whole octaves, C to B
+    KW, top, bot = u(74), u(30), u(6); X0r = KW + u(2)
+    rowh = (H_ - top - bot) / (hi - lo + 1)
+    Y = lambda m: top + (hi - m) * rowh
+    black = lambda m: m % 12 in (1, 3, 6, 8, 10)
+    starts = [n[0] for n in notes]; maxd = max(n[2] for n in notes)
+    dur = float(subprocess.run(['ffprobe', '-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', audio], capture_output=True, text=True).stdout)
+    dur = max(dur, max(n[0] + n[2] for n in notes) + 0.4)
+    try: font = ImageFont.truetype('/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf', u(9))
+    except OSError: font = ImageFont.load_default()
+    base = Image.new('RGB', (W_, H_), BG); d = ImageDraw.Draw(base)
+    for m in range(lo, hi + 1):                                     # the roll's rows: black-key rows a shade darker
+        y0, y1 = Y(m), Y(m) + rowh
+        d.rectangle([X0r, y0, W_, y1], fill=(10, 6, 12) if black(m) else (16, 10, 18))
+        if m % 12 == 0: d.line([X0r, y1, W_, y1], fill=(44, 30, 50), width=max(1, u(1)))
+    shades = [(1.0, 0.0), (0.55, 0.35), (0.8, 0.6), (0.4, 0.8)]   # per part: mix of the section colour toward cream / toward violet
+    cmd = ['ffmpeg', '-y', '-loglevel', 'error', '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-s', f'{W_}x{H_}', '-r', str(fps), '-i', '-', '-i', audio,
+           '-c:v', 'libx264', '-preset', 'medium', '-crf', '18', '-pix_fmt', 'yuv420p', '-af', 'apad', '-c:a', 'aac', '-b:a', '192k', '-t', f'{dur:.3f}', '-movflags', '+faststart', out]
+    enc = subprocess.Popen(cmd, stdin=subprocess.PIPE)
+    PXB = PX * K * BAR * 1.15; viewB = (W_ - X0r) / PXB
+    for fi in range(int(dur * fps)):
+        t = fi / fps
+        img = base.copy(); g = ImageDraw.Draw(img)
+        sec = section(t); col = PHASE[sec]
+        st = max(s for s, n in sec_at if s <= t + 1e-9); prev = PHASE[section(st - 0.01)] if st > 0 else col
+        col = mix(prev, col, min(1, (t - st) / 1.2))
+        p0 = pos(t); tv = time_of(p0 + viewB); X = lambda tt: X0r + (pos(tt) - p0) * PXB
+        g.rectangle([X0r, 0, W_, top - 1], fill=(8, 5, 10))
+        for b in range(max(0, int(p0)), int(p0 + viewB) + 2):      # the ruler: bars and beats
+            for q in range(beats):
+                x = X0r + (b + q / beats - p0) * PXB
+                if x < X0r or x > W_: continue
+                if q == 0:
+                    g.line([x, u(14), x, H_], fill=mix(BG, col, 0.28), width=max(1, u(1))); g.text((x + u(3), u(12)), str(b + 1), font=font, fill=mix(col, CREAM, 0.5))
+                else: g.line([x, top, x, H_], fill=mix(BG, col, 0.12), width=1)
+        lit = {}
+        i0 = bisect.bisect_left(starts, t - maxd - 0.01); i1 = bisect.bisect_right(starts, tv)
+        for (n0, m, nd, v, pi) in notes[i0:i1]:
+            if n0 + nd < t: continue
+            x1, x2 = X(n0), X(n0 + nd); y0 = Y(m) + 1
+            a, b2 = shades[pi % len(shades)]; base_c = mix(mix(col, CREAM, a), (150, 110, 255), b2)
+            lv = 0.45 + 0.55 * max(0, min(1, (v - 30) / 97))        # brighter = played harder
+            playing = n0 <= t < n0 + nd
+            c = CREAM if playing else mix(BG, base_c, lv)
+            g.rectangle([max(X0r, x1), y0, max(max(X0r, x1) + 1, x2 - 1), y0 + max(1, rowh - 2)], fill=c)
+            if playing: lit[m] = mix(base_c, CREAM, 0.35)
+        g.line([X0r, top, X0r, H_], fill=GOLD, width=u(2))          # the playhead
+        for m in range(lo, hi + 1):                                 # the keyboard: white keys, then black keys over them
+            if black(m): continue
+            y0, y1 = Y(m), Y(m) + rowh
+            g.rectangle([0, y0, KW, y1], fill=lit.get(m, (232, 226, 216)), outline=(90, 80, 80))
+            if m % 12 == 0: g.text((KW - u(20), y0 - u(1)), f'C{m // 12 - 1}', font=font, fill=(60, 50, 60))
+        for m in range(lo, hi + 1):
+            if not black(m): continue
+            y0, y1 = Y(m), Y(m) + rowh
+            g.rectangle([0, y0, int(KW * 0.6), y1], fill=lit.get(m, (20, 16, 22)))
+        enc.stdin.write(img.tobytes())
+        if fi % (fps * 20) == 0: print(f'{t:.0f}s / {dur:.0f}s', flush=True)
+    enc.stdin.close(); enc.wait()
+    fix_true_peak(out, audio)
+    print('wrote', out, f'(audio true peak {true_peak(out):+.1f} dBTP)')
+
 if __name__ == '__main__':
+    if '--piano-roll' in sys.argv:   # usage: visualize.py --piano-roll events.json song.mp3 out.mp4 [fps] [scale]
+        r = [x for x in sys.argv[1:] if x != '--piano-roll']; main_roll(r[0], r[1], r[2], int(r[3]) if len(r) > 3 else 60, float(r[4]) if len(r) > 4 else 1.0); sys.exit()
     if sys.argv[1:2] == ['--fix-peak']: fix_true_peak(sys.argv[2], sys.argv[3] if len(sys.argv) > 3 else None); print('audio true peak', true_peak(sys.argv[2])); sys.exit()
     a = sys.argv[1:]; theme = None; tl = '--no-tempo-lane' not in a; bt_ = '--bpm-text' in a
     a = [x for x in a if x not in ('--no-tempo-lane', '--bpm-text')]
