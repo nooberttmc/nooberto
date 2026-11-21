@@ -1,4 +1,4 @@
-// An original SOLO PIANO piece in the style of the aggressive passages of "oh, nameless sky" (AZALI; transcription by
+// "ardor." (sunkensol) - an original SOLO PIANO piece in the style of the aggressive passages of "oh, nameless sky" (AZALI; transcription by
 // Kachium): its devices, never its notes - 3/4, right-hand chords with the melody on top, left-hand leaps through the
 // fifth to the tenth, triplet arpeggios, octave stomps an octave down, cascades across the hands, runs into downbeats,
 // rolled chords, the Neapolitan.
