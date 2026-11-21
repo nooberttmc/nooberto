@@ -366,24 +366,24 @@ async function renderSong() {
     out.connect(p); p.connect(rings ? master : dry); send(p, verbAmt, echo); src.start(0); if (!rings) src.stop(tCut + 0.03);
   }
   const GTR = [HP(100), PK(350, -3, 1.1), PK(2000, -3.5, 1.4), PK(3500, 2.5, 1), LP(9000)];   // apricity's rhythm guitar EQ
-  await stem('rhythmL', -1, -13.5, 0.02, false, GTR, 0.12);
-  await stem('rhythmR', 1, -13.5, 0.02, false, GTR, 0.12);
+  await stem('rhythmL', -1, -13.7, 0.02, false, GTR, 0.12);
+  await stem('rhythmR', 1, -13.4, 0.02, false, GTR, 0.12);
   // the duel: lead guitar just left of centre, the brass section spread wide around it, at the same level
   // the lead guitar: darker (top rolled off from ~4 kHz, more 500-900 Hz body) and louder, the brass's equal in the duel
-  await stem('lead', 0.0, -10, 0.08, false, GTR);   // the rhythm guitars' chain
-  await stem('harmony', 0.45, -13, 0.08, false, GTR);   // the second guitarist, panned apart
-  await stem('brassL', -0.6, -12.5, 0.3, true, [HP(150), LP(7000)]);
-  await stem('brassR', 0.6, -12.5, 0.3, true, [HP(150), LP(7000)]);
-  await stem('strings', 0.35, -15, 0.45, false, [HP(280), PK(3000, 1.5, 1), LP(10000)]);
-  await stem('choir', -0.35, -17, 0.55, false, [HP(200), LP(8000)]);
-  await stem('piano', -0.15, -14, 0.32, false, [HP(60), PK(250, -2, 1), PK(3000, 1.5, 1)], 0.1);   // a real stereo grand: little EQ, a room around it
-  await stem('timp', 0.1, -14, 0.35, false, [HP(40)]);
-  await stem('bells', 0.15, -14, 0.5, false, [HP(250), PK(2500, 2, 1)], 0, true);
-  await stem('bass', 0, -24, 0, false, [HP(55), PK(300, -2, 1), LP(2200)], 0.5);
+  await stem('lead', 0.0, -12.9, 0.08, false, GTR);   // the rhythm guitars' chain
+  await stem('harmony', 0.45, -16.6, 0.08, false, GTR);   // the second guitarist, panned apart
+  await stem('brassL', -0.6, -15.3, 0.3, true, [HP(150), LP(7000)]);
+  await stem('brassR', 0.6, -15.4, 0.3, true, [HP(150), LP(7000)]);
+  await stem('strings', 0.35, -20.2, 0.45, false, [HP(280), PK(3000, 1.5, 1), LP(10000)]);
+  await stem('choir', -0.35, -17.9, 0.55, false, [HP(200), LP(8000)]);
+  await stem('piano', -0.15, -14.3, 0.32, false, [HP(60), PK(250, -2, 1), PK(3000, 1.5, 1)], 0.1);   // a real stereo grand: little EQ, a room around it
+  await stem('timp', 0.1, -18.3, 0.35, false, [HP(40)]);
+  await stem('bells', 0.15, -19.2, 0.5, false, [HP(250), PK(2500, 2, 1)], 0, true);
+  await stem('bass', 0, -16.0, 0, false, [HP(55), PK(300, -2, 1), LP(2200)], 0.5);
 
   // ---- synth brass under the brass section: a wide detuned saw stack, low-passed round ----
   const hz = m => 440 * Math.pow(2, (m - 69) / 12);
-  const leadBus = ctx.createGain(); leadBus.gain.value = ON('synth') ? 0.16 : 0;
+  const leadBus = ctx.createGain(); leadBus.gain.value = ON('synth') ? 0.146 : 0;   // balanced: balance.py
   const leadDrive = ctx.createWaveShaper(); { const c = new Float32Array(1024); for (let i = 0; i < 1024; i++) { const x = i / 511.5 - 1; c[i] = Math.tanh(1.8 * x) / Math.tanh(1.8); } leadDrive.curve = c; }
   leadBus.connect(leadDrive); const leadOut = ctx.createGain(); eqChain(leadDrive, [HP(200), PK(1100, 3, 0.8), LP(3400)]).connect(leadOut); leadOut.connect(dry); send(leadOut, 0.18, true);
   function synthBrass(t, m, len, vel) {
@@ -398,14 +398,14 @@ async function renderSong() {
   const EV = guitarEvents();
   for (const [t, m, len, vel] of EV.parts.synth.notes) if (t < tCut) synthBrass(t, m, Math.min(len, tCut - t), vel);
   // ---- a bright 16th-note arpeggio (plucked square) ----
-  const arpBus = ctx.createGain(); arpBus.gain.value = ON('arp') ? 0.09 : 0;
+  const arpBus = ctx.createGain(); arpBus.gain.value = ON('arp') ? 0.36 : 0;
   const arpPan = ctx.createStereoPanner(); arpPan.pan.value = -0.2; eqChain(arpBus, [HP(400), LP(6000)]).connect(arpPan); arpPan.connect(dry); send(arpPan, 0.12, true);
   for (const [t, m, d] of EV.parts.arp.notes) { const o = ctx.createOscillator(); o.type = 'square'; o.frequency.value = hz(m);
     const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.8, t + 0.004); g.gain.exponentialRampToValueAtTime(0.001, t + d);
     o.connect(g); g.connect(arpBus); o.start(t); o.stop(t + d + 0.01); }
 
   // ---------------- drums: chopped breakbeats over a distorted hardcore kick, changing every 4 bars ----------------
-  const drumBus = ctx.createGain(); drumBus.gain.value = DRUMS_ON ? 1 : 0;
+  const drumBus = ctx.createGain(); drumBus.gain.value = DRUMS_ON ? 1.22 : 0;
   eqChain(drumBus, [HP(30), PK(380, -3, 1), PK(4500, 1.5, 0.9)]).connect(dry); send(drumBus, 0.05);
   const kickBus = ctx.createGain(); kickBus.gain.value = 0.9;
   const kickDrive = ctx.createWaveShaper(); { const c = new Float32Array(2048); for (let i = 0; i < 2048; i++) { const x = i / 1023.5 - 1; c[i] = Math.tanh(7 * x) / Math.tanh(7); } kickDrive.curve = c; kickDrive.oversample = '2x'; }
