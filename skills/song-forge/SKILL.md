@@ -69,7 +69,9 @@ Details and the reasoning live in `references/`. These are the ones that cost th
 6. **Consistent levels**: no per-bar riding; glide every change over 2 bars before its downbeat; light kick ducking;
    slow leveler on the master, but let a real breakdown stay ~3 dB quieter. (mixing.md)
 7. **Bring a part forward by pulling others back**, not by pushing it into the compressor. (mixing.md)
-8. **-11 LUFS, true peak <= -1 dBTP** (render.js limits at -2 dBFS). Louder only gets turned down and clips. (mixing.md)
+8. **-11 LUFS, true peak <= -1 dBTP in EVERY delivered file** (render.js limits the MP3; the video's AAC re-encode added
+   +2.8 dB of peaks, so visualize.py true-peak-limits the MP4's audio as the very last step and checks it). Louder only
+   gets turned down and clips. Measure the files you send: `ffmpeg -i f -af ebur128=peak=true -f null -`. (mixing.md)
 9. **No non-instrument noise** (risers, hiss, clicks); listen out for vocal samples in breaks. (mixing.md)
 10. **Feedback loops must have gain < 1** (the ping-pong echo once blew up a render). (mixing.md)
 11. **At most 1-2 breaks at once**; change breaks between sections; avoid "bouncing" accelerating rolls if disliked.

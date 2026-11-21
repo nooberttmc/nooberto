@@ -12,7 +12,7 @@ brake and rushes in a speed-up, and a Tempo lane shows the BPM curve (--no-tempo
 lane share one, e.g. two rhythm guitar takes). drums.json (from renderSong's DLOG) adds a Drums lane; pass - to skip.
 theme.json may set bg, panel, grid, cream, gold (hex) and palette (list of hex, cycled per section).
 """
-import sys, json, subprocess, bisect, math
+import sys, os, json, subprocess, bisect, math
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 
@@ -89,6 +89,28 @@ def section(t):
     return sec_at[max(0, i)][1]
 
 def mix(a, b, f): return tuple(int(a[k] + (b[k] - a[k]) * f) for k in range(3))
+
+def true_peak(path):
+    r = subprocess.run(['ffmpeg', '-nostats', '-i', path, '-af', 'ebur128=peak=true', '-f', 'null', '-'], capture_output=True, text=True).stderr
+    vals = [l.split()[-2] for l in r.split('Summary')[-1].split('\n') if l.strip().startswith('Peak:')]
+    try: return float(vals[-1])
+    except (IndexError, ValueError): return None
+
+def fix_true_peak(out, src=None, ceiling=-1.5):
+    # The MP4's audio is an AAC re-encode of the song, and encoding adds inter-sample peaks (+2.8 dB once), so the
+    # song's limiter isn't the last step. Re-encode the audio through a 4x-oversampled limiter (a true-peak limiter) as
+    # the very last stage, ceiling -1.5 dB, from the original audio (src) when given; check the MP4's own true peak and
+    # tighten the ceiling if it is still above -1 dBTP. Loudness is unchanged; the video stream is copied.
+    for _ in range(4):
+        tp = true_peak(out)
+        if tp is not None and tp <= -1.0: break
+        lim = 10 ** (ceiling / 20); fix = out + '.tp.mp4'
+        ins = ['-i', out] + (['-i', src, '-map', '0:v', '-map', '1:a'] if src else [])
+        subprocess.run(['ffmpeg', '-y', '-loglevel', 'error', *ins, '-c:v', 'copy', '-af',
+                        f'apad,aresample=192000,alimiter=limit={lim:.4f}:level=false:attack=1:release=60,aresample=48000',
+                        '-c:a', 'aac', '-b:a', '192k', '-shortest', '-movflags', '+faststart', fix], check=True)
+        os.replace(fix, out); print(f'audio true peak {tp:+.1f} dBTP: true-peak limited at {ceiling} dB')
+        ceiling -= 0.5
 
 def main(events, drums, audio, out, fps=60, start=0.0, length=None, scale=1.0, theme=None, tempo_lane=True, bpm_text=False):
     # scale: 1.0 = 1280x720; 1.5 = 1920x1080. Every size below is multiplied by K, so the layout is identical.
@@ -201,9 +223,11 @@ def main(events, drums, audio, out, fps=60, start=0.0, length=None, scale=1.0, t
         enc.stdin.write(img.tobytes())
         if fi % (fps * 20) == 0: print(f'{t:.0f}s / {dur:.0f}s', flush=True)
     enc.stdin.close(); enc.wait()
-    print('wrote', out)
+    fix_true_peak(out, audio)
+    print('wrote', out, f'(audio true peak {true_peak(out):+.1f} dBTP)')
 
 if __name__ == '__main__':
+    if sys.argv[1:2] == ['--fix-peak']: fix_true_peak(sys.argv[2], sys.argv[3] if len(sys.argv) > 3 else None); print('audio true peak', true_peak(sys.argv[2])); sys.exit()
     a = sys.argv[1:]; theme = None; tl = '--no-tempo-lane' not in a; bt_ = '--bpm-text' in a
     a = [x for x in a if x not in ('--no-tempo-lane', '--bpm-text')]
     if '--theme' in a: i = a.index('--theme'); theme = json.load(open(a[i + 1])); del a[i:i + 2]
