@@ -2,7 +2,7 @@
 
 usage: python3 thumbnail.py events.json drums.json song.mp3 out.png
 Background: the song's own arrangement view, recoloured in the one colour at low brightness (flat, no vignette).
-Centre: a pixel-art campfire (a big flame with side tongues and a hollow inner flame, on crossed logs), sparks
+Centre: a pixel-art campfire with a stepped glow (flat bands of the one colour) (a big flame with side tongues and a hollow inner flame, on crossed logs), sparks
 rising in groups of 3+3+2 (the song's ostinato rhythm). One colour on black: details are cut-outs (negative space), never shading.
 """
 import sys, os, subprocess, tempfile
@@ -55,17 +55,29 @@ def icon(g=80):
         d.polygon([(x0 + nx, y0 + ny), (x1 + nx, y1 + ny), (x1 - nx, y1 - ny), (x0 - nx, y0 - ny)], fill=1)
     m = opening(np.asarray(im, bool))
 
+    fire = m.copy()
     # sparks rising off the top in groups of 3, 3 and 2 (the ostinato's 3+3+2), small plus shapes
     for x, y in [(20, 26), (25, 18), (29, 29), (45, 8), (60, 14), (65, 22), (70, 31), (73, 20)]:
         for dx, dy in [(0, 0), (1, 0), (-1, 0), (0, 1), (0, -1)]: m[y + dy, x + dx] = True
-    return m
+    return m, fire
 
 def main(events, drums, audio, out):
     bg = np.asarray(arrangement(events, drums, audio, t=40.0).resize((W, H)), np.float32) / 255
     lum = (bg > 0.18).astype(np.float32) * 0.2 + (bg > 0.5).astype(np.float32) * 0.1   # flat: two dim levels of the one colour
     arr = lum[..., None] * COL
-    ic = icon(); s = 7; big = np.kron(ic, np.ones((s, s), bool))
+    ic, fire = icon(); s = 7; big = np.kron(ic, np.ones((s, s), bool))
     ox, oy = (W - big.shape[1]) // 2, (H - big.shape[0]) // 2
+    # the glow: three flat bands of the one colour on the icon's own pixel grid, following the fire's shape (stepped,
+    # no gradient), each dimmer outward; it also fills the hollow of the inner flame
+    from scipy import ndimage
+    gpad = 20; G = np.zeros((ic.shape[0] + 2 * gpad, ic.shape[1] + 2 * gpad)); G[gpad:-gpad, gpad:-gpad] = fire   # only the fire glows
+    field = ndimage.gaussian_filter(G, 5.0)                    # a soft, round field, then cut into flat bands
+    level = np.select([field > 0.22, field > 0.09, field > 0.03], [0.24, 0.15, 0.08], 0.0)
+    gl = np.kron(level, np.ones((s, s)))
+    gy, gx = oy - gpad * s, ox - gpad * s
+    ys, xs = slice(max(0, gy), min(H, gy + gl.shape[0])), slice(max(0, gx), min(W, gx + gl.shape[1]))
+    glv = gl[ys.start - gy:ys.stop - gy, xs.start - gx:xs.stop - gx]
+    arr[ys, xs] = np.maximum(arr[ys, xs], glv[..., None] * COL)
     reg = arr[oy:oy + big.shape[0], ox:ox + big.shape[1]]; reg[big] = COL
     arr[::3] *= 0.85                                            # faint, even scanlines
     Image.fromarray(np.clip(arr, 0, 255).astype(np.uint8)).save(out); print('wrote', out)
