@@ -108,7 +108,7 @@ const ML = [   // the singing section: long notes, appoggiaturas at the peaks
   [[0, 76, 2], [2, 81, 2], [4, 84, 2, 's']],          // Am  E A C
   [[0, 83, 4, 'a'], [4, 79, 2]],                      // Em  (C) B G
   [[0, 81, 3], [3, 77, 1], [4, 72, 2]],               // F   A F C
-  [[0, 75, 4, 'a'], [4, 71, 2]] ];                    // B7  (E) D# B
+  [[0, 75, 4, 'a'], [4, 78, 2]] ];                    // B7  (E) D# F#
 const ML2 = [
   [[0, 76, 3], [3, 79, 1], [4, 83, 2, 'g']],          // Em
   [[0, 88, 4, 'a'], [4, 84, 2]],                      // C   (F) E C
@@ -154,14 +154,15 @@ function guitarEvents() {
   const stomp = (v) => { const b = low(); v += arch(); const lb = b >= 33 ? b - 12 : b;   // accented octaves, an octave down (to A0)
     for (let q = 0; q < 3; q++) { key('lh', S16(q * 4), lb, D16(q * 4, 4, 0.9), v + (q === 0 ? 12 : 4)); key('lh', S16(q * 4) + 0.004, lb + 12, D16(q * 4, 4, 0.9), v); } };
   // ---- right hand: the melody on top (a hair ahead of the chord), voiced over it; long notes get the chord ----
-  const melody = (notes, v, o) => { o = o || {}; const sc = barScale(X.name), step = (m, dir) => { let g = m + dir; while (!sc.includes(((g % 12) + 12) % 12)) g += dir; return g; };
+  const MEL_RANGE = [72, 95];   // the main melody stays within C5..B6 (the listener's request): written pitch, under the OCT shift
+  const melody = (notes, v, o) => { o = o || {}; o.up = (o.up || 0) - OCT; const sc = barScale(X.name), step = (m, dir) => { let g = m + dir; while (!sc.includes(((g % 12) + 12) % 12)) g += dir; return g; };
     v += arch();
     for (const [s, m0, l, orn] of notes) { const m = m0 + (o.up || 0); let t = E8(s), d = D8(s, l, l <= 1 ? 0.9 : 0.97);
       const acc = s === 0 ? 8 : l >= 2 ? 3 : -5, lead = -0.012;
       const trim = tt => { const p = P.rh[P.rh.length - 1]; if (p && p[0] + p[2] > tt - 0.01) p[2] = Math.max(0.04, tt - 0.012 - p[0]); };
       if (orn === 'g') { trim(t - 0.06); key('rh', t - 0.06, step(m, -1), 0.055, v - 20); }
       if (orn === 's') { trim(t - 0.1); key('rh', t - 0.1, step(step(m, -1), -1), 0.045, v - 24); key('rh', t - 0.052, step(m, -1), 0.045, v - 18); }
-      if (orn === 'o' && m + 12 + OCT <= 108) { trim(t - 0.065); key('rh', t - 0.065, m + 12, 0.06, v - 14); }   // (only on the keyboard: A0..C8)
+      if (orn === 'o') { trim(t - 0.065); key('rh', t - 0.065, m - 12, 0.06, v - 14); }   // an octave leap up into the note
       let mm = m;
       if (orn === 'a' && l >= 2) {   // the appoggiatura: the scale step above, on the beat and leant on, resolving down
         const ap = step(m, 1), d1 = D8(s, 1, 1.0); key('rh', t + lead, ap, d1, v + acc + 6, 'appog'); key('rh', t + 0.004 + lead, ap - 12, d1, v + acc - 6, 'appog');
@@ -171,7 +172,7 @@ function guitarEvents() {
       key('rh', t + lead + (roll > 0.01 ? roll * 3 : 0), mm, d, vv); key('rh', t + lead, mm - 12, d, vv - 10);
       if (l >= 2 || s === 0) { const inner = ctones(mm - 11, mm - 1).filter(x => x >= mm - 9).slice(-2);
         inner.forEach((x, i) => key('rh', t + lead + roll * (i + 1), x, d, vv - 18)); } } };
-  const stabs = (v, tops) => { v += arch(); tops.forEach((top, s) => { if (top == null) return; const ch = ctones(top - 11, top).slice(-4);
+  const stabs = (v, tops) => { v += arch(); tops.forEach((top0, s) => { if (top0 == null) return; const top = top0 - OCT, ch = ctones(top - 11, top).slice(-4);   // the tops carry the melody: in its range
     ch.forEach((m, i) => key('rh', E8(s) + i * 0.004, m, D8(s, 1, 0.8), v + (s === 0 ? 10 : s % 2 ? -10 : -2) - (m === top ? 0 : 10))); }); };
   const runDown = (from, slot16, n, v) => { const sc = barScale(X.name), len = STEPS - slot16; let m = from; v += arch();   // a cascade in the right hand, inside its bar
     for (let i = 0; i < n; i++) { while (!sc.includes(((m % 12) + 12) % 12)) m--; key('rh', S16(slot16 + i * len / n), m, D16(slot16 + i * len / n, len / n, 0.9), v - i * 1.2); m--; } };
