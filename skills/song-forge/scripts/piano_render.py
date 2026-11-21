@@ -177,7 +177,10 @@ def render(mid_path, out_path, sfz=None, tuning='retuned', sr=44100):
         regs = P.pedal['down' if d else 'up']
         if regs: rr = regs[int(tp * 997) % len(regs)]; add(P.voice(rr, 60, 60, 100, veltrack=0.0), tp)
     last = np.nonzero(np.abs(out).max(1) > 1e-5)[0]; out = out[:(last[-1] + sr // 2) if len(last) else sr]
-    sf.write(out_path, out, sr, subtype='PCM_24')
+    # many loud notes sum far past full scale: write 32-bit float (it can't clip) and leave headroom (peak 0.5); the mix
+    # sets each stem's level itself. (A 24-bit write once hard-clipped 64k samples: crackle on every loud passage.)
+    pk = float(np.abs(out).max()) or 1.0
+    sf.write(out_path, out * (0.5 / pk), sr, subtype='FLOAT')
     return out_path
 
 if __name__ == '__main__':

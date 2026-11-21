@@ -22,7 +22,7 @@ for (const [part, p] of Object.entries(ev.parts)) {
     if (art === 'mute' || art === 'appog') continue;   // appoggiaturas: deliberate dissonances that resolve by step
     const [b, s] = slot(t), pc = HM ? HM[b].tones[0] : ch[b], cps = HM ? HM[b].tones : QUAL[pc].map(i => (pc + i) % 12), mp = m % 12, SCb = HM ? HM[b].scale : SC;
     const iv = cps.map(c => (c - pc + 12) % 12), tag = `${part.padEnd(8)} bar ${String(b + 1).padStart(3)} slot ${s.toFixed(1).padStart(4)} ${name(m).padEnd(4)} over ${N[pc]}${iv[1] === 3 ? 'm' : iv.length > 3 ? '7' : ''}`;
-    if (!SCb.includes(mp)) { console.log('OUT OF KEY ', tag); problems++; continue; }
+    if (!SCb.includes(mp) && art !== 'chrom') { console.log('OUT OF KEY ', tag); problems++; continue; }   // 'chrom': a deliberate chromatic neighbour
     if (!HM && mp === LEADING && pc !== V) { console.log('E NOT ON V ', tag); problems++; }
     const strong = Math.abs(s - Math.round(s)) < 0.05 && STRONG.includes(Math.round(s));
     const longEnough = len > (bt[b + 1] - bt[b]) / EPB * 1.2;

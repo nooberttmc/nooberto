@@ -153,7 +153,7 @@ function guitarEvents() {
   const pedalBar = () => PEDAL.push([T(gi, 0) + 0.06, T(gi + 1, 0) + 0.012]);
   const OCT = 12;   // the whole piece sits an octave higher than written (the listener's request)
   const lilt = (t, d) => { if (d < 0.07) return 0; const p = (t - T(gi, 0)) / (T(gi + 1, 0) - T(gi, 0)) * 3, n = Math.round(p);
-    if (Math.abs(p - n) > 0.12) return -7; return n === 0 || n === 3 ? 8 : -3; };   // beat 1 +8, beats 2-3 -3, off-beats -7
+    if (Math.abs(p - n) > 0.12) return -8; return n === 0 || n === 3 ? 10 : -4; };   // beat 1 +10, beats 2-3 -4, off-beats -8
   const key = (hand, t, m, d, v, art) => P[hand].push([t, m + OCT, d, Math.max(26, Math.min(127, Math.round(v + lilt(t, d)))), art || 'open']);
   const keyA = (hand, t, m, d, v, art) => key(hand, t, m - OCT, d, v, art);   // an absolute pitch (not under the OCT shift)
   const rolled = (hand, t, ms, d, v, gap) => ms.slice().sort((a, b) => a - b).forEach((m, i, arr) => key(hand, t + i * (gap || 0.014), m, d, i === arr.length - 1 ? v + 4 : v - 4));
@@ -196,9 +196,20 @@ function guitarEvents() {
       key('rh', t + lead + (roll > 0.01 ? roll * 3 : 0), mm, dt, vv); key('rh', t + lead, mm - 12, dc, vv - 10);
       if (l >= 2 || s === 0) { const inner = ctones(mm - 11, mm - 1).filter(x => x >= mm - 9).slice(-2);
         inner.forEach((x, i) => key('rh', t + lead + roll * (i + 1), x, dc, vv - 18)); }
-      if (dance) { const fig = l - 3 >= 3 ? [[3, mm], [4, step(mm, -1)], [5, mm]] : l - 3 === 2 ? [[3, mm], [4, step(mm, -1)]] : [[3, step(mm, -1)]];
-        fig.forEach(([fs, fm]) => { key('rh', E8(fs) + lead, fm, D8(fs, 1, 0.9), v - 4); key('rh', E8(fs) + lead + 0.004, fm - 12, D8(fs, 1, 0.9), v - 14); }); } } };
+      if (dance) { const nb = mm - 1, chrom = !sc.includes(((nb % 12) + 12) % 12);   // the lower neighbour a half step down: often outside the key (bittersweet)
+        const fig = l - 3 >= 3 ? [[3, mm], [4, nb], [5, mm]] : l - 3 === 2 ? [[3, mm], [4, nb]] : [[3, nb]];
+        fig.forEach(([fs, fm]) => { const art = fm === nb && chrom ? 'chrom' : 'open'; key('rh', E8(fs) + lead, fm, D8(fs, 1, 0.9), v - 4, art); key('rh', E8(fs) + lead + 0.004, fm - 12, D8(fs, 1, 0.9), v - 14, art); }); } } };
   // ---- flourishes as punctuation (one per 8-bar phrase): a rolled chord, five- and four-note groups, one upward run ----
+  const arp5 = (fromTop, target, v) => { const tn = ctones(fromTop - 12 - OCT, fromTop - OCT).slice(-5); const sc = barScale(X.name);   // beat 2: five chord tones sweeping up an octave
+    let m = target - OCT; const four = []; for (let i = 0; i < 4; i++) { m--; while (!sc.includes(((m % 12) + 12) % 12)) m--; four.unshift(m); }      // beat 3: four stepping into the next downbeat
+    v += arch(); tn.forEach((n, i) => key('rh', S16(4 + i * 4 / 5), n, D16(4 + i * 4 / 5, 4 / 5, 0.85), v - 4 + i * 2));
+    four.forEach((n, i) => key('rh', S16(8 + i), n, D16(8 + i, 1, 0.85), v - 6 + i * 3)); };
+  const runDown8 = (fromTop, v) => { const sc = barScale(X.name); let m = fromTop - OCT + 12; v += arch();   // a short fast run down over beats 2-3 (8 notes)
+    for (let i = 0; i < 8; i++) { while (!sc.includes(((m % 12) + 12) % 12)) m--; key('rh', S16(4 + i), m, D16(4 + i, 1, 0.85), v - i * 1.5); m--; } };
+  const roll2 = (v) => { const b = LB(); v += arch();   // a big two-hand rolled chord: the low bass up through four octaves, 35 ms a note
+    const lh = [b, b + 12, b + 19, b + 24 + third()], rh = ctones(b + 31 - OCT, b + 50 - OCT).slice(0, 5);
+    lh.forEach((m, i) => keyA('lh', E8(0) + i * 0.035, m, D8(0, 3, 0.95), v + (i === 0 ? 8 : -4)));
+    rh.forEach((m, i) => key('rh', E8(0) + (lh.length + i) * 0.035, m, D8(0, 3, 0.95), v - 6 + i * 2)); };
   const tuplets = (fromTop, target, v) => { const sc = barScale(X.name), st = (m, d) => { let g = m + d; while (!sc.includes(((g % 12) + 12) % 12)) g += d; return g; };
     const a = fromTop - OCT, tg = target - OCT; v += arch();   // beat 2: five notes turning around the melody note; beat 3: four rising into the next downbeat
     const five = [a, st(a, 1), a, st(a, -1), a]; let four = [], m = tg; for (let i = 0; i < 4; i++) { m = st(m, -1); four.unshift(m); }
@@ -213,7 +224,7 @@ function guitarEvents() {
     while (ns.length < n) { if (sc.includes(((m % 12) + 12) % 12)) ns.unshift(m); m--; }
     ns.forEach((mm, i) => key('rh', S16(slot16 + i * (4 / n)), mm, D16(slot16 + i * 4 / n, 4 / n, 0.85), v - 14 + i * 4)); };
   const lineFor = (y) => y.sec === 'A' ? MEL[y.ph === 'PA' ? 'PAV' : 'PAV2'][y.k] : y.sec === 'end' ? ME[y.k] : MEL[y.ph] ? MEL[y.ph][y.k] : [[0, 88, 6]];
-  const FLOURISH = { 'A:7': 'tup', 'A:15': 'run', 'B:0': 'roll', 'B:7': 'tup', 'B:15': 'tup', 'A2:0': 'roll', 'A2:3': 'casc', 'A2:7': 'tup', 'A2:15': 'tup', 'B2:0': 'roll', 'B2:7': 'tup' };
+  const FLOURISH = { 'A:7': 'arp5', 'A:15': 'run', 'B:0': 'roll', 'B:7': 'down', 'B:15': 'arp5', 'A2:3': 'casc', 'A2:7': 'arp5', 'A2:8': 'roll', 'A2:15': 'down', 'B2:0': 'roll', 'B2:7': 'run' };   // one per phrase, varied
   const ALLB = bars(); ALLB.forEach((y, i) => y.nextX = ALLB[i + 1]);
   for (const x of ALLB) {
     X = x; gi = x.gi; const { sec, b, k, ph } = x;
@@ -224,26 +235,26 @@ function guitarEvents() {
       else { leap(100 + b * 3); melody([[0, 79, 3, b === 1 ? 's' : null], [3, 78, 1], [4, 76, 2]], 96 + b * 4); pedalBar(); }
     } else if (sec === 'A' || sec === 'A2' || sec === 'B' || sec === 'B2') {   // the themes, full and hard: left hand alternating leap and triplets
       const climax = sec === 'A2' || sec === 'B2', isA = sec[0] === 'A';
-      if (b % 2) trip(climax ? 108 : 106); else leap(climax ? 110 : 106);
       const line = lineFor(x), F = FLOURISH[sec + ':' + b];
-      if (F === 'roll') bigRoll(climax ? 104 : 98);
+      if (F !== 'roll') { if (b % 2) trip(climax ? 108 : 106); else leap(climax ? 110 : 106); }   // (a roll bar: the roll is the left hand's figure)
+      if (F === 'roll') roll2(climax ? 110 : 104);
       if (F === 'casc') { melody(line.filter(n => n[0] < 3), climax ? 116 : 110); runDown(95, 6, 10, 106); }
-      else if (F === 'tup' || F === 'run') { const nx = X.nextX, tg = nx ? lineFor(nx)[0][1] : 88;
+      else if (F === 'arp5' || F === 'run' || F === 'down') { const nx = X.nextX, tg = nx ? lineFor(nx)[0][1] : 88;
         melody(line.filter(n => n[0] < 2), climax ? 116 : 110);
-        if (F === 'tup') tuplets(line[0][1], tg, climax ? 112 : 106); else runUp(tg, 4, 8, 108); }
+        if (F === 'arp5') arp5(line[0][1], tg, climax ? 112 : 106); else if (F === 'down') runDown8(line[0][1], climax ? 112 : 106); else runUp(tg, 4, 8, 108); }
       else melody(line, isA ? (climax ? 116 : 110) : (climax ? 114 : 110));
       pedalBar();
     } else if (sec === 'L') {   // the singing section: slower, softer, the left hand alternating wide broken chords and triplets
-      if (b === 0) bigRoll(80); if (b % 2) trip(86); else wide(88); melody(MEL[ph][k], 88, { float: true });   // floats on purpose: the contrast
+      if (b === 0) roll2(84); else if (b % 2) trip(86); else wide(88); melody(MEL[ph][k], 88, { float: true });   // floats on purpose: the contrast
       pedalBar();
     } else if (sec === 'C') {   // the octave stomps under repeated chords whose tops carry the line; building
       stomp(110);
       const tops = { 0: [83, 79, 83, 88, 83, 79], 1: [88, 83, 88, 91, 88, 83], 2: [84, 81, 84, 89, 84, 81], 3: [89, 84, 89, 93, 89, 84],
         4: [81, 76, 81, 84, 81, 76], 5: [84, 81, 84, 88, 84, 81], 6: [87, 81, 87, 90, 87, 81], 7: [87, 90, 87, 93, 90, 87] };
-      stabs(108 + (k === 7 ? 6 : 0), tops[k]); if (k === 7) bigRoll(108);
+      stabs(108 + (k === 7 ? 6 : 0), tops[k]);
       pedalBar();
     } else if (sec === 'end') {   // the release: the theme broadens, slower
-      if (k % 2 === 0) leap(102); else wide(96); if (k === 0) bigRoll(98);
+      if (k === 0) roll2(100); else if (k % 2 === 0) leap(102); else wide(96);
       melody(ME[k], 104);
       pedalBar();
     }
@@ -275,9 +286,10 @@ async function renderSong() {
   // a trace of saturation; a little low-mid clean-up, hammer definition around 3.5 kHz, air; the sample's own stereo image ----
   const pin = ctx.createGain(); pin.channelCountMode = 'explicit'; pin.channelCount = 2;
   const drive = ctx.createWaveShaper(); { const c = new Float32Array(2048); for (let i = 0; i < 2048; i++) { const x = i / 1023.5 - 1; c[i] = Math.tanh(1.15 * x) / Math.tanh(1.15); } drive.curve = c; drive.oversample = '4x'; }
-  pin.connect(drive);
-  const tone = eqChain(drive, [HP(28), ['lowshelf', 140, 2.5], PK(300, -1, 0.9), PK(3500, -1, 0.9), ['highshelf', 9000, -0.5]]);   // an octave higher: more body, no extra presence
-  const pc = ctx.createDynamicsCompressor(); pc.threshold.value = -16; pc.ratio.value = 2; pc.attack.value = 0.008; pc.release.value = 0.12; tone.connect(pc);
+  const trim = ctx.createGain(); trim.gain.value = 0.3; pin.connect(trim);   // headroom: piano chords peak ~15-20 dB over their average
+  const clean = ctx.createGain(); trim.connect(clean);                          // no saturation: it squashed the loud chords (sounded broken)
+  const tone = eqChain(clean, [HP(28), ['lowshelf', 140, 2.5], PK(300, -1, 0.9), PK(3500, -1, 0.9), ['highshelf', 9000, -0.5]]);   // an octave higher: more body, no extra presence
+  const pc = ctx.createDynamicsCompressor(); pc.threshold.value = -30; pc.ratio.value = 3; pc.knee.value = 12; pc.attack.value = 0.015; pc.release.value = 0.25; tone.connect(pc);   // clean level control: rounds the loud chords off
   // mid/side width: L' = L + k(L-R)/2, R' = R + k(R-L)/2 (the Salamander is already very wide: k < 0 narrows it a touch,
   // to the reference's ~27-40% correlation, safe in mono)
   const k = -0.3, split = ctx.createChannelSplitter(2), merge = ctx.createChannelMerger(2); pc.connect(split);
