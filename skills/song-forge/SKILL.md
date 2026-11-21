@@ -151,6 +151,11 @@ Details and the reasoning live in `references/`. These are the ones that cost th
     art 'appog' so check_notes allows the deliberate dissonance) at phrase peaks; the climax ~2/3 through, then
     release; grace notes, two-note slides, octave flourishes, rolled chords (no trills); humanize ~7 ms / +-5 velocity.
     A soft section must still not be a hole: ~2-3 LU under (a mix ride if the thinner texture drops it further).
+34. **Fast runs ("glissandos") in moderation**: the listener disliked cascades, sweeps and scale runs into downbeats used
+    often - one in a whole piece (at the climax) was right. What they liked instead: full chords under the melody played
+    hard, the left hand alternating a bass-fifth-tenth leap with triplet arpeggios bar by bar, appoggiaturas at peaks,
+    a broadening coda. When the listener names a stretch they like ("1:10 to the end"), map it to the sections and
+    rebuild the rest in that style.
 33. **Playable by a human**: `node scripts/check_playable.js song.js` (one part per hand: rh, lh) flags chords over a
     10th or over 5 notes, keys held beyond 5, jumps a hand can't make in the time, and notes off the 88-key keyboard
     (A0..C8 - an octave flourish once landed on F#8). It caught a cascade colliding with the melody in the same hand, a

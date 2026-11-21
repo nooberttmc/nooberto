@@ -31,8 +31,8 @@ const PROG = {
   PC: ['Em', 'Em', 'F', 'F', 'Am', 'Am', 'B7', 'B7'],
   PE: ['C', 'F', 'B7', 'Em', 'C', 'Am', 'B7', 'Em'],
 };
-const SECTIONS = [['intro', 4], ['A', 16], ['B', 16], ['L', 16], ['C', 8], ['A2', 16], ['B2', 8], ['end', 8], ['hold', 2]];
-const PLAN = { intro: ['IN'], A: ['PA', 'PA2'], B: ['PB', 'PB2'], L: ['PL', 'PL2'], C: ['PC'], A2: ['PA', 'PA2'], B2: ['PB2'], end: ['PE'], hold: [] };
+const SECTIONS = [['intro', 4], ['A', 16], ['B', 16], ['L', 8], ['C', 8], ['A2', 16], ['B2', 8], ['end', 8], ['hold', 2]];
+const PLAN = { intro: ['IN'], A: ['PA', 'PA2'], B: ['PB', 'PB2'], L: ['PL'], C: ['PC'], A2: ['PA', 'PA2'], B2: ['PB2'], end: ['PE'], hold: [] };
 const LEN = Object.fromEntries(SECTIONS), START = {}; { let g = 0; for (const [n, l] of SECTIONS) { START[n] = g; g += l; } }
 const TOTAL = SECTIONS.reduce((a, x) => a + x[1], 0);
 const secOf = gi => { let s = SECTIONS[0][0]; for (const [n] of SECTIONS) if (gi >= START[n]) s = n; return s; };
@@ -41,11 +41,11 @@ function barTempo(gi) {
   const sec = secOf(gi), b = gi - START[sec];
   if (sec === 'hold') return [96, 96];
   let base = BPM;
-  if (sec === 'L') base = b < 12 ? 138 : 138 + (BPM - 138) * (b - 11) / 5;              // piu lento, pressing back to tempo
+  if (sec === 'L') base = b < 4 ? 138 : 138 + (BPM - 138) * (b - 3) / 5;                // piu lento, pressing back to tempo
   if (sec === 'end') base = BPM - (BPM - 118) * Math.pow(b / 8, 1.6);                  // the ritardando coda
   if (sec === 'intro') base = b === 0 ? 150 : BPM;
   const arc = [[0.985, 1.01], [1.01, 1.035], [1.035, 1.015], [1.0, 0.93]][b % 4];   // push into the phrase, broaden its end
-  const end = sec === 'end' ? BPM - (BPM - 118) * Math.pow((b + 1) / 8, 1.6) : sec === 'L' && b >= 11 ? 138 + (BPM - 138) * (b - 10) / 5 : base;
+  const end = sec === 'end' ? BPM - (BPM - 118) * Math.pow((b + 1) / 8, 1.6) : sec === 'L' && b >= 3 ? 138 + (BPM - 138) * (b - 2) / 5 : base;
   return [base * arc[0], end * arc[1]];
 }
 const BRAKES = [];
@@ -121,7 +121,25 @@ const ML2 = [
 const ME = [
   [[0, 84, 3, 'a'], [3, 88, 3]], [[0, 89, 3], [3, 84, 3]], [[0, 87, 3, 'a'], [3, 81, 3]], [[0, 88, 6]],
   [[0, 84, 2], [2, 88, 2], [4, 91, 2, 'g']], [[0, 88, 3, 'a'], [3, 84, 3]], [[0, 83, 2], [2, 87, 2], [4, 90, 2]], [[0, 88, 6, 'f']] ];
-const MEL = { PA: MA, PA2: MA2, PB: MB, PB2: MB2, PL: ML, PL2: ML2, PE: ME };
+const MAV = [   // the theme's first statement: a chord on beat 1, then a quick 8th turn around the melody note
+  [[0, 79, 3], [3, 79, 1], [4, 78, 1], [5, 79, 1]],                  // Em  G (G F# G)
+  [[0, 84, 3, 'a'], [3, 84, 1], [4, 83, 1], [5, 84, 1]],             // C   (D) C (C B C)
+  [[0, 81, 3], [3, 84, 1], [4, 83, 1], [5, 84, 1]],                  // Am  A (C B C)
+  [[0, 87, 3, 'a'], [3, 87, 1], [4, 88, 1], [5, 87, 1]],             // B   (E) D# (D# E D#)
+  [[0, 83, 3, 's'], [3, 83, 1], [4, 81, 1], [5, 83, 1]],             // Em  B (B A B)
+  [[0, 84, 3], [3, 81, 1], [4, 79, 1], [5, 77, 1]],                  // F   C (A G F)
+  [[0, 81, 2], [2, 83, 2], [4, 87, 2, 'o']],                         // B7  A B D#
+  [[0, 88, 3, 'a'], [3, 83, 1], [4, 79, 1], [5, 76, 1]] ];           // Em  (F#) E (B G E)
+const MAV2 = [
+  [[0, 79, 3], [3, 79, 1], [4, 81, 1], [5, 83, 1]],                  // Em  G (G A B)
+  [[0, 84, 3], [3, 84, 1], [4, 83, 1], [5, 84, 1]],                  // C   C (C B C)
+  [[0, 85, 3, 'a'], [3, 85, 1], [4, 83, 1], [5, 85, 1]],             // A   (D) C# (C# B C#)
+  [[0, 87, 3], [3, 87, 1], [4, 88, 1], [5, 87, 1]],                  // B   D# (D# E D#)
+  [[0, 88, 3], [3, 88, 1], [4, 86, 1], [5, 84, 1]],                  // C   E (E D C)  (no slide: its D would sound against the B chord's D#)
+  [[0, 89, 3, 'a'], [3, 84, 1], [4, 81, 1], [5, 77, 1]],             // F   (G) F (C A F)
+  [[0, 87, 2], [2, 81, 2], [4, 78, 2]],                              // B7  D# A F#
+  [[0, 76, 6, 'f']] ];                                               // Em  E
+const MEL = { PA: MA, PA2: MA2, PB: MB, PB2: MB2, PL: ML, PL2: ML2, PE: ME, PAV: MAV, PAV2: MAV2 };
 
 // ---------------- the piano: right hand and left hand ----------------
 function guitarEvents() {
@@ -140,7 +158,7 @@ function guitarEvents() {
   const ctones = (lo, hi) => { const out = []; for (let m = lo; m <= hi; m++) if (tones().includes(m % 12)) out.push(m); return out; };
   // dynamics: a crescendo/diminuendo arch inside every 4-bar phrase (peak in its third bar), per section a level
   const LEVEL = { intro: 0, A: 0, B: 4, L: -3, C: 6, A2: 10, B2: 8, end: 0, hold: 0 };   // the singing section softer, not a hole
-  const arch = () => [-6, 0, 6, -2][X.b % 4] + LEVEL[X.sec] + (X.sec === 'L' && X.b >= 12 ? (X.b - 11) * 3 : 0) + (X.sec === 'end' ? -X.b * 1.0 : 0);
+  const arch = () => [-6, 0, 6, -2][X.b % 4] + LEVEL[X.sec] + (X.sec === 'L' && X.b >= 4 ? (X.b - 3) * 3 : 0) + (X.sec === 'end' ? -X.b * 1.0 : 0);
   // ---- left hand ----
   const leap = (v) => { const b = low(); v += arch();
     key('lh', E8(0), b, D8(0, 1), v + 8); key('lh', E8(0) + 0.006, b - 12 >= 21 ? b - 12 : b + 12, D8(0, 1), v + 2);   // the bass in octaves
@@ -183,37 +201,33 @@ function guitarEvents() {
     X = x; gi = x.gi; const { sec, b, k, ph } = x;
     if (sec === 'hold') { if (b === 0) { const H = 5.0;   // the last chord, rolled wide over five octaves, fermata
         rolled('lh', E8(0), [28, 40, 47, 52], 0.5, 108, 0.03); rolled('rh', E8(0) + 0.1, [64, 67, 71, 76, 79, 83, 88, 91], 0.09, 100, 0.024); PEDAL.push([E8(0) + 0.05, E8(0) + H]); } continue; }   // a wide arpeggio, the pedal holds it
-    if (sec === 'intro') {
-      if (b === 0) { const sweep = [23, 28, 35, 40, 43, 47, 52, 55, 59, 64, 67, 71, 76];   // from B0 up, crescendo
-        sweep.forEach((m, i) => key(i < 7 ? 'lh' : 'rh', S16(i * 12 / 13), m, D16(i * 12 / 13, 1.2, 0.98), 54 + i * 5)); pedalBar(); }   // short keys: the pedal holds the sound
+    if (sec === 'intro') {   // a big rolled chord, then the left hand's leap figure announcing the theme
+      if (b === 0) { rolled('lh', E8(0), [28, 35, 40], 0.5, 96, 0.03); rolled('rh', E8(0) + 0.08, [64, 67, 71, 76], 0.5, 92, 0.026); pedalBar(); }
       else { leap(100 + b * 3); melody([[0, 79, 3, b === 1 ? 's' : null], [3, 78, 1], [4, 76, 2]], 96 + b * 4); pedalBar(); }
-    } else if (sec === 'A' || sec === 'A2') {
+    } else if (sec === 'A' || sec === 'A2') {   // the theme, full and hard; the left hand alternates the leap and the triplets
       const climax = sec === 'A2';
-      if (climax && b % 2) trip(108); else leap(climax ? 110 : 104);
-      const casc = k === 3 && b < 8;   // the melody hands the bar over to a cascade after its first long note
-      melody(casc ? MEL[ph][k].filter(n => n[0] < 3) : MEL[ph][k], climax ? 116 : 106);   // (the climax: fuller, harder; an octave up would leave the keyboard)
+      if (b % 2) trip(climax ? 108 : 106); else leap(climax ? 110 : 106);
+      const casc = climax && k === 3 && b < 8;   // the one cascade in the piece (the climax)
+      const line = climax ? MEL[ph][k] : MEL[ph === 'PA' ? 'PAV' : 'PAV2'][k];
+      melody(casc ? line.filter(n => n[0] < 3) : line, climax ? 116 : 110);
       if (casc) runDown(95, 6, 10, 106);
-      if (k === 7 && b >= 8 && sec === 'A') runUp(88, 8, 5, 108);
       pedalBar();
     } else if (sec === 'B' || sec === 'B2') {
-      if (sec === 'B') trip(104); else leap(110);
-      melody(MEL[ph][k], sec === 'B2' ? 114 : 108);
-      if (k === 7) runUp(88, 8, 5, 110);
+      if (b % 2) trip(sec === 'B2' ? 110 : 106); else leap(sec === 'B2' ? 110 : 108);
+      melody(MEL[ph][k], sec === 'B2' ? 114 : 110);
       pedalBar();
-    } else if (sec === 'L') {   // the singing section: soft, slower, the left hand's wide broken chords, the melody in octaves
-      wide(84); melody(MEL[ph][k], 84);
+    } else if (sec === 'L') {   // the singing section: slower, softer, the left hand alternating wide broken chords and triplets
+      if (b % 2) trip(86); else wide(88); melody(MEL[ph][k], 88);
       pedalBar();
-    } else if (sec === 'C') {   // the stomps under repeated chords; the last two bars build
+    } else if (sec === 'C') {   // the octave stomps under repeated chords whose tops carry the line; building
       stomp(110);
       const tops = { 0: [83, 79, 83, 88, 83, 79], 1: [88, 83, 88, 91, 88, 83], 2: [84, 81, 84, 89, 84, 81], 3: [89, 84, 89, 93, 89, 84],
-        4: [81, 76, 81, 84, 81, 76], 5: [84, 81, 84, 88, 84, 81], 6: [87, 81, 87, 90, 87, 81] };
-      if (k < 7) stabs(108, tops[k]);
-      else { const arp = ctones(47, 95); for (let i = 0; i < 12; i++) key('rh', S16(i), arp[Math.min(arp.length - 1, i)], D16(i, 1, 0.9), 92 + i * 2.5); }   // B7 rising in 16ths
+        4: [81, 76, 81, 84, 81, 76], 5: [84, 81, 84, 88, 84, 81], 6: [87, 81, 87, 90, 87, 81], 7: [87, 90, 87, 93, 90, 87] };
+      stabs(108 + (k === 7 ? 6 : 0), tops[k]);
       pedalBar();
-    } else if (sec === 'end') {   // the release: the theme broadens, softer, slower
+    } else if (sec === 'end') {   // the release: the theme broadens, slower
       if (k % 2 === 0) leap(102); else wide(96);
-      melody(k === 3 ? [[0, 88, 2]] : ME[k], 104);
-      if (k === 3) runDown(95, 4, 14, 104);   // struck, then the cascade from the top
+      melody(ME[k], 104);
       pedalBar();
     }
   }
@@ -266,7 +280,7 @@ async function renderSong() {
   const vs = g(0.3); merge.connect(vs); vs.connect(verb);
   // section dynamics: only the first bar (the soft opening) sits under; everything else is full energy, colour not volume
   const sect = ctx.createGain(); pin.gain.value = 1;
-  const SECT_DB = x => x.sec === 'L' ? 3.5 : x.sec === 'end' ? 2 : 0;   // the thinner singing section and coda lifted (soft playing, not a hole)
+  const SECT_DB = x => x.sec === 'L' ? 2.5 : x.sec === 'end' ? 2 : 0;   // the thinner singing section and coda lifted (soft playing, not a hole)
   { let prev = null; for (const x of BARS) { const v = Math.pow(10, SECT_DB(x) / 20); if (prev === null) pin.gain.setValueAtTime(v, 0);
       else if (v !== prev) { pin.gain.setValueAtTime(prev, T(x.gi - 1, 8)); pin.gain.linearRampToValueAtTime(v, T(x.gi, 0)); } prev = v; } }
   async function stem(name, targetDb) {
