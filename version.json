@@ -1,8 +1,8 @@
 {
-  "versionCode": 35,
-  "versionName": "4.3",
+  "versionCode": 36,
+  "versionName": "4.4",
   "apk": "https://raw.githubusercontent.com/nooberttmc/nooberto/claude/android-game-apk-w2q4io/Emberwake.apk",
   "notes": [
-    "The Drowned Sun reworked: 3.5x health, bigger, no other enemies, new attacks (Prominence, Coronal Arcs, Sunbeam, Moon Web, Sunfall, Last Light)"
+    "Cleaner menus: flat buttons and panels, fewer glows, less filler text, pause build box fits your build"
   ]
 }

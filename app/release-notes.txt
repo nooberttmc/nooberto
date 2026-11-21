@@ -1,1 +1,1 @@
-The Drowned Sun reworked: 3.5x health, bigger, no other enemies, new attacks (Prominence, Coronal Arcs, Sunbeam, Moon Web, Sunfall, Last Light)
+Cleaner menus: flat buttons and panels, fewer glows, less filler text, pause build box fits your build

@@ -191,9 +191,7 @@ function wrap(str, x, y, maxW, size, color, lh, align, weight) {
 }
 function panel(x, y, w, h, accent, alpha) {
   rr(x, y, w, h, 12);
-  const gr = g.createLinearGradient(x, y, x, y + h);
-  gr.addColorStop(0, `rgba(30,36,64,${alpha || 0.92})`); gr.addColorStop(1, `rgba(12,14,30,${alpha || 0.92})`);
-  g.fillStyle = gr; g.fill();
+  g.fillStyle = `rgba(18,22,42,${alpha || 0.92})`; g.fill();
   g.lineWidth = 1.5; g.strokeStyle = accent ? hexA(accent, 0.7) : 'rgba(140,160,255,0.25)'; g.stroke();
 }
 
@@ -303,10 +301,7 @@ function button(x, y, w, h, label, onClick, o) {
   if (o.invisible) return b;
   const col = o.color || '#ff9a40';
   rr(x, y, w, h, o.radius == null ? 12 : o.radius);
-  const gr = g.createLinearGradient(x, y, x, y + h);
-  if (o.disabled) { gr.addColorStop(0, 'rgba(50,52,70,0.9)'); gr.addColorStop(1, 'rgba(30,32,46,0.9)'); }
-  else { gr.addColorStop(0, hexA(mixHex(col, 0.15), pressed ? 0.55 : 0.32)); gr.addColorStop(1, hexA(col, pressed ? 0.35 : 0.14)); }
-  g.fillStyle = gr; g.fill();
+  g.fillStyle = o.disabled ? 'rgba(40,42,58,0.9)' : hexA(col, pressed ? 0.4 : 0.2); g.fill();
   g.lineWidth = 2; g.strokeStyle = o.disabled ? 'rgba(120,120,150,0.4)' : hexA(col, pressed ? 1 : 0.8); g.stroke();
   if (label) text(label, x + w / 2, y + h / 2 + (o.sub ? -7 : 1), o.size || 18, o.disabled ? '#778' : (o.textColor || '#fff'));
   if (o.sub) text(o.sub, x + w / 2, y + h / 2 + 12, 12, o.disabled ? '#667' : hexA(col, 1), 'center', 'normal');
@@ -2388,16 +2383,14 @@ function drawOverlay() {
   const ot = R.overlayT || 0, k = Math.min(1, ot * 4);
   if (R.overlay === 'level') {
     dim(0.8 * k);
-    g.globalCompositeOperation = 'lighter'; glow(VW / 2, 120, 160, '#ffb040', 0.3 * k); g.globalCompositeOperation = 'source-over';
     text('LEVEL UP', VW / 2, 105, 34, '#ffe0a0', 'center', 'bold', 'Georgia, serif');
-    text('Level ' + R.p.level + ' — choose a gift of flame', VW / 2, 135, 13, '#c8b8a0', 'center', 'normal');
+    text('Level ' + R.p.level, VW / 2, 135, 13, '#c8b8a0', 'center', 'normal');
     const n = R.choices.length, gap = 10, ch = Math.min(96, Math.floor((VH - 230) / n) - gap), total = n * ch + (n - 1) * gap;
     let y = Math.max(155, VH / 2 - total / 2 + 10);
     if (R.banishMode) text('Tap a choice to banish it for this run', VW / 2, y - 10, 12, '#ff8080');
     R.choices.forEach((c, i) => {
       const info = choiceInfo(c); info.id = c.id;
       const ap = clamp(ot * 5 - i * 0.4, 0, 1);
-      if (info.mythic) { g.globalCompositeOperation = 'lighter'; glow(VW / 2, y + ch / 2, 200, '#ff3060', 0.3 + Math.sin(menuT * 5) * 0.12); g.globalCompositeOperation = 'source-over'; }
       choiceCard(20 + (1 - ap) * 40, y, VW - 40, ch, info, () => {
         if (ot <= 0.35) return;
         if (R.banishMode && (c.t === 'weapon' || c.t === 'passive' || c.t === 'ability')) {
@@ -2413,16 +2406,14 @@ function drawOverlay() {
     if (R.pending > 1) text('+' + (R.pending - 1) + ' more', VW / 2, y + (R.banishes > 0 ? 76 : 62), 12, '#ffd080');
   } else if (R.overlay === 'relic') {
     dim(0.7 * k);
-    g.globalCompositeOperation = 'lighter'; glow(VW / 2, 120, 160, '#60e0ff', 0.3 * k); g.globalCompositeOperation = 'source-over';
     const chest = R.relicSrc === 'chest';
     text(chest ? 'LEGENDARY TREASURE' : 'RELIC OF THE DEEP', VW / 2, 105, chest ? 26 : 28, chest ? '#ffe08a' : '#c0f0ff', 'center', 'bold', 'Georgia, serif');
-    text(chest ? 'The chest holds something extraordinary.' : 'The Warden leaves a treasure. Choose one.', VW / 2, 135, 13, '#9ab', 'center', 'normal');
+    text('Choose one', VW / 2, 135, 13, '#9ab', 'center', 'normal');
     let y = 170;
     R.relicChoices.forEach((id, i) => {
       const d = relicDef(id), leg = !!LEGENDS[id]; const ap = clamp(ot * 5 - i * 0.4, 0, 1);
-      if (leg) { if (!(save.hints && save.hints.legend)) { save.hints = save.hints || {}; save.hints.legend = 1; persist(); }
-        g.globalCompositeOperation = 'lighter'; glow(VW / 2, y + 48, 190, '#ffc030', 0.25 + Math.sin(menuT * 4) * 0.1); g.globalCompositeOperation = 'source-over'; }
-      choiceCard(20, y, VW - 40, 96, { name: d.name, desc: d.desc, color: d.color, tag: leg ? '★ LEGENDARY RELIC ★' : 'RELIC', kind: 'relic', id }, () => {
+      if (leg && !(save.hints && save.hints.legend)) { save.hints = save.hints || {}; save.hints.legend = 1; persist(); }
+      choiceCard(20, y, VW - 40, 96, { name: d.name, desc: d.desc, color: d.color, tag: leg ? 'LEGENDARY RELIC' : 'RELIC', kind: 'relic', id }, () => {
         if (ot < 0.35) return;
         R.relics.push(id); recalc(); SFX.play('select'); R.overlay = null;
       }, ap);
@@ -2433,38 +2424,41 @@ function drawOverlay() {
     text('PAUSED', VW / 2, 80, 32, '#fff', 'center', 'bold', 'Georgia, serif');
     text(R.spirit.name + ' · ' + R.depth.name + ' · ' + Math.floor(R.t / 60) + ':' + String(Math.floor(R.t % 60)).padStart(2, '0'), VW / 2, 110, 13, '#9ab', 'center', 'normal');
     let y = 140;
-    panel(20, y, VW - 40, 210);
+    // the build box fits what is in it: the longer of the two columns, then one row of passives per line
+    const nRelics = Math.min(R.relics.length, 6 - R.abilities.length), rightN = (R.mythic ? 1 : 0) + R.abilities.length + nRelics + (R.relics.length > nRelics ? 1 : 0);
+    const nPass = Object.keys(R.passives).length, perRow = Math.floor((VW - 80) / 26) + 1;
+    const listH = Math.max(R.weapons.length * 28, rightN * 22), passY = y + 30 + listH + 8;
+    const boxH = passY - y + (nPass ? Math.ceil(nPass / perRow) * 24 + 4 : 0);
+    panel(20, y, VW - 40, boxH);
     text('YOUR BUILD', VW / 2, y + 18, 12, '#ffd080');
     let yy = y + 44;
     for (const w of R.weapons) { const d = WEAPONS[w.id]; drawIcon('weapon', w.id, 46, yy, 22, d.color); text(d.name + '  Lv ' + w.lvl, 66, yy, 14, '#fff', 'left'); yy += 28; }
-    let px = 40, py = y + 170;
+    let px = 40, py = passY;
     for (const id in R.passives) { drawIcon('passive', id, px, py, 20, PASSIVES[id].color); text(R.passives[id], px + 9, py + 10, 9, '#fff'); px += 26; if (px > VW - 40) { px = 40; py += 24; } }
     let rx = VW / 2 + 20; yy = y + 44;
     if (R.mythic) { drawIcon('mythic', R.mythic, rx, yy, 18, '#ff5070'); text(MYTHICS[R.mythic].name, rx + 14, yy, 11, '#ff7090', 'left'); yy += 22; }
     for (const ab of R.abilities) { const d = ABILITIES[ab.id]; drawIcon('ability', ab.id, rx, yy, 18, d.color); text(d.name + ' ' + ab.lvl, rx + 14, yy, 11, d.color, 'left'); yy += 22; }
     for (const kk of R.relics.slice(0, 6 - R.abilities.length)) { const d = relicDef(kk); drawIcon('relic', kk, rx, yy, 18, d.color); text(d.name, rx + 14, yy, 11, d.color, 'left'); yy += 22; }
     if (R.relics.length > 6 - R.abilities.length) text('+' + (R.relics.length - 6 + R.abilities.length) + ' more relics', rx + 14, yy, 10, '#9ab', 'left');
-    y = 370;
+    y = Math.max(y + boxH + 24, 300);
     button(VW / 2 - 110, y, 220, 54, 'Resume', () => { R.overlay = null; R.quitConfirm = false; SFX.play('click'); }, { size: 20 });
     button(VW / 2 - 110, y + 66, 105, 44, 'Music ' + Math.round(save.settings.music * 10), () => { save.settings.music = (Math.round(save.settings.music * 10) + 2) % 12 / 10; if (save.settings.music > 1) save.settings.music = 0; SFX.setVolumes(save.settings.music, save.settings.sfx); persist(); SFX.play('click'); }, { size: 13, color: '#8aa0ff' });
     button(VW / 2 + 5, y + 66, 105, 44, 'Sound ' + Math.round(save.settings.sfx * 10), () => { save.settings.sfx = (Math.round(save.settings.sfx * 10) + 2) % 12 / 10; if (save.settings.sfx > 1) save.settings.sfx = 0; SFX.setVolumes(save.settings.music, save.settings.sfx); persist(); SFX.play('click'); }, { size: 13, color: '#8aa0ff' });
     button(VW / 2 - 110, y + 122, 220, 44, R.quitConfirm ? 'Tap again to abandon' : 'Abandon run', () => { if (R.quitConfirm) { R.quitConfirm = false; finishRun(false); } else { R.quitConfirm = true; SFX.play('click'); } }, { size: 14, color: '#ff6060' });
   } else if (R.overlay === 'tidebreaker') {
     dim(0.8 * k);
-    g.globalCompositeOperation = 'lighter'; glow(VW / 2, 170, 260, '#ffc030', 0.45 * k); glow(VW / 2, 170, 120, '#ff3060', 0.3 * k); g.globalCompositeOperation = 'source-over';
     drawCrown(VW / 2, 120, 3);
     text('TIDEBREAKER', VW / 2, 190, 36, '#ffe6a0', 'center', 'bold', 'Georgia, serif');
     text('Wave ' + TIDEBREAKER_WAVE + ' of ' + DEPTHS[TB_DEPTH].name + ' survived', VW / 2, 222, 14, '#ffb0a0', 'center', 'normal');
-    wrap(R.tbFirst ? 'The deepest tide breaks before your flame. You earn the Tidebreaker Crown, the secret spirit Aurora awakens, and 5,000 Embers await you.' : 'You have broken the tide once more. +800 Embers.', VW / 2, 268, VW - 70, 14, '#e4d8c8', 20);
+    wrap(R.tbFirst ? 'You earn the Tidebreaker Crown, the secret spirit Aurora and 5,000 Embers.' : '+800 Embers.', VW / 2, 268, VW - 70, 14, '#e4d8c8', 20);
     button(VW / 2 - 120, 380, 240, 56, 'Keep Going', () => { R.overlay = null; SFX.play('select'); }, { size: 18, color: '#ffd060' });
-    button(VW / 2 - 120, 450, 240, 50, 'Return in Glory', () => finishRun(true), { size: 16, color: '#ff8060' });
+    button(VW / 2 - 120, 450, 240, 50, 'Return', () => finishRun(true), { size: 16, color: '#ff8060' });
   } else if (R.overlay === 'victory') {
     dim(0.7 * k);
-    g.globalCompositeOperation = 'lighter'; glow(VW / 2, 150, 220, '#ffd060', 0.4 * k); g.globalCompositeOperation = 'source-over';
     text('DEPTH CLEARED', VW / 2, 140, 32, '#ffe6a0', 'center', 'bold', 'Georgia, serif');
-    text(R.depth.name + ' is calm once more.', VW / 2, 175, 14, '#c8b8a0', 'center', 'normal');
-    wrap('The Heart of the Deep is extinguished. You may return to the Hearth with your Embers, or dive on into the endless tide for greater rewards.', VW / 2, 230, VW - 70, 14, '#c4cce8', 20);
-    button(VW / 2 - 120, 340, 240, 56, 'Return Victorious', () => { finishRun(true); }, { size: 18, color: '#ffd060' });
+    text(R.depth.name, VW / 2, 175, 14, '#c8b8a0', 'center', 'normal');
+    wrap('Return with your Embers, or keep going in the Endless Tide for bigger rewards.', VW / 2, 210, VW - 70, 14, '#c4cce8', 20);
+    button(VW / 2 - 120, 340, 240, 56, 'Return', () => { finishRun(true); }, { size: 18, color: '#ffd060' });
     button(VW / 2 - 120, 410, 240, 56, 'Endless Tide', () => { R.endless = true; R.victory = true; R.overlay = null; SFX.play('select'); }, { size: 18, color: '#ff6080', sub: 'keep the victory bonus' });
   } else if (R.overlay === 'over') {
     const res = R.result;
@@ -2478,7 +2472,6 @@ function drawOverlay() {
     text('Multiplier', 44, y, 14, '#c4cce8', 'left', 'normal'); text('x' + res.mult.toFixed(2), VW - 44, y, 14, '#9ec8ff', 'right');
     y += 44;
     const shown = Math.floor(res.total * Math.min(1, ot / 1.2));
-    g.globalCompositeOperation = 'lighter'; glow(VW / 2, y, 90, '#ffb030', 0.35); g.globalCompositeOperation = 'source-over';
     text('◆ ' + fmt(shown) + ' Embers', VW / 2, y, 26, '#ffd050');
     y += 34;
     if (res.pearls) { text('◈ ' + res.pearls + ' Pearls', VW / 2, y, 20, '#80e0ff'); y += 30; }
@@ -2508,7 +2501,6 @@ function menuBackground(dt) {
 function drawTitle() {
   const cy = VH * 0.24;
   g.globalCompositeOperation = 'lighter';
-  glow(VW / 2, cy - 10, 170 + Math.sin(menuT * 2) * 10, '#ff8a30', 0.35);
   glow(VW / 2, cy + 50, 26 + Math.sin(menuT * 7) * 3, '#ffd090', 0.9);
   g.globalCompositeOperation = 'source-over';
   // flame mark
@@ -2517,8 +2509,7 @@ function drawTitle() {
   g.fillStyle = '#ffb050'; g.fill(); g.beginPath(); g.arc(0, 4, 5, 0, TAU); g.fillStyle = '#fff'; g.fill();
   g.restore();
   text('EMBERWAKE', VW / 2, cy, 46, '#ffe8c8', 'center', 'bold', 'Georgia, serif');
-  text(save.tidebreaker ? 'Tidebreaker' : 'a flame against the endless tide', VW / 2, cy + 98, 14, save.tidebreaker ? '#ffd040' : '#c8a890', 'center', 'italic', 'Georgia, serif');
-  if (save.tidebreaker) drawCrown(VW / 2, cy - 44, 1.4);
+  if (save.tidebreaker) { text('Tidebreaker', VW / 2, cy + 98, 14, '#ffd040', 'center', 'italic', 'Georgia, serif'); drawCrown(VW / 2, cy - 44, 1.4); }
   let y = VH * 0.47;
   button(VW / 2 - 120, y, 240, 62, 'EMBARK', () => go('embark'), { size: 24 });
   button(VW / 2 - 120, y + 74, 240, 54, 'The Hearth', () => go('hearth'), { size: 18, color: '#ffd060', sub: '◆ ' + fmt(save.embers) + ' Embers' });
@@ -2581,7 +2572,7 @@ function drawEmbark() {
   text(d.name, VW / 2, y + 46, 20, dLocked ? '#7880a0' : '#fff', 'center', 'bold', 'Georgia, serif');
   if (dLocked) text('Clear Depth ' + di + ' to unlock', VW / 2, y + 76, 13, '#ff9090', 'center', 'normal');
   else {
-    text(di === 0 ? 'The gentle beginning.' : 'Enemies +' + Math.round((d.hp - 1) * 100) + '% HP, +' + Math.round((d.dmg - 1) * 100) + '% dmg, fire ' + Math.round((d.fire - 1) * 100) + '% faster', VW / 2, y + 72, 11.5, '#c4cce8', 'center', 'normal');
+    text(di === 0 ? 'Base difficulty' : 'Enemies +' + Math.round((d.hp - 1) * 100) + '% HP, +' + Math.round((d.dmg - 1) * 100) + '% dmg, fire ' + Math.round((d.fire - 1) * 100) + '% faster', VW / 2, y + 72, 11.5, '#c4cce8', 'center', 'normal');
     const best = save.best['d' + di] || 0;
     text('Embers x' + d.embers.toFixed(1) + '  ·  ' + (best ? 'Best wave ' + best + (save.depthCleared > di ? ' ✓' : '') : 'Not yet attempted'), VW / 2, y + 92, 12, '#ffd050');
     text(d.intro, VW / 2, y + 112, 11, d.tint === '#e8e8ff' ? '#c8c8f0' : mixHex(d.tint, 0.35), 'center');
@@ -2612,7 +2603,7 @@ function hearthCard(h, x, y, cw, ch) {
   text(h.name, x + 10, y + 14, 13.5, '#fff', 'left');
   const pw = Math.min(12, (cw - 20) / h.max);
   for (let k = 0; k < h.max; k++) { g.fillStyle = k < r ? '#ffb040' : 'rgba(255,255,255,0.14)'; g.fillRect(x + 10 + k * pw, y + 25, Math.min(9, pw - 2), 4); }
-  wrap(h.desc(Math.max(r, 1)) + (r && !maxed ? ' → ' + h.desc(r + 1).replace(/^[^0-9-+]*/, '') : ''), x + 10, y + 39, cw - 16, 10.5, '#b4bcd8', 12, 'left');
+  wrap(h.desc(Math.max(r, 1)) + (r && !maxed ? ' → ' + h.desc(r + 1).replace(/^[^0-9-+]*/, '') : ''), x + 10, y + 40, cw - 16, 11.5, '#b4bcd8', 13, 'left');
   text(maxed ? 'MAX' : '◆ ' + fmt(cost), x + cw - 10, y + ch - 11, 12.5, maxed ? '#60d090' : afford ? '#ffd050' : '#8a7060', 'right');
 }
 function drawLock(x, y) {
@@ -2621,34 +2612,31 @@ function drawLock(x, y) {
 }
 function drawHearth() {
   text('THE HEARTH', VW / 2, 32, 24, '#ffe0c0', 'center', 'bold', 'Georgia, serif');
-  g.globalCompositeOperation = 'lighter'; glow(VW / 2, 60, 60, '#ffb030', 0.3); g.globalCompositeOperation = 'source-over';
   text('◆ ' + fmt(save.embers) + ' Embers', VW / 2, 60, 18, '#ffd050');
   const tabs = ['Hearth', 'Deep Hearth', 'Soul Forge'], tab = save.hearthTab || 0;
   tabs.forEach((t, i) => button(12 + i * ((VW - 24) / 3), 80, (VW - 24) / 3 - 6, 34, t, () => { save.hearthTab = i; SFX.play('click'); }, { size: 12.5, color: i === tab ? '#ffb040' : '#606888' }));
   const cols = 2, gap = 8, cw = (VW - 24 - gap) / cols, top = 124;
   if (tab < 2) {
-    const list = tab === 0 ? HEARTH : HEARTH2, rows = Math.ceil(list.length / 2);
+    const list = tab === 0 ? HEARTH : HEARTH2;
     const ch = Math.min(80, (VH - top - 76) / 6 - gap);
     list.forEach((h, i) => hearthCard(h, 12 + (i % cols) * (cw + gap), top + Math.floor(i / cols) * (ch + gap), cw, ch));
-    if (tab === 1) wrap('The Deep Hearth holds rarer powers for seasoned flames.', VW / 2, top + rows * (ch + gap) + 14, VW - 60, 11, '#8898c0', 14);
   } else {
     const r = save.forge || 0, cost = forgeCost(r), afford = save.embers >= cost;
     const y = top + 10;
     if (save.depthCleared < FORGE_REQ) {
       panel(20, y, VW - 40, 200, null);
       drawLock(VW / 2, y + 60);
-      text('THE SOUL FORGE IS COLD', VW / 2, y + 100, 16, '#c0c4d8', 'center', 'bold', 'Georgia, serif');
-      wrap('Clear Depth ' + FORGE_REQ + ' to kindle it. Each rank permanently adds +2% damage and +2% max HP.' + (r ? ' Your ' + r + ' ranks stay active.' : ''), VW / 2, y + 132, VW - 80, 12, '#9aa0bc', 16);
+      text('LOCKED', VW / 2, y + 100, 16, '#c0c4d8', 'center', 'bold', 'Georgia, serif');
+      wrap('Clear Depth ' + FORGE_REQ + ' to unlock. Each rank permanently adds +2% damage and +2% max HP.' + (r ? ' Your ' + r + ' ranks stay active.' : ''), VW / 2, y + 132, VW - 80, 12, '#9aa0bc', 16);
       button(VW / 2 - 70, VH - 62, 140, 46, 'Back', () => go('title'), { size: 16, color: '#8aa0ff' });
       return;
     }
     panel(20, y, VW - 40, 300, '#ff8030');
-    g.globalCompositeOperation = 'lighter'; glow(VW / 2, y + 90, 110 + Math.sin(menuT * 3) * 8, '#ff7020', 0.5); glow(VW / 2, y + 90, 40, '#ffe0a0', 0.8); g.globalCompositeOperation = 'source-over';
     text('SOUL FORGE', VW / 2, y + 30, 18, '#ffd0a0', 'center', 'bold', 'Georgia, serif');
     text('Rank ' + r, VW / 2, y + 90, 34, '#fff', 'center', 'bold', 'Georgia, serif');
     text('+' + (2 * r) + '% damage  ·  +' + (2 * r) + '% max HP', VW / 2, y + 140, 14, '#ffd080');
-    wrap('Endless ranks. Each one adds +2% damage and +2% max HP to every spirit, forever.', VW / 2, y + 172, VW - 80, 12, '#b4bcd8', 16);
-    button(VW / 2 - 110, y + 216, 220, 58, 'Stoke the Forge', () => {
+    wrap('Each rank adds +2% damage and +2% max HP to every spirit. No limit.', VW / 2, y + 172, VW - 80, 12, '#b4bcd8', 16);
+    button(VW / 2 - 110, y + 216, 220, 58, 'Buy rank', () => {
       if (!afford) { SFX.play('deny'); showToast('Need ' + fmt(cost - save.embers) + ' more Embers', '#ff9090'); return; }
       save.embers -= cost; save.forge = r + 1; persist(); SFX.play('buy');
     }, { size: 18, color: afford ? '#ff8030' : '#606888', sub: '◆ ' + fmt(cost) });
@@ -2657,7 +2645,6 @@ function drawHearth() {
 }
 function drawRaids() {
   text('BOSS RAIDS', VW / 2, 32, 24, '#c8f4ff', 'center', 'bold', 'Georgia, serif');
-  g.globalCompositeOperation = 'lighter'; glow(VW / 2, 60, 60, '#40c0ff', 0.3); g.globalCompositeOperation = 'source-over';
   text('◈ ' + fmt(save.pearls || 0) + ' Pearls', VW / 2, 60, 18, '#80e0ff');
   if (!save.sunSlain) {
     panel(20, 100, VW - 40, 230, null); drawLock(VW / 2, 150);
@@ -2696,7 +2683,7 @@ function drawRaids() {
       text(h.name, x + 10, y + 14, 13.5, '#fff', 'left');
       const pw = Math.min(12, (cw - 20) / h.max);
       for (let k = 0; k < h.max; k++) { g.fillStyle = k < r ? '#60e0ff' : 'rgba(255,255,255,0.14)'; g.fillRect(x + 10 + k * pw, y + 25, Math.min(9, pw - 2), 4); }
-      text(h.desc(Math.max(r, 1)), x + 10, y + 41, 10.5, '#b4bcd8', 'left', 'normal');
+      text(h.desc(Math.max(r, 1)), x + 10, y + 41, 11.5, '#b4bcd8', 'left', 'normal');
       text(maxed ? 'MAX' : '◈ ' + cost, x + cw - 10, y + ch - 11, 12.5, maxed ? '#60d090' : afford ? '#80e0ff' : '#607080', 'right');
     });
     const L = (save.altar && save.altar.luck) || 0;
@@ -2730,7 +2717,7 @@ function drawCodex() {
     }
   } else {
     const s = save.stats;
-    const rows = [['Runs', s.runs], ['Enemies slain', fmt(s.kills)], ['Wardens slain', s.bosses], ['Best wave', s.bestWave], ['Best level', s.bestLevel], ['Bounties completed', s.bounties || 0], ['Shrines activated', s.shrines || 0], ['Soul Forge rank', save.forge || 0], ['Lifetime Embers', fmt(save.lifetimeEmbers)], ['Time in the deep', Math.floor(s.playTime / 60) + ' min']];
+    const rows = [['Runs', s.runs], ['Enemies slain', fmt(s.kills)], ['Wardens slain', s.bosses], ['Best wave', s.bestWave], ['Best level', s.bestLevel], ['Bounties completed', s.bounties || 0], ['Shrines activated', s.shrines || 0], ['Soul Forge rank', save.forge || 0], ['Lifetime Embers', fmt(save.lifetimeEmbers)], ['Play time', Math.floor(s.playTime / 60) + ' min']];
     for (const [a, b] of rows) { text(a, 36, y, 13, '#b4bcd8', 'left', 'normal'); text(String(b), VW - 36, y, 13, '#fff', 'right'); y += 23; }
     y += 8;
     DEPTHS.forEach((d, i) => { text((i + 1) + '. ' + d.name, 36, y, 12, i < save.depthCleared ? d.tint : i <= save.depthCleared ? '#aab' : '#556', 'left'); text((i < save.depthCleared ? '✓ ' : '') + 'best wave ' + (save.best['d' + i] || 0), VW - 36, y, 11, '#8898c0', 'right', 'normal'); y += 19; });
@@ -2776,7 +2763,7 @@ function drawSettings() {
     if (confirmReset > 0) { const keep = save.settings; save = defaultSave(); save.settings = keep; persist(); confirmReset = 0; showToast('Progress erased'); }
     else { confirmReset = 3; SFX.play('click'); }
   }, { size: 14, color: '#ff6060' });
-  text('Emberwake v' + appVersion() + ' · made with flame and code', VW / 2, VH - 90, 11, '#667', 'center', 'normal');
+  text('Emberwake v' + appVersion(), VW / 2, VH - 90, 11, '#667', 'center', 'normal');
   button(VW / 2 - 70, VH - 62, 140, 46, 'Back', () => go('title'), { size: 16, color: '#8aa0ff' });
 }
 
@@ -2816,7 +2803,6 @@ function drawUpdateModal() {
   const noteH = notes.map(n => { let lines = 1, line = ''; for (const wd of ('• ' + n).split(' ')) { const t = line ? line + ' ' + wd : wd; if (g.measureText(t).width > w - 44 && line) { lines++; line = wd; } else line = t; } return Math.max(34, lines * 15 + 8); });
   const h = 200 + noteH.reduce((a, b) => a + b, 0), y = Math.max(20, VH / 2 - h / 2);
   panel(x, y, w, h, '#ffb040', 0.97);
-  g.globalCompositeOperation = 'lighter'; glow(VW / 2, y + 34, 90, '#ffb040', 0.3); g.globalCompositeOperation = 'source-over';
   text('UPDATE AVAILABLE', VW / 2, y + 32, 22, '#ffe0c0', 'center', 'bold', 'Georgia, serif');
   text('v' + appVersion() + '  →  v' + info.versionName, VW / 2, y + 58, 14, '#ffd050');
   let yy = y + 88;
