@@ -67,12 +67,13 @@ def main(events, drums, audio, out):
     arr = lum[..., None] * COL
     ic, fire = icon(); s = 7; big = np.kron(ic, np.ones((s, s), bool))
     ox, oy = (W - big.shape[1]) // 2, (H - big.shape[0]) // 2
-    # the glow: three flat bands of the one colour on the icon's own pixel grid, following the fire's shape (stepped,
-    # no gradient), each dimmer outward; it also fills the hollow of the inner flame
+    # the glow: a circle behind the fire in three flat bands of the one colour on the icon's own pixel grid (stepped,
+    # no gradient), each dimmer outward
     from scipy import ndimage
-    gpad = 20; G = np.zeros((ic.shape[0] + 2 * gpad, ic.shape[1] + 2 * gpad)); G[gpad:-gpad, gpad:-gpad] = fire   # only the fire glows
-    field = ndimage.gaussian_filter(G, 5.0)                    # a soft, round field, then cut into flat bands
-    level = np.select([field > 0.22, field > 0.09, field > 0.03], [0.24, 0.15, 0.08], 0.0)
+    gpad = 20; n = ic.shape[0] + 2 * gpad
+    fy, fx = np.nonzero(fire); cy, cx = (fy.min() + fy.max()) / 2 + gpad, (fx.min() + fx.max()) / 2 + gpad   # the fire's centre
+    yy, xx = np.mgrid[0:n, 0:n] + 0.5; r = np.hypot(yy - cy, xx - cx)
+    level = np.select([r <= 30, r <= 36, r <= 42], [0.2, 0.13, 0.07], 0.0)   # a round glow: three concentric pixel rings
     gl = np.kron(level, np.ones((s, s)))
     gy, gx = oy - gpad * s, ox - gpad * s
     ys, xs = slice(max(0, gy), min(H, gy + gl.shape[0])), slice(max(0, gx), min(W, gx + gl.shape[1]))
