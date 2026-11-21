@@ -113,8 +113,11 @@ Details and the reasoning live in `references/`. These are the ones that cost th
 26. **Dynamics come from the arrangement + section rides, not a leveler**: a slow leveler (level.py) flattened a song to
     0.8 LU of loudness range ("one volume for three minutes"). Pick 1-2 pull-backs (the slowdown before the drop, a
     breakdown), thin them (fewer instruments, one pad, guitars out) and ride the whole mix down 4-8 dB there
-    (SECT_DB in the vessel song), then let the full sections slam. Measure per section (ebur128 per section; aim for an
-    LRA of ~3-8 LU, a pull-back 4-8 LU under the full sections), integrated ~-11 LUFS, `--ceiling -2.5` for <= -1 dBTP.
+    (SECT_DB in the vessel song), then let the full sections slam. But not too far or too fast: the listener found -4 to
+    -8 LU dips "way too quiet" and abrupt. What worked: dips of ~1-2 LU, rides gliding over a whole bar, the bar before
+    easing down, instruments thinning rather than vanishing (guitars stay, muted), and a breakdown that settles into the
+    pre-drop as one arc (no crescendo into a cliff); check the short-term loudness changes < ~1 dB per second. Measure per section (ebur128 per section; aim for an
+    LRA of ~2.5-4 LU), integrated ~-11 LUFS, `--ceiling -2.5` for <= -1 dBTP.
 27. **No stacked unisons**: give a melody to 1-2 instruments; others stab, answer or rest; strings and choir take turns
     or sit an octave apart. `node scripts/density_check.js song.js` flags 3-way same-rhythm stacks and overlapping pads.
 28. **Drums: two sounds per section** - the kick and ONE break, played mostly as its own groove (its snare and hats do

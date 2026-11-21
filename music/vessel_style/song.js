@@ -232,11 +232,12 @@ function guitarEvents() {
         if (k % 2 === 0) toll(pc, 104, false, D8(0, 16, 1));
         if (b >= 2) strings(pc, 60, 70);
       } else if (sec === 'A2') {   // THE PULL-BACK before the drop: bass + piano ostinato, the held line on the strings alone,
-        // the choir taking over the chord halfway; guitars only return (muted, then open) for the last two bars
-        ostinato(bb, false, 100, k < 6);
-        if (k === 6) for (const [s, m, l] of bb) { const g = into(m, 37, 48); P.rhythm.push([E8(s), g, D8(s, l, 0.5), 96, 'mute']); }
+        // the choir taking over the chord halfway; the guitars chug muted and growing, opening up on the brake bar
+        ostinato(bb, false, 100, k < 7);
+        if (k < 7) for (const [s, m, l] of bb) { const g = into(m, 37, 48); for (const n of [g, g + 7]) P.rhythm.push([E8(s), n, D8(s, l, 0.5), 88 + 2 * k, 'mute']); }   // muted chugs, growing
         for (const [s, m, l] of bb) { pkey(E8(s), m + 12, D8(s, l, 0.9), s === 0 ? 76 : 64); } pedalBar();
-        for (const [s, m, l] of LONG[k]) P.strings.push([E8(s), m + 12, D8(s, l, 0.98), 88, 'open']);   // the held line, one instrument
+        if (k < 4) line('brass', LONG[k].map(n => [n[0], n[1] - 12, n[2], n[3]]), { vel: 100 });            // the held line: the brass carries on from the breakdown,
+        else for (const [s, m, l] of LONG[k]) P.strings.push([E8(s), m + 12, D8(s, l, 0.98), 92, 'open']);   // then the strings take it
         if (k < 4) strings(pc, 60, 72); else choir(pc, 84);
         if (k === 0 || k === 4) timp(0, pc, 96); if (k >= 6) timpRoll(k === 6 ? 4 : 0, pc);
       } else {
@@ -266,12 +267,10 @@ function guitarEvents() {
     } else if (ph === 'h') {   // breakdown, half time: ringing chords, piano arpeggios, the guitar sings, then the brass with the guitar under it
       const r2 = 36 + ((pc - 36) % 12 + 12) % 12, g = into(r2, 37, 48);
       P.bass.push([E8(0), r2 - 12, D8(0, 6, 0.95), 116, 'open'], [E8(6), r2, D8(6, 2, 0.9), 104, 'open']);
-      if (b >= 8) for (const n of [g, g + 7, g + 12]) P.rhythm.push([E8(0), n, D8(0, b >= 12 ? 3 : 8, 0.97), b >= 12 ? 120 : 104, 'open']);   // guitars wait out the first half
-      if (b >= 12) for (const n of [g, g + 7, g + 12]) P.rhythm.push([E8(3), n, D8(3, 3, 0.95), 116, 'open'], [E8(6), n, D8(6, 2, 0.95), 118, 'open']);
+      for (const n of [g, g + 7, g + 12]) P.rhythm.push([E8(0), n, D8(0, 8, 0.97), b >= 8 ? 106 : 96, 'open']);   // ringing chords, softer in the first half (no build: the pre-drop builds)
       pianoArp(pc); if (b < 8) strings(pc, 60, 80); else choir(pc, 88);   // strings, then the choir: one pad at a time
       if (b < 8) line('gtr', BREAK[b]); else { line('brass', BREAK[b]); line('gtr', BREAK[b], { harm: true, vel: 106 }); }
       if (k % 2 === 0) toll(pc, 104, false); if (b === 0 || b >= 8) timp(0, pc, b < 8 ? 96 : 110);
-      if (b === 15) timpRoll(4, pc);
     } else if (ph === 'd' || ph === 'e') {
       ostinato(bassBar(pc, next, k), true);
       const pass = sec === 'drop' ? Math.floor(b / 8) : 3;
@@ -343,8 +342,9 @@ async function renderSong() {
   // ---- section dynamics: the whole mix rides down for the two pull-backs (the breakdown and the pre-drop), so the full
   // sections feel huge; the arrangement thins there too. Glides over half a bar like every other ride. ----
   const SECT_DB = x => x.sec === 'intro' ? (x.b < 4 ? -4 : -2)
-    : x.sec === 'C' ? (x.b < 8 ? -4 : x.b < 12 ? -2.5 : -2 + 0.5 * (x.b - 12))   // breakdown: -4, then builds back to 0
-    : x.sec === 'A2' ? (x.k < 4 ? -8 : x.k < 6 ? -6 : x.k === 6 ? -4 : -2) : 0;   // pre-drop: -8, rising into the brake
+    : x.sec === 'B' && x.b === 31 ? -0.7                                              // eases into the breakdown
+    : x.sec === 'C' ? (x.b < 8 ? -0.8 : -0.5)                                         // breakdown: one gentle step down
+    : x.sec === 'A2' ? [-0.5, -0.4, -0.3, -0.2, 0, 0, 0, 0][x.k] : 0;          // pre-drop: continues it, rising into the brake
   const sectRide = ctx.createGain(); master.connect(sectRide);
   sectRide.connect(brakeLP); eqChain(brakeLP, [['lowshelf', 90, -1.5], PK(250, 2, 0.8), PK(800, -4, 0.7)]).connect(comp); comp.connect(ctx.destination);
   for (const gb of BRAKES) { const a = T(gb, 0), b = T(gb + 1, 0); brakeLP.frequency.setValueAtTime(20000, a); brakeLP.frequency.exponentialRampToValueAtTime(350, b - 0.02); brakeLP.frequency.setValueAtTime(20000, b); }
@@ -363,18 +363,18 @@ async function renderSong() {
   const RIDE = {
     piano: x => x.sec === 'intro' && x.b < 4 ? 5 : x.sec === 'C' ? (x.b < 8 ? 6 : 3) : x.sec === 'A2' ? 4 : x.sec === 'drop' ? 1 : 0,   // carries the quiet sections
     lead: x => x.sec === 'C' && x.b < 8 ? 3 : 0,
-    rhythmL: x => x.sec === 'C' && x.b < 12 ? -3 : x.sec === 'intro' ? -2 : 0,
-    rhythmR: x => x.sec === 'C' && x.b < 12 ? -3 : x.sec === 'intro' ? -2 : 0,
+    rhythmL: x => x.sec === 'C' && x.b < 12 ? -3 : x.sec === 'A2' && x.k < 7 ? -1 : x.sec === 'intro' ? -2 : 0,
+    rhythmR: x => x.sec === 'C' && x.b < 12 ? -3 : x.sec === 'A2' && x.k < 7 ? -1 : x.sec === 'intro' ? -2 : 0,
     strings: x => x.sec === 'C' ? 3 : x.sec === 'drop' || x.sec === 'end' ? 2 : x.sec === 'A' || x.sec === 'A2' ? 1 : 0,
     bells: x => x.sec === 'intro' ? 3 : 0,
     choir: x => x.sec === 'F' || x.sec === 'end' ? 2 : 0,
     bass: x => x.sec === 'C' ? -3 : 0,
   };
-  function levelRide(gainNode, fn) { let prev = null;
+  function levelRide(gainNode, fn, slow) { let prev = null;
     for (const x of BARS) { const v = Math.pow(10, fn(x) / 20); if (prev === null) gainNode.gain.setValueAtTime(v, 0);
-      else if (v !== prev) { gainNode.gain.setValueAtTime(prev, T(x.gi - 1, 8)); gainNode.gain.linearRampToValueAtTime(v, T(x.gi, 0)); } prev = v; } }
+      else if (v !== prev) { gainNode.gain.setValueAtTime(prev, T(x.gi - 1, slow ? 0 : 8)); gainNode.gain.linearRampToValueAtTime(v, T(x.gi, 0)); } prev = v; } }   // slow: over the whole previous bar
 
-  levelRide(sectRide, SECT_DB);
+  levelRide(sectRide, SECT_DB, true);
   // ---- recorded stems ----
   async function stem(name, pan, targetDb, verbAmt, echo, eq, duck, rings) {   // rings: not cut at the end (bells)
     if (!has('stem/' + name) || !ON(name)) return;
@@ -428,7 +428,7 @@ async function renderSong() {
 
   // ---------------- drums: chopped breakbeats over a distorted hardcore kick, changing every 4 bars ----------------
   const drumBus = ctx.createGain(); drumBus.gain.value = DRUMS_ON ? 1.22 : 0;
-  const drumRide = ctx.createGain(); levelRide(drumRide, x => x.sec === 'C' && x.b < 8 ? -2 : x.sec === 'A2' && x.k < 6 ? -4 : 0);
+  const drumRide = ctx.createGain(); levelRide(drumRide, x => x.sec === 'C' && x.b < 8 ? -1 : x.sec === 'A2' && x.k < 6 ? -1 : 0, true);
   eqChain(drumBus, [HP(30), PK(380, -3, 1), PK(4500, 1.5, 0.9)]).connect(drumRide); drumRide.connect(dry); send(drumRide, 0.05);
   const kickBus = ctx.createGain(); kickBus.gain.value = 0.9;
   const kickDrive = ctx.createWaveShaper(); { const c = new Float32Array(2048); for (let i = 0; i < 2048; i++) { const x = i / 1023.5 - 1; c[i] = Math.tanh(7 * x) / Math.tanh(7); } kickDrive.curve = c; kickDrive.oversample = '2x'; }
@@ -507,11 +507,10 @@ async function renderSong() {
       if (b >= 28) { tres(); [4, 12].forEach(s => sn(brkOf, s, 0.85)); }
       else { four(); groove(brkOf, gi, b, 0.85, k === 7 ? 12 : 16); if (k === 7) endFill(brkOf, 12); }
     } else if (sec === 'C') {
-      kick(at(0), 1); if (b >= 4 && b < 12) kick(at(10), 0.75);
-      if (b < 12) { sn(brkOf, 8, 0.85); chop(brkOf, gi, '..g.g.g...g.g.g.', 0.5); }
-      else { const step = b === 12 ? 4 : b === 13 ? 2 : 1; for (let s = b === 12 ? 8 : 0; s < 16; s += step) sn(brkOf, s, 0.35 + 0.5 * ((b - 12) * 16 + s) / 64, 1); four(0.75); }
+      kick(at(0), 1); if (b >= 4) kick(at(10), 0.75);
+      sn(brkOf, 8, 0.85); chop(brkOf, gi, '..g.g.g...g.g.g.', 0.5);
     } else if (sec === 'A2') {
-      if (!brake) { tres(0.8); [4, 12].forEach(s => sn(brkOf, s, 0.6)); }
+      if (!brake) { tres(0.8 + 0.03 * k); if (k < 3) [8].forEach(s => sn(brkOf, s, 0.75)); else groove(brkOf, gi, k, 0.35 + 0.08 * k, k === 6 ? 12 : 16); if (k === 6) endFill(brkOf, 12); }   // half time, then the groove fades in
       else { four(); endFill(brkOf, 12); }
     } else if (sec === 'drop' || sec === 'end') {
       const pass = sec === 'drop' ? Math.floor(b / 8) : 0;
