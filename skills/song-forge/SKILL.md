@@ -44,6 +44,9 @@ Python libs (mido, numpy, scipy, pillow) and Playwright's Chromium, then reports
    that sum to the mix + multitrack MIDI); artwork from `references/examples/art/` (see references/visuals.md); MP3
    tags and cover art (visuals.md has the ffmpeg line).
 
+**The listener's artist name is `noobertt`** (use it for `--artist` and every MP3/MP4 tag; an earlier channel name,
+"sunkensol", was dropped - examples that mention it are history).
+
 ## Iterating with a listener
 You can't hear the result, so treat each complaint as a symptom and find the mechanism before touching anything:
 - Locate it: timestamps -> bars (`bar = seconds / (60/BPM*4)`), video clip labels -> section bars, and the parts and

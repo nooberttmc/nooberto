@@ -1,4 +1,4 @@
-"""Thumbnail for "crucible." (sunkensol): single colour, no gradients, pixel art - a campfire.
+"""Thumbnail for "crucible." (noobertt): single colour, no gradients, pixel art - a campfire.
 
 usage: python3 thumbnail.py events.json drums.json song.mp3 out.png
 Background: the song's own arrangement view without its label panel, slightly blurred and dark, in the one colour.
