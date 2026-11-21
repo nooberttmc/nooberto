@@ -30,9 +30,10 @@ Example scripts (for the "apricity." release by "sunkensol"): `references/exampl
 - Single-colour variant ("crucible.", `references/examples/art/thumbnail_flat.py`): one hue on black, NO gradients
   (no glow, no vignette, no shaded fills); the arrangement view recoloured in two flat dim steps of the hue; details as
   cut-outs (negative space); no box or outline around the icon (a black outline was removed). A glow is fine as
-  STEPPED flat bands of the same hue (no smooth gradient) on the icon's pixel grid. The listener preferred a CIRCLE:
-  three concentric rings centred on the icon (~0.20 / 0.13 / 0.07 of the colour) over a halo following the shape;
-  never glow the small sparks (they grew glowing bubbles).
+  stepped bands of the same hue on the icon's pixel grid. What the listener settled on: a large CIRCLE centred on the
+  icon (radius ~58 grid cells, past the frame edges), 8 fine steps from ~0.3 of the colour fading out, Bayer-dithered
+  at the seams (45%), so it reads smooth but stays pixel art. A halo following the shape, or 3 coarse rings, were less
+  liked; never glow the small sparks (they grew glowing bubbles).
 - Watch for accidental readings at icon size and fix them before sending: two cut-out bubbles in a pot read as eyes
   (a face); hollow flames open at the bottom read as legs or letters ("MAA"); round flames under a vessel read as
   wheels (a mine cart); stepped flame sides read as a bar graph; a drip beside a wall reads as a handle. What worked:

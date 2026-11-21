@@ -67,13 +67,17 @@ def main(events, drums, audio, out):
     arr = lum[..., None] * COL
     ic, fire = icon(); s = 7; big = np.kron(ic, np.ones((s, s), bool))
     ox, oy = (W - big.shape[1]) // 2, (H - big.shape[0]) // 2
-    # the glow: a circle behind the fire in three flat bands of the one colour on the icon's own pixel grid (stepped,
-    # no gradient), each dimmer outward
+    # the glow: a large circle behind the fire in 8 fine flat steps of the one colour on the icon's own pixel grid,
+    # dithered only at the seams (pixel art, not a smooth gradient), fading outward
     from scipy import ndimage
-    gpad = 20; n = ic.shape[0] + 2 * gpad
+    gpad = 40; n = ic.shape[0] + 2 * gpad
     fy, fx = np.nonzero(fire); cy, cx = (fy.min() + fy.max()) / 2 + gpad, (fx.min() + fx.max()) / 2 + gpad   # the fire's centre
     yy, xx = np.mgrid[0:n, 0:n] + 0.5; r = np.hypot(yy - cy, xx - cx)
-    level = np.select([r <= 30, r <= 36, r <= 42], [0.2, 0.13, 0.07], 0.0)   # a round glow: three concentric pixel rings
+    R = 58.0; q = 0.3 / 8                                      # a large round glow in 8 fine steps, dithered at the seams
+    bay = np.array([[0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [15, 7, 13, 5]], np.float32) / 16
+    th = np.tile(bay, (n // 4 + 1, n // 4 + 1))[:n, :n]
+    level = 0.3 * np.clip(1 - r / R, 0, 1) ** 0.9
+    level = np.floor(level / q + 0.5 + (th - 0.5) * 0.45) * q
     gl = np.kron(level, np.ones((s, s)))
     gy, gx = oy - gpad * s, ox - gpad * s
     ys, xs = slice(max(0, gy), min(H, gy + gl.shape[0])), slice(max(0, gx), min(W, gx + gl.shape[1]))
