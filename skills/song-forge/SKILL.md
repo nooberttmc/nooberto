@@ -171,6 +171,8 @@ Details and the reasoning live in `references/`. These are the ones that cost th
     samples by <= ~2 dB; measure that (render --wav-out, compare peaks with the ceiling) and count full-scale samples
     in the stems and the MP3. Flourishes must be visible as well as audible: rolls spread ~35 ms a note across both
     hands (12 ms looked like a plain chord), quintuplets as wide chord-tone sweeps, short runs; vary them.
+    Tape-stop dives suit electronic tracks, not an acoustic piano piece (the listener called one a "weird sound
+    effect"). A repeated gesture near the end (a run into a rolled chord) should be bigger the second time.
 33. **Playable by a human**: `node scripts/check_playable.js song.js` (one part per hand: rh, lh) flags chords over a
     10th or over 5 notes, keys held beyond 5, jumps a hand can't make in the time, and notes off the 88-key keyboard
     (A0..C8 - an octave flourish once landed on F#8). It caught a cascade colliding with the melody in the same hand, a

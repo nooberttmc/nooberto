@@ -56,7 +56,7 @@ function T(gi, s) { while (s >= STEPS && gi < TOTAL) { s -= STEPS; gi++; } const
 const BAR_TIMES = TT.map(r => r[0]);
 const MINT = '#9cffd0';   // the video: everything mint green
 const COLORS = Object.fromEntries(SECTIONS.map(([n]) => [n, MINT]));
-const DIVE_BARS = () => [START.C - 1];   // one tape-stop dive, out of the singing section into the stomps
+const DIVE_BARS = () => [];   // no tape-stop dives: the effect doesn't fit a piano piece (the listener removed it)
 
 function bars() {
   const out = []; let gi = 0;
@@ -206,8 +206,8 @@ function guitarEvents() {
     four.forEach((n, i) => key('rh', S16(8 + i), n, D16(8 + i, 1, 0.85), v - 6 + i * 3)); };
   const runDown8 = (fromTop, v) => { const sc = barScale(X.name); let m = fromTop - OCT + 12; v += arch();   // a short fast run down over beats 2-3 (8 notes)
     for (let i = 0; i < 8; i++) { while (!sc.includes(((m % 12) + 12) % 12)) m--; key('rh', S16(4 + i), m, D16(4 + i, 1, 0.85), v - i * 1.5); m--; } };
-  const roll2 = (v) => { const b = LB(); v += arch();   // a big two-hand rolled chord: the low bass up through four octaves, 35 ms a note
-    const lh = [b, b + 12, b + 19, b + 24 + third()], rh = ctones(b + 31 - OCT, b + 50 - OCT).slice(0, 5);
+  const roll2 = (v, hi) => { const b = LB(); v += arch(); hi = hi || 0;   // a big two-hand rolled chord: the low bass up through four octaves, 35 ms a note
+    const lh = [b, b + 12, b + 19, b + 24 + third()], rh = ctones(b + 31 + hi - OCT, b + 62 + hi - OCT).slice(0, hi ? 7 : 5);   // hi: reaching an octave higher (the final one)
     lh.forEach((m, i) => keyA('lh', E8(0) + i * 0.035, m, D8(0, 3, 0.95), v + (i === 0 ? 8 : -4)));
     rh.forEach((m, i) => key('rh', E8(0) + (lh.length + i) * 0.035, m, D8(0, 3, 0.95), v - 6 + i * 2)); };
   const tuplets = (fromTop, target, v) => { const sc = barScale(X.name), st = (m, d) => { let g = m + d; while (!sc.includes(((g % 12) + 12) % 12)) g += d; return g; };
@@ -224,7 +224,7 @@ function guitarEvents() {
     while (ns.length < n) { if (sc.includes(((m % 12) + 12) % 12)) ns.unshift(m); m--; }
     ns.forEach((mm, i) => key('rh', S16(slot16 + i * (4 / n)), mm, D16(slot16 + i * 4 / n, 4 / n, 0.85), v - 14 + i * 4)); };
   const lineFor = (y) => y.sec === 'A' ? MEL[y.ph === 'PA' ? 'PAV' : 'PAV2'][y.k] : y.sec === 'end' ? ME[y.k] : MEL[y.ph] ? MEL[y.ph][y.k] : [[0, 88, 6]];
-  const FLOURISH = { 'A:7': 'arp5', 'A:15': 'run', 'B:0': 'roll', 'B:7': 'down', 'B:15': 'arp5', 'A2:3': 'casc', 'A2:7': 'arp5', 'A2:8': 'roll', 'A2:15': 'down', 'B2:0': 'roll', 'B2:7': 'run' };   // one per phrase, varied
+  const FLOURISH = { 'A:7': 'arp5', 'A:15': 'run', 'B:0': 'roll', 'B:7': 'down', 'B:15': 'arp5', 'A2:3': 'casc', 'A2:7': 'arp5', 'A2:8': 'roll', 'A2:15': 'down', 'B2:0': 'roll', 'B2:7': 'bigrun' };   // one per phrase, varied
   const ALLB = bars(); ALLB.forEach((y, i) => y.nextX = ALLB[i + 1]);
   for (const x of ALLB) {
     X = x; gi = x.gi; const { sec, b, k, ph } = x;
@@ -239,9 +239,9 @@ function guitarEvents() {
       if (F !== 'roll') { if (b % 2) trip(climax ? 108 : 106); else leap(climax ? 110 : 106); }   // (a roll bar: the roll is the left hand's figure)
       if (F === 'roll') roll2(climax ? 110 : 104);
       if (F === 'casc') { melody(line.filter(n => n[0] < 3), climax ? 116 : 110); runDown(95, 6, 10, 106); }
-      else if (F === 'arp5' || F === 'run' || F === 'down') { const nx = X.nextX, tg = nx ? lineFor(nx)[0][1] : 88;
+      else if (F === 'arp5' || F === 'run' || F === 'down' || F === 'bigrun') { const nx = X.nextX, tg = nx ? lineFor(nx)[0][1] : 88;
         melody(line.filter(n => n[0] < 2), climax ? 116 : 110);
-        if (F === 'arp5') arp5(line[0][1], tg, climax ? 112 : 106); else if (F === 'down') runDown8(line[0][1], climax ? 112 : 106); else runUp(tg, 4, 8, 108); }
+        if (F === 'arp5') arp5(line[0][1], tg, climax ? 112 : 106); else if (F === 'down') runDown8(line[0][1], climax ? 112 : 106); else if (F === 'bigrun') runUp(tg + 12, 4, 12, 114); else runUp(tg, 4, 8, 108); }   // bigrun: from two octaves below, 12 notes, up to the octave above
       else melody(line, isA ? (climax ? 116 : 110) : (climax ? 114 : 110));
       pedalBar();
     } else if (sec === 'L') {   // the singing section: slower, softer, the left hand alternating wide broken chords and triplets
@@ -254,7 +254,7 @@ function guitarEvents() {
       stabs(108 + (k === 7 ? 6 : 0), tops[k]);
       pedalBar();
     } else if (sec === 'end') {   // the release: the theme broadens, slower
-      if (k === 0) roll2(100); else if (k % 2 === 0) leap(102); else wide(96);
+      if (k === 0) roll2(108, 12); else if (k % 2 === 0) leap(102); else wide(96);   // the coda opens on the biggest roll
       melody(ME[k], 104);
       pedalBar();
     }
