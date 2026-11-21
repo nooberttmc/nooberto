@@ -33,7 +33,7 @@ Python libs (mido, numpy, scipy, pillow) and Playwright's Chromium, then reports
    analysis. To iterate on the mix only (no re-recording), re-run just the `render.js ... --stem` step.
 4. **Check before you send.** `node scripts/check_notes.js song.js` until it prints "all notes OK" (out-of-key notes,
    non-chord tones held on strong beats, minor-2nd clashes between any two parts; export per-bar `harmony` from
-   guitarEvents()), and `node scripts/density_check.js song.js` (stacked unisons, overlapping pads). Then read the
+   guitarEvents()), and `node scripts/density_check.js song.js` (stacked unisons, overlapping pads), and for piano `node scripts/check_playable.js song.js`. Then read the
    analysis: loudness ~-11 LUFS, true peak <= -1 dBTP, loudness range ~3-8 LU with real pull-backs (lesson 26), width, tonal balance vs the reference. For composition changes, print the notes per bar with their chords and
    confirm every note is intended. For guitar changes, check that short and long notes start at the same level.
 5. **Deliver and iterate.** Send the MP3 (and video). Say plainly that you can't listen, so the user's ears decide.
@@ -143,6 +143,18 @@ Details and the reasoning live in `references/`. These are the ones that cost th
     `eighths_per_bar`, `strong` and `meter` from guitarEvents() so check_notes.js and the piano-roll video follow it.
     For solo piano, `visualize.py --piano-roll events.json song.mp3 out.mp4 60 1.5` draws one big roll with a lit
     keyboard (each part its own shade, brighter = harder).
+32. **"Soul and passion" made concrete** (from research; the listener asked for it): rubato through the tempo map (each
+    4-bar phrase pushes ~3% into its middle and broadens ~7% into its cadence; a slower singing section that presses
+    back to tempo; a ritardando coda); a crescendo/diminuendo arch inside each phrase; the melody voiced over its
+    chord and a hair (~12 ms) ahead of it; appoggiaturas (the step above, leant on for an 8th, resolving down - mark them
+    art 'appog' so check_notes allows the deliberate dissonance) at phrase peaks; the climax ~2/3 through, then
+    release; grace notes, two-note slides, octave flourishes, rolled chords (no trills); humanize ~7 ms / +-5 velocity.
+    A soft section must still not be a hole: ~2-3 LU under (a mix ride if the thinner texture drops it further).
+33. **Playable by a human**: `node scripts/check_playable.js song.js` (one part per hand: rh, lh) flags chords over a
+    10th or over 5 notes, keys held beyond 5, jumps a hand can't make in the time, and notes off the 88-key keyboard
+    (A0..C8 - an octave flourish once landed on F#8). It caught a cascade colliding with the melody in the same hand, a
+    run spilling into the other hand mid-leap, a "third hand" doubling, and rolled chords held as 8 keys: write rolls and
+    sweeps as short keys under the pedal.
 ## How the pieces fit
 - `song.js` defines `guitarEvents()` (every pitched part as notes: `[t_sec, midi, dur_sec, velocity, articulation]`,
   plus `bpm` and `sections`) and `async renderSong()` (the mix: loads recorded stems via `loadAsset('stem/NAME', ctx)`,

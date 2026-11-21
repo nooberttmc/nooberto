@@ -12,14 +12,14 @@ const ev = G(), bt = ev.bar_times, ch = ev.chords || [], HM = ev.harmony, N = 'C
 const barOf = t => { let b = 0; while (b + 1 < bt.length && bt[b + 1] <= t + 1e-6) b++; return b; };
 // meter: guitarEvents() may export eighths_per_bar (default 8 = 4/4) and strong (the strong 8th slots; default the 3+3+2 hits)
 const EPB = ev.eighths_per_bar || 8, STRONG = ev.strong || (EPB === 8 ? [0, 3, 6] : [...Array(EPB).keys()].filter(k => k % 2 === 0));
-const slot = t => { const b = barOf(t); return [b, (t - bt[b]) / (bt[b + 1] - bt[b]) * EPB]; };
+const slot = t0 => { const t = t0 + 0.03, b = barOf(t); return [b, Math.max(0, (t0 - bt[b]) / (bt[b + 1] - bt[b]) * EPB)]; };   // humanized notes may sound up to 30 ms early
 const SC = SCALE_ || [5, 7, 8, 10, 0, 1, 3, 4], LEADING = 4, V = 0;   // F minor defaults
 let problems = 0;
 const name = m => N[m % 12] + (Math.floor(m / 12) - 1);
 for (const [part, p] of Object.entries(ev.parts)) {
   if (/R$/.test(part)) continue;   // second takes double the L part
   for (const [t, m, len, v, art] of p.notes) {
-    if (art === 'mute') continue;
+    if (art === 'mute' || art === 'appog') continue;   // appoggiaturas: deliberate dissonances that resolve by step
     const [b, s] = slot(t), pc = HM ? HM[b].tones[0] : ch[b], cps = HM ? HM[b].tones : QUAL[pc].map(i => (pc + i) % 12), mp = m % 12, SCb = HM ? HM[b].scale : SC;
     const iv = cps.map(c => (c - pc + 12) % 12), tag = `${part.padEnd(8)} bar ${String(b + 1).padStart(3)} slot ${s.toFixed(1).padStart(4)} ${name(m).padEnd(4)} over ${N[pc]}${iv[1] === 3 ? 'm' : iv.length > 3 ? '7' : ''}`;
     if (!SCb.includes(mp)) { console.log('OUT OF KEY ', tag); problems++; continue; }
@@ -36,7 +36,7 @@ for (const [t, m, l] of mel) for (const [tb, mb, lb] of bass) {
 }
 // every pair of sustained notes in different parts: minor 2nds / minor 9ths sounding together for > 120 ms
 { const keep = Object.keys(ev.parts).filter(k => !/R$/.test(k)), all = [];
-  for (const k of keep) for (const [t, m, l, v, art] of ev.parts[k].notes) if (art !== 'mute') all.push([t, t + (k === 'bells' ? Math.min(l, 1.0) : l), m, k]);
+  for (const k of keep) for (const [t, m, l, v, art] of ev.parts[k].notes) if (art !== 'mute' && art !== 'appog') all.push([t, t + (k === 'bells' ? Math.min(l, 1.0) : l), m, k]);
   all.sort((x, y) => x[0] - y[0]); const seen = new Set();
   // unaccented passing tones are correct counterpoint: off the beat, approached and left by step in the same direction
   const passing = new Set(); for (const k of keep) { const ns = ev.parts[k].notes.filter(n => n[4] !== 'mute').map(n => [n[0], n[1]]);

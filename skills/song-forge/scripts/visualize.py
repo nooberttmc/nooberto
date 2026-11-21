@@ -228,11 +228,11 @@ def main(events, drums, audio, out, fps=60, start=0.0, length=None, scale=1.0, t
 
 def main_roll(events, audio, out, fps=60, scale=1.0, theme=None):
     """One big piano roll: a vertical keyboard on the left whose keys light up as they're played, every note of every
-    part at its real pitch (each part its own shade, brighter = played harder), black-key rows shaded, octave lines
+    part at its real pitch (each part its own shade, or all one colour with events "roll_color"; brighter = played harder), black-key rows shaded, octave lines
     labelled, a bar/beat ruler on top, the section colour shifting with the song."""
     K = scale; W_, H_ = int(round(W * K)), int(round(H * K)); u = lambda v: int(round(v * K))
     ev = json.load(open(events)); configure(ev, theme); parts = ev['parts']
-    beats = (ev.get('meter') or [4, 4])[0]
+    beats = (ev.get('meter') or [4, 4])[0]; one = hx(ev['roll_color']) if ev.get('roll_color') else None
     notes = []
     names = list(parts)
     for pi, (k, p) in enumerate(parts.items()):
@@ -279,13 +279,14 @@ def main_roll(events, audio, out, fps=60, scale=1.0, theme=None):
         for (n0, m, nd, v, pi) in notes[i0:i1]:
             if n0 + nd < t: continue
             x1, x2 = X(n0), X(n0 + nd); y0 = Y(m) + 1
-            a, b2 = shades[pi % len(shades)]; base_c = mix(mix(col, CREAM, a), (150, 110, 255), b2)
+            if one: base_c = one                                      # one colour for everything (events 'roll_color')
+            else: a, b2 = shades[pi % len(shades)]; base_c = mix(mix(col, CREAM, a), (150, 110, 255), b2)
             lv = 0.45 + 0.55 * max(0, min(1, (v - 30) / 97))        # brighter = played harder
             playing = n0 <= t < n0 + nd
-            c = CREAM if playing else mix(BG, base_c, lv)
+            c = mix(base_c, (255, 255, 255), 0.45) if playing else mix(BG, base_c, lv)
             g.rectangle([max(X0r, x1), y0, max(max(X0r, x1) + 1, x2 - 1), y0 + max(1, rowh - 2)], fill=c)
             if playing: lit[m] = mix(base_c, CREAM, 0.35)
-        g.line([X0r, top, X0r, H_], fill=GOLD, width=u(2))          # the playhead
+        g.line([X0r, top, X0r, H_], fill=one or GOLD, width=u(2))   # the playhead
         for m in range(lo, hi + 1):                                 # the keyboard: white keys, then black keys over them
             if black(m): continue
             y0, y1 = Y(m), Y(m) + rowh

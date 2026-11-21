@@ -1,41 +1,61 @@
-// An original SOLO PIANO piece in the style of the aggressive passages of "oh, nameless sky" (AZALI; bars 1-20, 50-66 and
-// 74-88 of the transcription by Kachium): its devices, never its notes. 3/4 at 200 (presto); the right hand hits a full
-// chord on beat 1 with the melody on top, then quick 8th figures; the left hand leaps from a low bass note through the
-// fifth to the tenth, rolls triplet arpeggios, or stomps accented octaves an octave down; descending cascades cross the
-// hands; quick scale runs rise into downbeats; rolled chords at the climaxes; the Neapolitan (bII) for colour; the
-// opening sweeps up from the bass with a crescendo. Played on the house grand (the Salamander SFZ through piano_render.py,
-// so harder keystrokes play the harder-hammer recordings), in E minor.
-const BPM = 200, STEPS = 12, STEP = 60 / BPM / 4, BAR = STEP * STEPS;   // 3/4: 12 sixteenths per bar
+// An original SOLO PIANO piece in the style of the aggressive passages of "oh, nameless sky" (AZALI; transcription by
+// Kachium): its devices, never its notes - 3/4, right-hand chords with the melody on top, left-hand leaps through the
+// fifth to the tenth, triplet arpeggios, octave stomps an octave down, cascades across the hands, runs into downbeats,
+// rolled chords, the Neapolitan.
+// Played with soul and passion (what that means, from research, made concrete):
+//  - rubato: every 4-bar phrase pushes forward toward its middle and broadens into its cadence (the tempo map), a slower
+//    singing section (piu lento, like the score's "Plus lent") that presses back to tempo, a ritardando coda
+//  - phrasing: a crescendo/diminuendo arch inside every phrase; the melody voiced over the chords; the melody a hair ahead
+//  - yearning: appoggiaturas (a dissonant note leant on, resolving down by step) at the phrase peaks
+//  - the climax about two-thirds through (the theme an octave higher, the melody in octaves in both hands), then release
+//  - ornaments: upward grace notes, two-note slides, rolled chords, octave flourishes (no trills)
+// On the house grand (the Salamander SFZ through piano_render.py: harder keystrokes play harder-hammer recordings).
+const BPM = 172, STEPS = 12, STEP = 60 / BPM / 4, BAR = STEP * STEPS;   // 3/4: 12 sixteenths per bar
 
 // ---- harmony ----
 const CH = { Em: [4, 7, 11], C: [0, 4, 7], D: [2, 6, 9], B: [11, 3, 6], B7: [11, 3, 6, 9], A: [9, 1, 4], Am: [9, 0, 4], G: [7, 11, 2],
   F: [5, 9, 0], Bm: [11, 2, 6] };
-const chordOf = n => n, bassOf = n => CH[n][0];
+const bassOf = n => CH[n][0];
 const KEY = [4, 6, 7, 9, 11, 0, 2];   // E natural minor
-const ALT = { 3: 2, 1: 0, 5: 6, 10: 9 };   // a borrowed chord tone replaces the key note it alters: D# for D, C# for C, F for F#, A# for A
+const ALT = { 3: 2, 1: 0, 5: 6, 10: 9 };   // a borrowed chord tone replaces the key note it alters: D# for D, C# for C, F for F#
 const barScale = n => { let s = KEY.slice(); for (const c of CH[n]) if (!s.includes(c)) s = s.filter(k => k !== ALT[c]).concat([c]); return s; };
 const into = (m, lo, hi) => { while (m < lo) m += 12; while (m > hi) m -= 12; return m; };
 const PROG = {
   IN: ['Em', 'Em', 'Em', 'Em'],
-  PA: ['Em', 'C', 'Am', 'B', 'Em', 'F', 'B7', 'Em'],        // the Neapolitan F (bII) before the dominant
-  PA2: ['Em', 'C', 'A', 'B', 'C', 'F', 'B7', 'Em'],         // the major IV, then bVI - bII - V7 - i
+  PA: ['Em', 'C', 'Am', 'B', 'Em', 'F', 'B7', 'Em'],
+  PA2: ['Em', 'C', 'A', 'B', 'C', 'F', 'B7', 'Em'],
   PB: ['C', 'D', 'Bm', 'Em', 'Am', 'D', 'G', 'B'],
   PB2: ['C', 'D', 'Bm', 'Em', 'A', 'F', 'B7', 'B7'],
-  PC: ['Em', 'Em', 'F', 'F', 'Am', 'Am', 'B7', 'B7'],       // two bars each: the octave stomps
+  PL: ['Em', 'C', 'G', 'D', 'Am', 'Em', 'F', 'B7'],         // the singing section
+  PL2: ['Em', 'C', 'G', 'B', 'Em', 'Am', 'B7', 'B7'],
+  PC: ['Em', 'Em', 'F', 'F', 'Am', 'Am', 'B7', 'B7'],
   PE: ['C', 'F', 'B7', 'Em', 'C', 'Am', 'B7', 'Em'],
 };
-const SECTIONS = [['intro', 4], ['A', 16], ['B', 16], ['C', 8], ['A2', 16], ['B2', 16], ['C2', 8], ['end', 8], ['hold', 2]];
-const PLAN = { intro: ['IN'], A: ['PA', 'PA2'], B: ['PB', 'PB2'], C: ['PC'], A2: ['PA', 'PA2'], B2: ['PB', 'PB2'], C2: ['PC'], end: ['PE'], hold: [] };
+const SECTIONS = [['intro', 4], ['A', 16], ['B', 16], ['L', 16], ['C', 8], ['A2', 16], ['B2', 8], ['end', 8], ['hold', 2]];
+const PLAN = { intro: ['IN'], A: ['PA', 'PA2'], B: ['PB', 'PB2'], L: ['PL', 'PL2'], C: ['PC'], A2: ['PA', 'PA2'], B2: ['PB2'], end: ['PE'], hold: [] };
 const LEN = Object.fromEntries(SECTIONS), START = {}; { let g = 0; for (const [n, l] of SECTIONS) { START[n] = g; g += l; } }
 const TOTAL = SECTIONS.reduce((a, x) => a + x[1], 0);
-function barTempo(gi) { return gi >= START.hold ? [120, 120] : gi === START.hold - 1 ? [200, 150] : [BPM, BPM]; }   // a held-back last bar
+const secOf = gi => { let s = SECTIONS[0][0]; for (const [n] of SECTIONS) if (gi >= START[n]) s = n; return s; };
+// ---- rubato: the tempo of every bar (start, end) ----
+function barTempo(gi) {
+  const sec = secOf(gi), b = gi - START[sec];
+  if (sec === 'hold') return [96, 96];
+  let base = BPM;
+  if (sec === 'L') base = b < 12 ? 138 : 138 + (BPM - 138) * (b - 11) / 5;              // piu lento, pressing back to tempo
+  if (sec === 'end') base = BPM - (BPM - 118) * Math.pow(b / 8, 1.6);                  // the ritardando coda
+  if (sec === 'intro') base = b === 0 ? 150 : BPM;
+  const arc = [[0.985, 1.01], [1.01, 1.035], [1.035, 1.015], [1.0, 0.93]][b % 4];   // push into the phrase, broaden its end
+  const end = sec === 'end' ? BPM - (BPM - 118) * Math.pow((b + 1) / 8, 1.6) : sec === 'L' && b >= 11 ? 138 + (BPM - 138) * (b - 10) / 5 : base;
+  return [base * arc[0], end * arc[1]];
+}
 const BRAKES = [];
 const TT = []; { let t = 0; for (let gi = 0; gi < TOTAL + 1; gi++) { const [a, b] = barTempo(Math.min(gi, TOTAL - 1)), row = [t];
   for (let k = 0; k < STEPS; k++) { const bpm = a + (b - a) * (k + 0.5) / STEPS; t += 60 / bpm / 4; row.push(t); } TT.push(row); } }
 function T(gi, s) { while (s >= STEPS && gi < TOTAL) { s -= STEPS; gi++; } const k = Math.floor(s), f = s - k, row = TT[gi]; return row[k] + (k < STEPS ? (row[k + 1] - row[k]) * f : 0); }
 const BAR_TIMES = TT.map(r => r[0]);
-const COLORS = { intro: '#7a8cff', A: '#5f74ff', B: '#9a5cff', C: '#c06cff', A2: '#5f74ff', B2: '#9a5cff', C2: '#c06cff', end: '#8fb4ff', hold: '#e0e4ff' };
-const DIVE_BARS = () => [START.C - 1, START.A2 + 7, START.C2 - 1];   // tape-stop dives at a few phrase ends (whole mix)
+const MINT = '#9cffd0';   // the video: everything mint green
+const COLORS = Object.fromEntries(SECTIONS.map(([n]) => [n, MINT]));
+const DIVE_BARS = () => [START.C - 1];   // one tape-stop dive, out of the singing section into the stomps
 
 function bars() {
   const out = []; let gi = 0;
@@ -47,41 +67,61 @@ function bars() {
   return out;
 }
 
-// ---- the melodies (right hand, top voice), in 8ths: [slot 0..5, midi, length, ornament] (E5 = 76) ----
+// ---- the melodies, in 8ths: [slot 0..5, midi, length, ornament] (E5 = 76). Ornaments: 'g' an upward grace note,
+// 's' a two-note slide up into the note, 'a' an appoggiatura (the scale step above, leant on for an 8th, then the note),
+// 'o' an octave flourish (the octave above flicked in just before), 'f' a soft fall-away (shorter, quieter) ----
 const MA = [
-  [[0, 79, 3], [3, 81, 1], [4, 83, 1], [5, 84, 1]],                  // Em  G (A B C climbing into the next bar)
-  [[0, 84, 3], [3, 83, 1], [4, 81, 1], [5, 79, 1]],                  // C   C (B A G)
-  [[0, 81, 3], [3, 84, 1], [4, 88, 2, 'g']],                         // Am  A C E
-  [[0, 87, 3], [3, 83, 1], [4, 78, 2]],                              // B   D# B F#
-  [[0, 79, 3], [3, 81, 1], [4, 83, 1], [5, 84, 1]],                  // Em
-  [[0, 84, 3], [3, 81, 1], [4, 77, 2]],                              // F   C A F  (the Neapolitan)
-  [[0, 78, 1], [1, 81, 1], [2, 83, 1], [3, 87, 1], [4, 90, 2, 'f']], // B7  F# A B D# F#
-  [[0, 88, 4], [4, 83, 2]] ];                                        // Em  E B
+  [[0, 79, 3], [3, 81, 1], [4, 83, 1], [5, 84, 1]],
+  [[0, 84, 3, 'a'], [3, 83, 1], [4, 81, 1], [5, 79, 1]],
+  [[0, 81, 3], [3, 84, 1], [4, 88, 2, 'g']],
+  [[0, 87, 3, 'a'], [3, 83, 1], [4, 78, 2]],
+  [[0, 79, 3, 's'], [3, 81, 1], [4, 83, 1], [5, 84, 1]],
+  [[0, 84, 3], [3, 81, 1], [4, 77, 2]],
+  [[0, 78, 1], [1, 81, 1], [2, 83, 1], [3, 87, 1], [4, 90, 2, 'o']],
+  [[0, 88, 4, 'a'], [4, 83, 2]] ];
 const MA2 = [MA[0], MA[1],
-  [[0, 81, 3], [3, 85, 1], [4, 88, 2, 'g']],                         // A   A C# E (the major IV)
+  [[0, 81, 3, 's'], [3, 85, 1], [4, 88, 2, 'g']],
   MA[3],
-  [[0, 84, 2], [2, 88, 2], [4, 91, 2]],                              // C   C E G
-  [[0, 89, 3], [3, 84, 1], [4, 81, 2]],                              // F   F C A
-  [[0, 87, 2], [2, 83, 1], [3, 81, 1], [4, 78, 2]],                  // B7  D# B A F#
-  [[0, 76, 6, 'f']] ];                                               // Em  E
+  [[0, 84, 2], [2, 88, 2], [4, 91, 2, 'g']],
+  [[0, 89, 3, 'a'], [3, 84, 1], [4, 81, 2]],
+  [[0, 87, 2], [2, 83, 1], [3, 81, 1], [4, 78, 2]],
+  [[0, 76, 6, 'f']] ];
 const MB = [
-  [[0, 79, 2], [2, 84, 2], [4, 83, 1], [5, 84, 1]],                  // C   G C (B) C
-  [[0, 86, 4], [4, 81, 2]],                                          // D   D A
-  [[0, 83, 2], [2, 86, 2], [4, 90, 2]],                              // Bm  B D F#
-  [[0, 88, 4], [4, 86, 1], [5, 84, 1]],                              // Em  E (D C)
-  [[0, 84, 2], [2, 81, 2], [4, 76, 2]],                              // Am  C A E
-  [[0, 78, 2], [2, 81, 2], [4, 86, 2, 'g']],                         // D   F# A D
-  [[0, 83, 4], [4, 79, 2]],                                          // G   B G
-  [[0, 78, 2], [2, 83, 2], [4, 87, 2]] ];                            // B   F# B D#
+  [[0, 79, 2], [2, 84, 2, 'g'], [4, 83, 1], [5, 84, 1]],
+  [[0, 86, 4, 'a'], [4, 81, 2]],
+  [[0, 83, 2], [2, 86, 2], [4, 90, 2, 's']],
+  [[0, 88, 4], [4, 86, 1], [5, 84, 1]],
+  [[0, 84, 2], [2, 81, 2], [4, 76, 2]],
+  [[0, 78, 2], [2, 81, 2], [4, 86, 2, 'g']],
+  [[0, 83, 4, 'a'], [4, 79, 2]],
+  [[0, 78, 2], [2, 83, 2], [4, 87, 2, 'o']] ];
 const MB2 = MB.slice(0, 4).concat([
-  [[0, 85, 2], [2, 81, 2], [4, 76, 2]],                              // A   C# A E
-  [[0, 77, 2], [2, 81, 2], [4, 84, 2, 'g']],                         // F   F A C
-  [[0, 87, 2], [2, 83, 2], [4, 81, 2]],                              // B7  D# B A
-  [[0, 78, 1], [1, 81, 1], [2, 83, 1], [3, 87, 1], [4, 90, 2]] ]);   // B7  F# A B D# F#
+  [[0, 85, 2], [2, 81, 2], [4, 76, 2]],
+  [[0, 77, 2], [2, 81, 2], [4, 84, 2, 's']],
+  [[0, 87, 2, 'a'], [2, 83, 2], [4, 81, 2]],
+  [[0, 78, 1], [1, 81, 1], [2, 83, 1], [3, 87, 1], [4, 90, 2, 'o']] ]);
+const ML = [   // the singing section: long notes, appoggiaturas at the peaks
+  [[0, 76, 3], [3, 79, 1], [4, 83, 2, 'g']],          // Em  E G B
+  [[0, 84, 4, 'a'], [4, 79, 2]],                      // C   (D) C G
+  [[0, 83, 3], [3, 81, 1], [4, 79, 2]],               // G   B A G
+  [[0, 78, 4, 'a'], [4, 74, 2]],                      // D   (G) F# D
+  [[0, 76, 2], [2, 81, 2], [4, 84, 2, 's']],          // Am  E A C
+  [[0, 83, 4, 'a'], [4, 79, 2]],                      // Em  (C) B G
+  [[0, 81, 3], [3, 77, 1], [4, 72, 2]],               // F   A F C
+  [[0, 75, 4, 'a'], [4, 71, 2]] ];                    // B7  (E) D# B
+const ML2 = [
+  [[0, 76, 3], [3, 79, 1], [4, 83, 2, 'g']],          // Em
+  [[0, 88, 4, 'a'], [4, 84, 2]],                      // C   (F) E C
+  [[0, 86, 3], [3, 83, 1], [4, 79, 2]],               // G   D B G
+  [[0, 87, 4, 'a'], [4, 83, 2]],                      // B   (E) D# B
+  [[0, 88, 6, 'o']],                                  // Em  E, held
+  [[0, 84, 2], [2, 88, 2], [4, 93, 2, 'g']],          // Am  C E A
+  [[0, 90, 4, 'a'], [4, 87, 2]],                      // B7  (G) F# D#
+  [[0, 83, 2], [2, 81, 2], [4, 78, 2]] ];             // B7  B A F#
 const ME = [
-  [[0, 84, 3], [3, 88, 3]], [[0, 89, 3], [3, 84, 3]], [[0, 87, 3], [3, 81, 3]], [[0, 88, 6]],
-  [[0, 84, 2], [2, 88, 2], [4, 91, 2]], [[0, 88, 3], [3, 84, 3]], [[0, 83, 2], [2, 87, 2], [4, 90, 2]], [[0, 88, 6]] ];
-const MEL = { PA: MA, PA2: MA2, PB: MB, PB2: MB2, PE: ME };
+  [[0, 84, 3, 'a'], [3, 88, 3]], [[0, 89, 3], [3, 84, 3]], [[0, 87, 3, 'a'], [3, 81, 3]], [[0, 88, 6]],
+  [[0, 84, 2], [2, 88, 2], [4, 91, 2, 'g']], [[0, 88, 3, 'a'], [3, 84, 3]], [[0, 83, 2], [2, 87, 2], [4, 90, 2]], [[0, 88, 6, 'f']] ];
+const MEL = { PA: MA, PA2: MA2, PB: MB, PB2: MB2, PL: ML, PL2: ML2, PE: ME };
 
 // ---------------- the piano: right hand and left hand ----------------
 function guitarEvents() {
@@ -92,78 +132,97 @@ function guitarEvents() {
   const tones = () => CH[X.chord];
   const PEDAL = [];
   const pedalBar = () => PEDAL.push([T(gi, 0) + 0.06, T(gi + 1, 0) + 0.012]);
-  const key = (hand, t, m, d, v) => P[hand].push([t, m, d, Math.max(30, Math.min(127, Math.round(v))), 'open']);
-  const rolled = (hand, t, ms, d, v, gap) => ms.slice().sort((a, b) => a - b).forEach((m, i, arr) => key(hand, t + i * (gap || 0.012), m, d, i === arr.length - 1 ? v + 4 : v - 4));
-  const low = () => into(24 + X.bass, 28, 39);                      // the bass: E1..D#2
+  const key = (hand, t, m, d, v, art) => P[hand].push([t, m, d, Math.max(26, Math.min(127, Math.round(v))), art || 'open']);
+  const rolled = (hand, t, ms, d, v, gap) => ms.slice().sort((a, b) => a - b).forEach((m, i, arr) => key(hand, t + i * (gap || 0.014), m, d, i === arr.length - 1 ? v + 4 : v - 4));
+  const low = () => into(24 + X.bass, 28, 39);
   const third = () => (tones()[1] - tones()[0] + 12) % 12;
   const ctones = (lo, hi) => { const out = []; for (let m = lo; m <= hi; m++) if (tones().includes(m % 12)) out.push(m); return out; };
+  // dynamics: a crescendo/diminuendo arch inside every 4-bar phrase (peak in its third bar), per section a level
+  const LEVEL = { intro: 0, A: 0, B: 4, L: -3, C: 6, A2: 10, B2: 8, end: 0, hold: 0 };   // the singing section softer, not a hole
+  const arch = () => [-6, 0, 6, -2][X.b % 4] + LEVEL[X.sec] + (X.sec === 'L' && X.b >= 12 ? (X.b - 11) * 3 : 0) + (X.sec === 'end' ? -X.b * 1.0 : 0);
   // ---- left hand ----
-  const leap = (v) => { const b = low(); key('lh', E8(0), b, D8(0, 1), v + 8); key('lh', E8(1), b + 7, D8(1, 1), v - 6);
-    key('lh', E8(2), b + 12 + third(), D8(2, 4, 0.98), v - 2); key('lh', E8(3), b + 19, D8(3, 2, 0.95), v - 10); };   // the top fifth lets go before the last 8th   // bass - fifth - tenth (+ fifth above)
-  const trip = (v) => { const b = low(), up = [b, b + 7, b + 12, b + 12 + third(), b + 19, b + 24]; const idx = [0, 1, 2, 3, 4, 5, 4, 3, 2];
-    idx.forEach((j, i) => key('lh', S16(i * 4 / 3), up[j], D16(i * 4 / 3, 4 / 3, 0.98), v + (i === 0 ? 10 : i % 3 === 0 ? 2 : -6))); };   // triplet 8ths, 3 per beat
-  const stomp = (v) => { const b = low(); for (let q = 0; q < 3; q++) { key('lh', S16(q * 4), b - (b >= 33 ? 12 : 0), D16(q * 4, 4, 0.9), v + (q === 0 ? 12 : 4)); key('lh', S16(q * 4) + 0.003, b + 12 - (b >= 33 ? 12 : 0), D16(q * 4, 4, 0.9), v); } };   // accented octaves, 8va bassa
-  // ---- right hand: the melody on top; long notes get the full chord under them, short ones the octave ----
-  const melody = (notes, v, o) => { o = o || {}; const sc = barScale(X.name);
-    for (const [s, m, l, orn] of notes) { const t = E8(s), d = D8(s, l, l <= 1 ? 0.9 : 0.97);
-      if (orn === 'g') { let g = m - 1; while (!sc.includes(((g % 12) + 12) % 12)) g -= 1;
-        const p = P.rh[P.rh.length - 1]; if (p && p[0] + p[2] > t - 0.07) p[2] = Math.max(0.04, t - 0.072 - p[0]); key('rh', t - 0.06, g, 0.055, v - 18); }
-      const acc = s === 0 ? 8 : l >= 2 ? 2 : -4;
-      key('rh', t, m, d, v + acc);
-      if (l >= 2 || s === 0) { const inner = ctones(m - 11, m - 1).filter(x => x >= m - 9).slice(-2); key('rh', t + 0.004, m - 12, d, v + acc - 10);
-        inner.forEach((x, i) => key('rh', t + 0.006 + i * 0.002, x, d, v + acc - 16)); }   // octave + two chord tones inside it
-      else if (o.oct) key('rh', t + 0.003, m - 12, d, v + acc - 12); } };
-  const stabs = (v, tops) => tops.forEach((top, s) => { if (top == null) return; const ch = ctones(top - 11, top).slice(-4);
-    ch.forEach((m, i) => key('rh', E8(s) + i * 0.002, m, D8(s, 1, 0.8), v + (s === 0 ? 10 : s % 2 ? -8 : 0) - (m === top ? 0 : 8))); });   // repeated chords in 8ths
-  const runDown = (from, slot16, n, v) => { const sc = barScale(X.name); let m = from; for (let i = 0; i < n; i++) {   // a cascade, 16ths
-      while (!sc.includes(((m % 12) + 12) % 12)) m--; key(i < n / 2 ? 'rh' : 'lh', S16(slot16 + i * (8 / n) * 1), m, D16(slot16 + i * 8 / n, 8 / n, 0.9), v - i * 1.5); m--; } };
-  const runUp = (to, slot16, n, v, hand) => { const sc = barScale(X.name), ns = []; let m = to - 1;   // a quick scale run rising into a note
-      while (ns.length < n) { if (sc.includes(((m % 12) + 12) % 12)) ns.unshift(m); m--; }
-      ns.forEach((mm, i) => key(hand || 'rh', S16(slot16 + i * (4 / n)), mm, D16(slot16 + i * 4 / n, 4 / n, 0.85), v - 12 + i * 4)); };
+  const leap = (v) => { const b = low(); v += arch();
+    key('lh', E8(0), b, D8(0, 1), v + 8); key('lh', E8(0) + 0.006, b - 12 >= 21 ? b - 12 : b + 12, D8(0, 1), v + 2);   // the bass in octaves
+    key('lh', E8(1), b + 7, D8(1, 1), v - 8); key('lh', E8(2), b + 12 + third(), D8(2, 4, 0.98), v - 4); key('lh', E8(3), b + 19, D8(3, 2, 0.95), v - 12); };
+  const trip = (v) => { const b = low(), up = [b, b + 7, b + 12, b + 12 + third(), b + 19, b + 24]; const idx = [0, 1, 2, 3, 4, 5, 4, 3, 2]; v += arch();
+    idx.forEach((j, i) => key('lh', S16(i * 4 / 3), up[j], D16(i * 4 / 3, 4 / 3, 0.98), v + (i === 0 ? 10 : i % 3 === 0 ? 2 : -8) + (j === 5 ? 3 : 0))); };
+  const wide = (v) => { const b = low(), tn = ctones(b + 12, b + 31); v += arch();   // the singing section: a wide 2-octave broken chord in 8ths
+    const seq = [b, tn[0], tn[2] || tn[1], tn[3] || tn[2], tn[2] || tn[1], tn[0]];
+    key('lh', E8(0) + 0.006, b - 12 >= 21 ? b - 12 : b, D8(0, 6, 0.98), v - 2);
+    seq.forEach((m, i) => key('lh', E8(i), m, D8(i, Math.min(2, 6 - i), 0.98), v + [8, -6, -2, 2, -4, -8][i])); };
+  const stomp = (v) => { const b = low(); v += arch(); const lb = b >= 33 ? b - 12 : b;   // accented octaves, an octave down (to A0)
+    for (let q = 0; q < 3; q++) { key('lh', S16(q * 4), lb, D16(q * 4, 4, 0.9), v + (q === 0 ? 12 : 4)); key('lh', S16(q * 4) + 0.004, lb + 12, D16(q * 4, 4, 0.9), v); } };
+  // ---- right hand: the melody on top (a hair ahead of the chord), voiced over it; long notes get the chord ----
+  const melody = (notes, v, o) => { o = o || {}; const sc = barScale(X.name), step = (m, dir) => { let g = m + dir; while (!sc.includes(((g % 12) + 12) % 12)) g += dir; return g; };
+    v += arch();
+    for (const [s, m0, l, orn] of notes) { const m = m0 + (o.up || 0); let t = E8(s), d = D8(s, l, l <= 1 ? 0.9 : 0.97);
+      const acc = s === 0 ? 8 : l >= 2 ? 3 : -5, lead = -0.012;
+      const trim = tt => { const p = P.rh[P.rh.length - 1]; if (p && p[0] + p[2] > tt - 0.01) p[2] = Math.max(0.04, tt - 0.012 - p[0]); };
+      if (orn === 'g') { trim(t - 0.06); key('rh', t - 0.06, step(m, -1), 0.055, v - 20); }
+      if (orn === 's') { trim(t - 0.1); key('rh', t - 0.1, step(step(m, -1), -1), 0.045, v - 24); key('rh', t - 0.052, step(m, -1), 0.045, v - 18); }
+      if (orn === 'o' && m + 12 <= 108) { trim(t - 0.065); key('rh', t - 0.065, m + 12, 0.06, v - 14); }   // (only on the keyboard: A0..C8)
+      let mm = m;
+      if (orn === 'a' && l >= 2) {   // the appoggiatura: the scale step above, on the beat and leant on, resolving down
+        const ap = step(m, 1), d1 = D8(s, 1, 1.0); key('rh', t + lead, ap, d1, v + acc + 6, 'appog'); key('rh', t + 0.004 + lead, ap - 12, d1, v + acc - 6, 'appog');
+        t = E8(s + 1); d = D8(s + 1, l - 1, 0.97); }
+      const vv = orn === 'f' ? v - 12 : v + acc;
+      const roll = (s === 0 && (X.b % 4 === 0) && l >= 2) ? 0.028 : 0.006;   // phrase starts: the chord rolled up into the melody
+      key('rh', t + lead + (roll > 0.01 ? roll * 3 : 0), mm, d, vv); key('rh', t + lead, mm - 12, d, vv - 10);
+      if (l >= 2 || s === 0) { const inner = ctones(mm - 11, mm - 1).filter(x => x >= mm - 9).slice(-2);
+        inner.forEach((x, i) => key('rh', t + lead + roll * (i + 1), x, d, vv - 18)); } } };
+  const stabs = (v, tops) => { v += arch(); tops.forEach((top, s) => { if (top == null) return; const ch = ctones(top - 11, top).slice(-4);
+    ch.forEach((m, i) => key('rh', E8(s) + i * 0.004, m, D8(s, 1, 0.8), v + (s === 0 ? 10 : s % 2 ? -10 : -2) - (m === top ? 0 : 10))); }); };
+  const runDown = (from, slot16, n, v) => { const sc = barScale(X.name), len = STEPS - slot16; let m = from; v += arch();   // a cascade in the right hand, inside its bar
+    for (let i = 0; i < n; i++) { while (!sc.includes(((m % 12) + 12) % 12)) m--; key('rh', S16(slot16 + i * len / n), m, D16(slot16 + i * len / n, len / n, 0.9), v - i * 1.2); m--; } };
+  const runUp = (to, slot16, n, v) => { const sc = barScale(X.name), ns = []; let m = to - 1; v += arch();
+    while (ns.length < n) { if (sc.includes(((m % 12) + 12) % 12)) ns.unshift(m); m--; }
+    ns.forEach((mm, i) => key('rh', S16(slot16 + i * (4 / n)), mm, D16(slot16 + i * 4 / n, 4 / n, 0.85), v - 14 + i * 4)); };
   for (const x of bars()) {
     X = x; gi = x.gi; const { sec, b, k, ph } = x;
-    if (sec === 'hold') { if (b === 0) { const H = 4.4;   // the last chord, rolled, fermata
-        rolled('lh', E8(0), [28, 40, 47], H, 116, 0.02); rolled('rh', E8(0) + 0.07, [64, 67, 71, 76, 79, 83, 88], H, 112, 0.016); PEDAL.push([E8(0) + 0.05, E8(0) + H]); } continue; }
+    if (sec === 'hold') { if (b === 0) { const H = 5.0;   // the last chord, rolled wide over five octaves, fermata
+        rolled('lh', E8(0), [28, 40, 47, 52], 0.5, 108, 0.03); rolled('rh', E8(0) + 0.1, [64, 67, 71, 76, 79, 83, 88, 91], 0.09, 100, 0.024); PEDAL.push([E8(0) + 0.05, E8(0) + H]); } continue; }   // a wide arpeggio, the pedal holds it
     if (sec === 'intro') {
-      if (b === 0) { const sweep = [28, 35, 40, 43, 47, 52, 55, 59, 64, 67, 71, 76];   // a sweep up from the bass, crescendo
-        sweep.forEach((m, i) => key(i < 6 ? 'lh' : 'rh', S16(i), m, D16(i, STEPS - i, 0.98), 60 + i * 5)); pedalBar(); }
-      else { leap(104 + b * 3); melody([[0, 79, 3], [3, 78, 1], [4, 76, 2]], 100 + b * 4); pedalBar(); }   // the band of the theme announced
+      if (b === 0) { const sweep = [23, 28, 35, 40, 43, 47, 52, 55, 59, 64, 67, 71, 76];   // from B0 up, crescendo
+        sweep.forEach((m, i) => key(i < 7 ? 'lh' : 'rh', S16(i * 12 / 13), m, D16(i * 12 / 13, 1.2, 0.98), 54 + i * 5)); pedalBar(); }   // short keys: the pedal holds the sound
+      else { leap(100 + b * 3); melody([[0, 79, 3, b === 1 ? 's' : null], [3, 78, 1], [4, 76, 2]], 96 + b * 4); pedalBar(); }
     } else if (sec === 'A' || sec === 'A2') {
-      const thick = sec === 'A2';
-      if (thick) trip(110); else leap(108);
-      melody(MEL[ph][k], thick ? 116 : 110, { oct: true });
-      if (k === 3 && b < 8) runDown(100, 6, 12, 108);                           // a cascade across the hands
-      if (k === 7 && b >= 8) runUp(MEL.PB[0][0][1] + 12, 8, 5, 110);            // a run into the next section
+      const climax = sec === 'A2';
+      if (climax && b % 2) trip(108); else leap(climax ? 110 : 104);
+      const casc = k === 3 && b < 8;   // the melody hands the bar over to a cascade after its first long note
+      melody(casc ? MEL[ph][k].filter(n => n[0] < 3) : MEL[ph][k], climax ? 114 : 106, { up: climax ? 12 : 0 });
+      if (casc) runDown(climax ? 103 : 100, 6, 10, 106);
+      if (k === 7 && b >= 8 && sec === 'A') runUp(88, 8, 5, 108);
       pedalBar();
     } else if (sec === 'B' || sec === 'B2') {
-      if (sec === 'B') trip(108); else leap(112);
-      melody(MEL[ph][k], sec === 'B2' ? 118 : 112, { oct: true });
-      if (k === 7 && b >= 8) runUp(88, 8, 5, 114);
-      if (sec === 'B2' && k === 0) rolled('rh', E8(0) - 0.05, ctones(52, 64), D8(0, 3), 100);   // rolled chords at the phrase starts
+      if (sec === 'B') trip(104); else leap(110);
+      melody(MEL[ph][k], sec === 'B2' ? 114 : 108);
+      if (k === 7) runUp(sec === 'B2' ? 100 : 88, 8, 5, 110);
       pedalBar();
-    } else if (sec === 'C' || sec === 'C2') {   // the octave stomps under repeated chords; the last two bars build
-      stomp(114);
+    } else if (sec === 'L') {   // the singing section: soft, slower, the left hand's wide broken chords, the melody in octaves
+      wide(84); melody(MEL[ph][k], 84);
+      pedalBar();
+    } else if (sec === 'C') {   // the stomps under repeated chords; the last two bars build
+      stomp(110);
       const tops = { 0: [83, 79, 83, 88, 83, 79], 1: [88, 83, 88, 91, 88, 83], 2: [84, 81, 84, 89, 84, 81], 3: [89, 84, 89, 93, 89, 84],
         4: [81, 76, 81, 84, 81, 76], 5: [84, 81, 84, 88, 84, 81], 6: [87, 81, 87, 90, 87, 81] };
-      if (k < 7) stabs(sec === 'C2' ? 116 : 110, tops[k]);
-      else { const arp = ctones(59, 95); for (let i = 0; i < 12; i++) key('rh', S16(i), arp[Math.min(arp.length - 1, i)], D16(i, 1, 0.9), 96 + i * 2); }   // B7 rising in 16ths
+      if (k < 7) stabs(108, tops[k]);
+      else { const arp = ctones(59, 99); for (let i = 0; i < 12; i++) key('rh', S16(i), arp[Math.min(arp.length - 1, i)], D16(i, 1, 0.9), 92 + i * 2.5); }   // up to D#7
       pedalBar();
-    } else if (sec === 'end') {
-      if (k % 2 === 0) leap(114); else trip(112);
-      melody(ME[k], 118, { oct: true });
-      if (k === 3) runDown(100, 4, 16, 112);
-      if (k === 7) runDown(95, 6, 12, 110);
+    } else if (sec === 'end') {   // the release: the theme broadens, softer, slower
+      if (k % 2 === 0) leap(102); else wide(96);
+      melody(k === 3 ? [[0, 88, 2]] : ME[k], 104);
+      if (k === 3) runDown(100, 4, 14, 104);   // E6 struck, then the cascade from E7
       pedalBar();
     }
   }
   const part = (notes, o) => Object.assign({ sf: 'grand', program: 0, amp: 'none', notes }, o);
   const B = bars();
-  return { bpm: BPM, sections: SECTIONS, colors: COLORS, bar_times: BAR_TIMES.slice(0, TOTAL + 1), bar_tempi: Array.from({ length: TOTAL }, (_, g) => barTempo(g)),
+  return { bpm: BPM, sections: SECTIONS, colors: COLORS, roll_color: MINT, bar_times: BAR_TIMES.slice(0, TOTAL + 1), bar_tempi: Array.from({ length: TOTAL }, (_, g) => barTempo(g)),
     eighths_per_bar: 6, strong: [0, 2, 4], meter: [3, 4],
     harmony: B.map(x => ({ tones: CH[x.chord], scale: barScale(x.name) })),
     parts: {
-      rh: part(P.rh, { label: 'Piano (right hand)', humanize: 4, velvar: 4, pedal: PEDAL }),   // the house grand
-      lh: part(P.lh, { label: 'Piano (left hand)', humanize: 5, velvar: 5, pedal: PEDAL }),
+      rh: part(P.rh, { label: 'Piano (right hand)', humanize: 7, velvar: 5, pedal: PEDAL }),   // humanized: +-7 ms, +-5 velocity
+      lh: part(P.lh, { label: 'Piano (left hand)', humanize: 8, velvar: 6, pedal: PEDAL }),
     } };
 }
 
@@ -205,7 +264,7 @@ async function renderSong() {
   const vs = g(0.3); merge.connect(vs); vs.connect(verb);
   // section dynamics: only the first bar (the soft opening) sits under; everything else is full energy, colour not volume
   const sect = ctx.createGain(); pin.gain.value = 1;
-  const SECT_DB = x => 0;
+  const SECT_DB = x => x.sec === 'L' ? 3.5 : x.sec === 'end' ? 2 : 0;   // the thinner singing section and coda lifted (soft playing, not a hole)
   { let prev = null; for (const x of BARS) { const v = Math.pow(10, SECT_DB(x) / 20); if (prev === null) pin.gain.setValueAtTime(v, 0);
       else if (v !== prev) { pin.gain.setValueAtTime(prev, T(x.gi - 1, 8)); pin.gain.linearRampToValueAtTime(v, T(x.gi, 0)); } prev = v; } }
   async function stem(name, targetDb) {
