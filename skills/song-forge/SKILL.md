@@ -31,10 +31,10 @@ Python libs (mido, numpy, scipy, pillow) and Playwright's Chromium, then reports
 3. **Build.** `SONGFORGE=<skill>/scripts bash templates/build.sh song.js "Title" --artist NAME --gain 4 [--video]`
    exports the notes, records every part (FluidSynth -> amp sim), mixes in Chromium, masters to MP3 and prints the
    analysis. To iterate on the mix only (no re-recording), re-run just the `render.js ... --stem` step.
-4. **Check before you send.** Run `node scripts/check_notes.js song.js` until it prints "all notes OK" (out-of-key notes,
-   non-chord tones held on strong beats, minor-2nd clashes between any two parts; song.js must define QUAL, SCALE and
-   export `chords`). Then read the analysis: loudness ~-11 LUFS, true peak <= -1 dBTP, level jumps (few over
-   3 dB), width, tonal balance vs the reference. For composition changes, print the notes per bar with their chords and
+4. **Check before you send.** `node scripts/check_notes.js song.js` until it prints "all notes OK" (out-of-key notes,
+   non-chord tones held on strong beats, minor-2nd clashes between any two parts; export per-bar `harmony` from
+   guitarEvents()), and `node scripts/density_check.js song.js` (stacked unisons, overlapping pads). Then read the
+   analysis: loudness ~-11 LUFS, true peak <= -1 dBTP, loudness range ~3-8 LU with real pull-backs (lesson 26), width, tonal balance vs the reference. For composition changes, print the notes per bar with their chords and
    confirm every note is intended. For guitar changes, check that short and long notes start at the same level.
 5. **Deliver and iterate.** Send the MP3 (and video). Say plainly that you can't listen, so the user's ears decide.
    Turn each piece of feedback into a specific, measurable cause before changing anything (see "Iterating with a
@@ -110,6 +110,13 @@ Details and the reasoning live in `references/`. These are the ones that cost th
     relative to the mix (LU); set levels against a target table (drums -5, lead -8, each rhythm take -11, bass -12,
     piano -12, strings -15, bells/timp -14, choir -16 as a starting point), master ~-10 LUFS / <= -1 dBTP. It found a
     bass 11 dB and an arp 16 dB too quiet that no one had noticed by ear-proxy.
+26. **Dynamics come from the arrangement + section rides, not a leveler**: a slow leveler (level.py) flattened a song to
+    0.8 LU of loudness range ("one volume for three minutes"). Pick 1-2 pull-backs (the slowdown before the drop, a
+    breakdown), thin them (fewer instruments, one pad, guitars out) and ride the whole mix down 4-8 dB there
+    (SECT_DB in the vessel song), then let the full sections slam. Measure per section (ebur128 per section; aim for an
+    LRA of ~3-8 LU, a pull-back 4-8 LU under the full sections), integrated ~-11 LUFS, `--ceiling -2.5` for <= -1 dBTP.
+27. **No stacked unisons**: give a melody to 1-2 instruments; others stab, answer or rest; strings and choir take turns
+    or sit an octave apart. `node scripts/density_check.js song.js` flags 3-way same-rhythm stacks and overlapping pads.
 ## How the pieces fit
 - `song.js` defines `guitarEvents()` (every pitched part as notes: `[t_sec, midi, dur_sec, velocity, articulation]`,
   plus `bpm` and `sections`) and `async renderSong()` (the mix: loads recorded stems via `loadAsset('stem/NAME', ctx)`,

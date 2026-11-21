@@ -9,6 +9,7 @@
 //   --gain DB              output gain before the final limiter (default 3)
 //   --level FROM:UNTIL     run the slow leveler (level.py) on the mix between those seconds
 //   --dip FROM:UNTIL:DB    leveler: keep that section DB quieter (repeat)
+//   --ceiling DB           final limiter ceiling in dBFS (default -2; -2.5 for more true-peak headroom)
 //   --free FROM:UNTIL      leveler: hands off there, the mix shapes it (repeat)
 //   --artist NAME --album NAME   tags for the MP3
 //   --solo PART|all|drums  stem export: render one part (master compressor bypassed)
@@ -30,6 +31,7 @@ for (let i = 2; i < args.length; i++) {
   else if (a === '--gain') opt.gain = +v();
   else if (a === '--level') opt.level = v();
   else if (a === '--dip') opt.dips.push(v());
+  else if (a === '--ceiling') opt.ceiling = parseFloat(v());
   else if (a === '--free') opt.free.push(v());
   else if (a === '--artist') opt.artist = v();
   else if (a === '--album') opt.album = v();
@@ -79,8 +81,10 @@ const pcm = p => execSync(`ffmpeg -loglevel error -i "${p}" -ac 1 -ar 44100 -f f
       opt.dips.map(d => ' --dip ' + d).join('') + opt.free.map(d => ' --free ' + d).join(''), { stdio: 'inherit' });
   }
   const tags = [`-metadata title="${title.replace(/"/g, '')}"`, opt.artist ? `-metadata artist="${opt.artist}"` : '', opt.album ? `-metadata album="${opt.album}"` : ''].join(' ');
-  // limiter ceiling -2 dBFS: keeps true peaks under about -1 dBTP after MP3/AAC encoding
-  execSync(`ffmpeg -y -loglevel error -i "${wav}" -af "volume=${opt.gain == null ? 3 : opt.gain}dB,alimiter=limit=0.79:level=false" -codec:a libmp3lame -b:a 192k ${tags} "${mp3}"`);
+  // limiter ceiling (default -2 dBFS; --ceiling DB): MP3/AAC encoding adds ~1 dB of inter-sample peaks, so -2 to -2.5 dBFS
+  // keeps true peaks at or under -1 dBTP
+  const lim = Math.pow(10, (opt.ceiling == null ? -2 : opt.ceiling) / 20).toFixed(4);
+  execSync(`ffmpeg -y -loglevel error -i "${wav}" -af "volume=${opt.gain == null ? 3 : opt.gain}dB,alimiter=limit=${lim}:level=false" -codec:a libmp3lame -b:a 192k ${tags} "${mp3}"`);
   fs.unlinkSync(wav);
   console.log('rendered', r.seconds.toFixed(1) + 's', 'raw peak', r.peak.toFixed(2), '->', mp3);
 })();

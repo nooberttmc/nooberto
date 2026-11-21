@@ -170,7 +170,7 @@ function guitarEvents() {
     const o = opt || {}, up = o.up || 0, vel = o.vel || 112, sc = barScale(X.pc);
     for (const n of notes) {
       const [s, m0, l, orn] = n, m = (o.harm ? third(m0, X.pc) : m0) + up + (who === 'gtr' ? GTR_OCT : 0), t = E8(s), d = D8(s, l, l <= 1 ? 0.92 : 0.97);
-      const dests = who === 'gtr' ? [o.harm ? P.harmony : P.lead] : [P.brass, P.synth];
+      const dests = who === 'gtr' ? [o.harm ? P.harmony : P.lead] : o.synth ? [P.brass, P.synth] : [P.brass];   // the synth layer only where asked (no stacked unisons)
       if (orn === 'g' && !o.harm) {   // grace note: a step below when climbing to it, above when falling, ~75 ms before the beat
         let g = m - 1; while (!sc.includes(((g % 12) + 12) % 12)) g -= 1;   // always from the scale step below: an upward flick
         for (const dst of dests) { const p = dst[dst.length - 1]; if (p && p[0] + p[2] > t - 0.08) p[2] = Math.max(0.05, t - 0.085 - p[0]);
@@ -187,13 +187,16 @@ function guitarEvents() {
     if (full) bell(0, into(60 + pc, 62, 73) + 12, vel - 6, len); };
   const triad = pc => chordPcs(pc).slice(0, 3);
   // bass + rhythm guitars: a power chord on every bass note (passing notes as octaves), muted 16th chugs in the gaps
-  const ostinato = (notes, chug, vel) => { for (const [s, m, l] of notes) {
-      P.bass.push([E8(s), m - 12, D8(s, l, 0.92), s === 0 ? 118 : 108, 'open']);
+  const ostinato = (notes, chug, vel, noGtr) => { for (const [s, m, l] of notes) {
+      P.bass.push([E8(s), m - 12, D8(s, l, 0.92), s === 0 ? 118 : 108, 'open']); if (noGtr) continue;
       const g = into(m, 37, 48), fifth = s === 0 || chordPcs(X.pc).includes((g + 7) % 12);
       for (const n of fifth ? [g, g + 7, g + 12] : [g, g + 12]) P.rhythm.push([E8(s), n, D8(s, l, 0.92), (vel || 120) + (s === 0 ? 4 : 0), 'open']);
       if (chug && l >= 3) for (const q of [1, 2]) for (const n of fifth ? [g, g + 7] : [g]) P.rhythm.push([E8(s + q), n, D8(0, 0.5, 0.9), 100, 'mute']);
     } };
   const strings = (pc, lo, vel, len) => triad(pc).forEach(c => P.strings.push([E8(0), into(c + 60, lo || 60, (lo || 60) + 11), D8(0, len || 8, 0.98), vel || 84, 'open']));
+  const stringOst = (pc, vel) => { for (let s = 0; s < 8; s++) { const c = triad(pc), r = into(60 + c[0], 60, 71), f = into(60 + c[2], 60, 71);   // 8ths, root/fifth, an octave up
+      P.strings.push([E8(s), s % 2 ? f + 12 : r + 12, D8(s, 1, 0.8), s % 2 ? vel - 12 : vel, 'open']); } };
+  const brassStabs = (pc, slots) => slots.forEach((s, j) => triad(pc).forEach(c => P.brass.push([E8(s), into(c + 72, 70, 81), D8(s, j === 2 ? 2 : 1, 0.8), j ? 108 : 116, 'open'])));
   const choir = (pc, vel) => triad(pc).forEach(c => P.choir.push([E8(0), into(c + 60, 57, 68), D8(0, 8, 0.98), vel || 92, 'open']));
   // ---- the piano, played like a pianist: moderate velocities shaped by the phrase (accented downbeats, softer inner
   // voices, arched arpeggios), chords rolled a few ms from the bass up, and the sustain pedal changed at each chord in the
@@ -219,7 +222,7 @@ function guitarEvents() {
         for (const n of [41, 48, 53]) P.rhythm.push([E8(0), n, H, 126, 'open']); P.bass.push([E8(0), 29, H, 120, 'open']);
         P.lead.push([E8(0), 77, H, 120, 'bend']); P.harmony.push([E8(0), 72, H, 112, 'lead']); P.brass.push([E8(0), 72, H, 120, 'open'], [E8(0), 77, H, 118, 'open']); P.synth.push([E8(0), 77, H, 116, 'open']);
         bell(0, 65, 124, 6.5); bell(0, 68, 118, 6.5); bell(0, 72, 120, 6.5); bell(0, 77, 116, 6.5);   // ~30 dB down by 6.5 s: inaudible after
-        [65, 68, 72].forEach(m => P.strings.push([E8(0), m, H, 100, 'open'])); [60, 65, 68].forEach(m => P.choir.push([E8(0), m, H, 104, 'open']));
+        [77, 80, 84].forEach(m => P.strings.push([E8(0), m, H, 100, 'open'])); [60, 65, 68].forEach(m => P.choir.push([E8(0), m, H, 104, 'open']));
         P.timp.push([E8(0), 41, 1.5, 127, 'open']); rolled(E8(0), [29, 41, 65, 68, 72], H, 100, 6); PEDAL.push([E8(0) + 0.05, E8(0) + H]); }
     } else if (ph === 'pedal') {
       const bb = bassBar(pc, next, k);
@@ -228,17 +231,23 @@ function guitarEvents() {
         triad(pc).forEach((c, i) => pkey(E8(0) + 0.012 + i * 0.007, into(c + 60, 60, 71), D8(0, 8, 0.95), 62 + i * 3)); pedalBar();
         if (k % 2 === 0) toll(pc, 104, false, D8(0, 16, 1));
         if (b >= 2) strings(pc, 60, 70);
+      } else if (sec === 'A2') {   // THE PULL-BACK before the drop: bass + piano ostinato, the held line on the strings alone,
+        // the choir taking over the chord halfway; guitars only return (muted, then open) for the last two bars
+        ostinato(bb, false, 100, k < 6);
+        if (k === 6) for (const [s, m, l] of bb) { const g = into(m, 37, 48); P.rhythm.push([E8(s), g, D8(s, l, 0.5), 96, 'mute']); }
+        for (const [s, m, l] of bb) { pkey(E8(s), m + 12, D8(s, l, 0.9), s === 0 ? 76 : 64); } pedalBar();
+        for (const [s, m, l] of LONG[k]) P.strings.push([E8(s), m + 12, D8(s, l, 0.98), 88, 'open']);   // the held line, one instrument
+        if (k < 4) strings(pc, 60, 72); else choir(pc, 84);
+        if (k === 0 || k === 4) timp(0, pc, 96); if (k >= 6) timpRoll(k === 6 ? 4 : 0, pc);
       } else {
-        ostinato(bb, sec === 'A2', sec === 'intro' ? 112 : 120);
-        strings(pc, 60, sec === 'A2' ? 96 : 84);
-        const up = sec === 'A2' || (sec === 'A' && b >= 8) ? 12 : 0;
+        ostinato(bb, false, sec === 'intro' ? 112 : 120);
+        strings(pc, 60, 84);
+        const up = sec === 'A' && b >= 8 ? 12 : 0;
         if (sec !== 'intro') { line('brass', LONG[k].map(n => [n[0], n[1] - 12 + up, n[2], n[3]]));
-          line('gtr', LONG[k].map(n => [n[0], n[1] - 12 + up, n[2], 'v']), { harm: true, vel: 104 });           // the guitar a third under the brass
-          LONG[k].forEach(n => P.strings.push([E8(n[0]), n[1] + up, D8(n[0], n[2], 0.98), 92, 'open'])); }
+          line('gtr', LONG[k].map(n => [n[0], n[1] - 12 + up, n[2], 'v']), { harm: true, vel: 104 }); }   // the guitar a third under the brass
         if (sec === 'intro') { for (const [s, m, l] of bb) pkey(E8(s), m + 12, D8(s, l, 0.9), s === 0 ? 84 : 72); pedalBar(); }
         else pianoStab(pc, [0, 3, 6]);
         if (sec === 'A' && b === 0) toll(pc, 112, true);
-        if (sec === 'A2') { choir(pc, 96); if (k === 0 || k === 4) timp(0, pc); if (k >= 6) timpRoll(k === 6 ? 4 : 0, pc); }
       }
     } else if (ph === 'q' || ph === 'a') {
       ostinato(bassBar(pc, next, k), sec === 'F');
@@ -251,28 +260,30 @@ function guitarEvents() {
         if (b % 16 === 0) toll(pc, 112, true);
       } else {   // F: the final theme a half step up, guitar and brass in octaves, choir and bells
         line('brass', THEME[ph][k]); line('gtr', THEME[ph][k], { up: -12 });
-        strings(pc, 60, 90); choir(pc, 100); pianoStab(pc, [0, 3, 6]);
+        stringOst(pc, 88); choir(pc, 100); pianoStab(pc, [0, 3, 6]);
         if (b === 0 || b === 8) toll(pc, 116, true); if (k === 0) timp(0, pc, 124);
       }
     } else if (ph === 'h') {   // breakdown, half time: ringing chords, piano arpeggios, the guitar sings, then the brass with the guitar under it
       const r2 = 36 + ((pc - 36) % 12 + 12) % 12, g = into(r2, 37, 48);
       P.bass.push([E8(0), r2 - 12, D8(0, 6, 0.95), 116, 'open'], [E8(6), r2, D8(6, 2, 0.9), 104, 'open']);
-      for (const n of [g, g + 7, g + 12]) P.rhythm.push([E8(0), n, D8(0, b >= 12 ? 3 : 8, 0.97), b >= 12 ? 120 : 108, 'open']);
+      if (b >= 8) for (const n of [g, g + 7, g + 12]) P.rhythm.push([E8(0), n, D8(0, b >= 12 ? 3 : 8, 0.97), b >= 12 ? 120 : 104, 'open']);   // guitars wait out the first half
       if (b >= 12) for (const n of [g, g + 7, g + 12]) P.rhythm.push([E8(3), n, D8(3, 3, 0.95), 116, 'open'], [E8(6), n, D8(6, 2, 0.95), 118, 'open']);
-      pianoArp(pc); strings(pc, 60, 96); if (b >= 8) { strings(pc, 72, 84); choir(pc, 88); }
+      pianoArp(pc); if (b < 8) strings(pc, 60, 80); else choir(pc, 88);   // strings, then the choir: one pad at a time
       if (b < 8) line('gtr', BREAK[b]); else { line('brass', BREAK[b]); line('gtr', BREAK[b], { harm: true, vel: 106 }); }
-      if (k % 2 === 0) toll(pc, 108, false); timp(0, pc, 110);
+      if (k % 2 === 0) toll(pc, 104, false); if (b === 0 || b >= 8) timp(0, pc, b < 8 ? 96 : 110);
       if (b === 15) timpRoll(4, pc);
     } else if (ph === 'd' || ph === 'e') {
       ostinato(bassBar(pc, next, k), true);
       const pass = sec === 'drop' ? Math.floor(b / 8) : 3;
-      line('brass', DROP[ph][k]);
-      if (pass === 0) line('gtr', DROP[ph][k], { harm: true, vel: 110 });         // guitar a third under the brass
-      else if (pass === 1) line('gtr', DROP[ph][k], { up: -12 });               // octaves
-      else line('gtr', FILLS[k]);   // answers the brass's long notes with the hook
-      for (const s of [0, 1, 2, 3, 4, 5, 6, 7]) { const c = triad(pc), r = into(60 + c[0], 60, 71), f = into(60 + c[2], 60, 71);   // string ostinato in 8ths
-        P.strings.push([E8(s), s % 2 ? f + 12 : r + 12, D8(s, 1, 0.8), s % 2 ? 84 : 96, 'open']); }
-      choir(pc, 96); DROP[ph][k].forEach(([s, m, l], i) => pkey(E8(s), m + 12, D8(s, l, 0.95), (l >= 4 ? 90 : 82) + (i === 0 ? 4 : 0))); pedalBar();
+      // pass 1: the brass section states the line (with its synth layer), nothing doubling it; the strings' 8th ostinato
+      // pass 2: the guitar takes the line, the brass answers with stabs on the 3+3+2; the choir holds the chord instead
+      // pass 3 (and the ending): the brass line, the guitar answering its long notes with the hook; strings back; the piano
+      //         rings one chord per bar
+      if (pass === 0) line('brass', DROP[ph][k], { synth: true });
+      else if (pass === 1) { line('gtr', DROP[ph][k]); brassStabs(pc, [0, 3, 6]); }
+      else { line('brass', DROP[ph][k]); line('gtr', FILLS[k]); }
+      if (pass === 1) choir(pc, 96); else stringOst(pc, 92);
+      if (pass >= 2) { rolled(E8(0), triad(pc).map(c => into(c + 72, 72, 83)), D8(0, 8, 0.95), 86); pedalBar(); }
       if (k % 2 === 0) timp(0, pc); if (sec === 'drop' && b === 0) toll(pc, 118, true);
       if (sec === 'end' && k === 7) timpRoll(0, pc);
     } else if (ph === 's') {   // the trading solo
@@ -282,10 +293,10 @@ function guitarEvents() {
       else if (brassBar) ostinato([[0, r2, 3], [3, r2, 3], [6, r2, 2]], false, 124);
       else ostinato(bass8, false, 112);
       if (gtrBar) line('gtr', SOLO[b]);
-      else if (brassBar) { for (const s of [0, 3, 6]) triad(pc).forEach((c, i) => { const m = into(c + 72, 70, 81); P.brass.push([E8(s), m, D8(s, s === 6 ? 2 : 1, 0.85), 116, 'open']); if (i === 2) P.synth.push([E8(s), m, D8(s, 1, 0.85), 112, 'open']); });
+      else if (brassBar) { brassStabs(pc, [0, 3, 6]);
         pianoStab(pc, [0, 3, 6]); timp(0, pc); }
       else { line('brass', SOLO[b]); line('gtr', SOLO[b], { up: -12 }); }
-      strings(pc, 60, 80); if (b >= 12) choir(pc, 96);
+      if (b < 12) strings(pc, 60, 80); else choir(pc, 96);
     }
     if (x.tr) for (const [n, a] of Object.entries(P)) for (let i = mark[n]; i < a.length; i++) a[i] = [a[i][0], a[i][1] + x.tr, ...a[i].slice(2)];
   }
@@ -329,7 +340,13 @@ async function renderSong() {
   const eqChain = (src, eq) => { let n = src; for (const [type, f, g, q] of eq || []) { const b = ctx.createBiquadFilter(); b.type = type; b.frequency.value = f; if (g != null) b.gain.value = g; b.Q.value = q || 0.7; n.connect(b); n = b; } return n; };
   const HP = f => ['highpass', f, null, 0.7], LP = f => ['lowpass', f, null, 0.7], PK = (f, g, q) => ['peaking', f, g, q || 1];
   const brakeLP = ctx.createBiquadFilter(); brakeLP.type = 'lowpass'; brakeLP.frequency.value = 20000; brakeLP.Q.value = 0.7;   // closes during a brake
-  master.connect(brakeLP); eqChain(brakeLP, [['lowshelf', 90, -1.5], PK(250, 2, 0.8), PK(800, -4, 0.7)]).connect(comp); comp.connect(ctx.destination);
+  // ---- section dynamics: the whole mix rides down for the two pull-backs (the breakdown and the pre-drop), so the full
+  // sections feel huge; the arrangement thins there too. Glides over half a bar like every other ride. ----
+  const SECT_DB = x => x.sec === 'intro' ? (x.b < 4 ? -4 : -2)
+    : x.sec === 'C' ? (x.b < 8 ? -7 : x.b < 12 ? -4 : -3 + (x.b - 12))          // breakdown: -7, then builds back to 0
+    : x.sec === 'A2' ? (x.k < 4 ? -8 : x.k < 6 ? -6 : x.k === 6 ? -4 : -2) : 0;   // pre-drop: -8, rising into the brake
+  const sectRide = ctx.createGain(); master.connect(sectRide);
+  sectRide.connect(brakeLP); eqChain(brakeLP, [['lowshelf', 90, -1.5], PK(250, 2, 0.8), PK(800, -4, 0.7)]).connect(comp); comp.connect(ctx.destination);
   for (const gb of BRAKES) { const a = T(gb, 0), b = T(gb + 1, 0); brakeLP.frequency.setValueAtTime(20000, a); brakeLP.frequency.exponentialRampToValueAtTime(350, b - 0.02); brakeLP.frequency.setValueAtTime(20000, b); }
   const dry = ctx.createGain(); dry.connect(master);
   const verb = ctx.createConvolver();
@@ -344,9 +361,10 @@ async function renderSong() {
   const ducks = [];
   // per-section level rides (dB), so each instrument gets moments where it's in front; every change glides over half a bar
   const RIDE = {
-    piano: x => x.sec === 'intro' && x.b < 4 ? 5 : x.sec === 'C' ? 4 : x.sec === 'drop' ? 1 : 0,
-    rhythmL: x => x.sec === 'C' && x.b < 12 ? -6 : x.sec === 'intro' ? -2 : 0,
-    rhythmR: x => x.sec === 'C' && x.b < 12 ? -6 : x.sec === 'intro' ? -2 : 0,
+    piano: x => x.sec === 'intro' && x.b < 4 ? 5 : x.sec === 'C' ? (x.b < 8 ? 6 : 3) : x.sec === 'A2' ? 4 : x.sec === 'drop' ? 1 : 0,   // carries the quiet sections
+    lead: x => x.sec === 'C' && x.b < 8 ? 3 : 0,
+    rhythmL: x => x.sec === 'C' && x.b < 12 ? -3 : x.sec === 'intro' ? -2 : 0,
+    rhythmR: x => x.sec === 'C' && x.b < 12 ? -3 : x.sec === 'intro' ? -2 : 0,
     strings: x => x.sec === 'C' ? 3 : x.sec === 'drop' || x.sec === 'end' ? 2 : x.sec === 'A' || x.sec === 'A2' ? 1 : 0,
     bells: x => x.sec === 'intro' ? 3 : 0,
     choir: x => x.sec === 'F' || x.sec === 'end' ? 2 : 0,
@@ -356,6 +374,7 @@ async function renderSong() {
     for (const x of BARS) { const v = Math.pow(10, fn(x) / 20); if (prev === null) gainNode.gain.setValueAtTime(v, 0);
       else if (v !== prev) { gainNode.gain.setValueAtTime(prev, T(x.gi - 1, 8)); gainNode.gain.linearRampToValueAtTime(v, T(x.gi, 0)); } prev = v; } }
 
+  levelRide(sectRide, SECT_DB);
   // ---- recorded stems ----
   async function stem(name, pan, targetDb, verbAmt, echo, eq, duck, rings) {   // rings: not cut at the end (bells)
     if (!has('stem/' + name) || !ON(name)) return;
@@ -409,7 +428,8 @@ async function renderSong() {
 
   // ---------------- drums: chopped breakbeats over a distorted hardcore kick, changing every 4 bars ----------------
   const drumBus = ctx.createGain(); drumBus.gain.value = DRUMS_ON ? 1.22 : 0;
-  eqChain(drumBus, [HP(30), PK(380, -3, 1), PK(4500, 1.5, 0.9)]).connect(dry); send(drumBus, 0.05);
+  const drumRide = ctx.createGain(); levelRide(drumRide, x => x.sec === 'C' && x.b < 8 ? -4 : x.sec === 'A2' && x.k < 6 ? -4 : 0);
+  eqChain(drumBus, [HP(30), PK(380, -3, 1), PK(4500, 1.5, 0.9)]).connect(drumRide); drumRide.connect(dry); send(drumRide, 0.05);
   const kickBus = ctx.createGain(); kickBus.gain.value = 0.9;
   const kickDrive = ctx.createWaveShaper(); { const c = new Float32Array(2048); for (let i = 0; i < 2048; i++) { const x = i / 1023.5 - 1; c[i] = Math.tanh(7 * x) / Math.tanh(7); } kickDrive.curve = c; kickDrive.oversample = '2x'; }
   kickBus.connect(kickDrive); const kickLevel = ctx.createGain(); kickLevel.gain.value = 0.3; eqChain(kickDrive, [PK(400, -3, 1), LP(9000)]).connect(kickLevel); kickLevel.connect(drumBus);
