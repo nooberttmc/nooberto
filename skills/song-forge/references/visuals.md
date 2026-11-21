@@ -34,4 +34,8 @@ Example scripts (for the "apricity." release by "sunkensol"): `references/exampl
   (a face); hollow flames open at the bottom read as legs or letters ("MAA"); round flames under a vessel read as
   wheels (a mine cart); stepped flame sides read as a bar graph; a drip beside a wall reads as a handle. What worked:
   flame tongues narrowing to a point along curved sides, leaning as they rise, on an ember bed, tips clear of the grate.
+- Pick an icon everyone recognises: the listener swapped a crucible (most people don't know the word) for a campfire.
+  The campfire that worked: a main flame flickering in an S, two shorter side tongues leaning out, a hollow inner flame
+  with a core (negative space), two wisps breaking off the top, thin crossed logs under a 1 px gap (`flame()` in
+  thumbnail_flat.py). Check it at sidebar size (~240 px wide).
 - Filenames: drop a trailing period ("apricity." -> apricity.mp3), keep it in the title tag.

@@ -1,9 +1,9 @@
-"""Thumbnail for "crucible." (sunkensol): single colour, no gradients, pixel art.
+"""Thumbnail for "crucible." (sunkensol): single colour, no gradients, pixel art - a campfire.
 
 usage: python3 thumbnail.py events.json drums.json song.mp3 out.png
 Background: the song's own arrangement view, recoloured in the one colour at low brightness (flat, no vignette).
-Centre: a pixel-art crucible over three flames, molten metal at the brim, sparks rising in groups of 3+3+2 (the
-song's ostinato rhythm). One colour on black: details are cut-outs (negative space), never shading.
+Centre: a pixel-art campfire (a big flame with side tongues and a hollow inner flame, on crossed logs), sparks
+rising in groups of 3+3+2 (the song's ostinato rhythm). One colour on black: details are cut-outs (negative space), never shading.
 """
 import sys, os, subprocess, tempfile
 import numpy as np
@@ -27,36 +27,36 @@ def opening(m):   # 2x2 morphological opening: drops stray single pixels so ever
     op = np.zeros_like(m); op[:-1, :-1] |= er; op[1:, :-1] |= er; op[:-1, 1:] |= er; op[1:, 1:] |= er
     return op
 
+def flame(m, cx, base, h, w, lean, value=True, wave=0.0):
+    """A flame tongue: rounded at the bottom, widest low down, narrowing to a point along curved sides, leaning as it
+    rises. Written into the mask m (value False carves it out)."""
+    for k in range(h):
+        f = k / h
+        hw = w * (1 - f) ** 1.15 * min(1.0, ((k + 2) / 7) ** 0.5)   # round bottom, curved taper to the tip
+        c = cx + lean * f ** 2 + wave * np.sin(np.pi * f) * (1 if lean >= 0 else -1)   # an S-curve as it rises
+        for x in range(int(np.floor(c - hw + 0.5)), int(np.floor(c + hw + 0.5)) + 1):
+            if 0 <= x < m.shape[1] and 0 <= base - k < m.shape[0]: m[base - k, x] = value
+
 def icon(g=80):
-    """A crucible on an 80x80 grid as a 1-bit mask (True = the colour)."""
-    im = Image.new('1', (g, g), 0); d = ImageDraw.Draw(im)
-    # the vessel: a tapering bowl with rounded bottom corners, walls 3 px, a wider lip
-    outer = [(17, 33), (62, 33), (55, 61), (52, 64), (27, 64), (24, 61)]
-    inner = [(21, 36), (58, 36), (52, 59), (50, 61), (29, 61), (27, 59)]
-    d.polygon(outer, fill=1); d.polygon(inner, fill=0)
-    d.rectangle([14, 30, 65, 33], fill=1)                       # the lip
-    d.rectangle([14, 34, 16, 35], fill=1); d.rectangle([63, 34, 65, 35], fill=1)   # lip ends turn down
-    # molten metal to just under the brim; its surface swells by a pixel here and there (continuous, no dashes)
-    d.polygon([(23, 39), (56, 39), (51, 57), (49, 59), (30, 59), (28, 57)], fill=1)
-    for x0, x1 in [(26, 31), (37, 43), (48, 53)]: d.line([(x0, 38), (x1, 38)], fill=1)
-    d.rectangle([20, 64, 59, 65], fill=1)                       # the grate the crucible sits on
-    d.polygon([(9, 28), (14, 30), (14, 33)], fill=1)               # the pouring spout on the lip
-    m = np.asarray(im, bool).copy()
-    # the fire: five flame tongues on a low bed across the grate; each narrows to a point along curved sides and leans
-    # as it rises (like flames licking upward), with deep gaps between them
-    for x in range(21, 59):
-        for y in range(76, 80): m[y, x] = True                  # the bed of embers
-    for tx, th, lean, w in [(24, 7, -2, 3.5), (32, 9, 2, 4.0), (40, 10, -2, 4.5), (48, 9, 2, 4.0), (56, 7, 2, 3.5)]:   # tips stay 2 px under the grate
-        for k in range(th):                                     # k: height above the bed
-            f = k / th; hw = w * (1 - f) ** 1.25; c = tx + lean * f ** 2
-            for x in range(int(np.floor(c - hw + 0.5)), int(np.floor(c + hw + 0.5)) + 1):
-                if 0 <= x < 80: m[77 - k, x] = True
-        if th >= 9:                                             # a hollow inner tongue in the tall flames
-            for k in range(1, th // 2 + 1): m[77 - k, int(round(tx + lean * (k / th) ** 2))] = False
-    im = Image.fromarray(m.astype(np.uint8) * 255).convert('1')
+    """A campfire on an 80x80 grid as a 1-bit mask (True = the colour)."""
+    m = np.zeros((g, g), bool)
+    flame(m, 40, 66, 48, 14, 6, wave=-2.5)                       # the main flame, flickering in an S
+    flame(m, 28, 66, 26, 8, -9)                                  # side tongues leaning out
+    flame(m, 53, 66, 30, 8, 10)
+    flame(m, 39, 63, 28, 7, 2, False, wave=-1.5)                 # a hollow inner flame (negative space)
+    flame(m, 39, 62, 14, 4, 1)                                   # its core
+    flame(m, 35, 23, 7, 2.2, -2)                                 # wisps breaking off above
+    flame(m, 52, 30, 6, 2.0, 2)
+    # two crossed logs under it, a 1 px gap from the fire, cut-out rings on their ends
+    im = Image.fromarray(m.astype(np.uint8) * 255).convert('1'); d = ImageDraw.Draw(im)
+    d.rectangle([18, 67, 61, 67], fill=0)
+    for (x0, y0, x1, y1) in [(18, 68, 62, 77), (18, 77, 62, 68)]:
+        L = np.hypot(x1 - x0, y1 - y0); nx, ny = -(y1 - y0) / L * 1.6, (x1 - x0) / L * 1.6
+        d.polygon([(x0 + nx, y0 + ny), (x1 + nx, y1 + ny), (x1 - nx, y1 - ny), (x0 - nx, y0 - ny)], fill=1)
     m = opening(np.asarray(im, bool))
-    # sparks rising from the metal in groups of 3, 3 and 2 (the ostinato's 3+3+2), small plus shapes
-    for x, y in [(24, 22), (29, 17), (34, 21), (42, 14), (47, 19), (52, 15), (58, 21), (61, 13)]:
+
+    # sparks rising off the top in groups of 3, 3 and 2 (the ostinato's 3+3+2), small plus shapes
+    for x, y in [(20, 26), (25, 18), (29, 29), (45, 8), (60, 14), (65, 22), (70, 31), (73, 20)]:
         for dx, dy in [(0, 0), (1, 0), (-1, 0), (0, 1), (0, -1)]: m[y + dy, x + dx] = True
     return m
 
