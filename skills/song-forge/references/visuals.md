@@ -38,6 +38,9 @@ Example scripts (for the "apricity." release by "sunkensol"): `references/exampl
   (a face); hollow flames open at the bottom read as legs or letters ("MAA"); round flames under a vessel read as
   wheels (a mine cart); stepped flame sides read as a bar graph; a drip beside a wall reads as a handle. What worked:
   flame tongues narrowing to a point along curved sides, leaning as they rise, on an ember bed, tips clear of the grate.
+- Design for the feed (~240 px wide): give the icon a bright focal point (the fire got a pale gold-white core, from
+  the song's palette, so it glows against same-hue surroundings); push the background back (drop the instrument-name
+  panel, blur it ~2 px, darken it to ~25%) so the icon clearly owns the frame. Check a 240 px downscale every time.
 - Pick an icon everyone recognises: the listener swapped a crucible (most people don't know the word) for a campfire.
   The campfire that worked: a main flame flickering in an S, two shorter side tongues leaning out, a hollow inner flame
   with a core (negative space), two wisps breaking off the top, thin crossed logs under a 1 px gap (`flame()` in

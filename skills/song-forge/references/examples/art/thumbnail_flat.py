@@ -1,9 +1,9 @@
 """Thumbnail for "crucible." (sunkensol): single colour, no gradients, pixel art - a campfire.
 
 usage: python3 thumbnail.py events.json drums.json song.mp3 out.png
-Background: the song's own arrangement view, recoloured in the one colour at low brightness (flat, no vignette).
+Background: the song's own arrangement view without its label panel, slightly blurred and dark, in the one colour.
 Centre: a pixel-art campfire with a stepped glow (flat bands of the one colour) (a big flame with side tongues and a hollow inner flame, on crossed logs), sparks
-rising in groups of 3+3+2 (the song's ostinato rhythm). One colour on black: details are cut-outs (negative space), never shading.
+rising in groups of 3+3+2 (the song's ostinato rhythm). One colour on black (plus the fire's hot pale-gold core): details are cut-outs (negative space), never shading.
 """
 import sys, os, subprocess, tempfile
 import numpy as np
@@ -12,7 +12,8 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'
 import visualize
 
 W, H = 1280, 720
-COL = np.array([255, 138, 48], np.float32)   # the song's molten orange (its A section colour), the only colour
+COL = np.array([255, 138, 48], np.float32)   # the song's molten orange (its A section colour)
+CORE = np.array([255, 240, 192], np.float32) # the fire's hot core: the song's pale gold-white (its final chord's colour)
 
 def arrangement(events, drums, audio, t):
     visualize.PX = 70.0
@@ -44,7 +45,8 @@ def icon(g=80):
     flame(m, 28, 66, 26, 8, -9)                                  # side tongues leaning out
     flame(m, 53, 66, 30, 8, 10)
     flame(m, 39, 63, 28, 7, 2, False, wave=-1.5)                 # a hollow inner flame (negative space)
-    flame(m, 39, 62, 14, 4, 1)                                   # its core
+    core = np.zeros_like(m); flame(core, 39, 62, 14, 4, 1)      # its core (drawn in the hot colour)
+    m |= core
     flame(m, 35, 23, 7, 2.2, -2)                                 # wisps breaking off above
     flame(m, 52, 30, 6, 2.0, 2)
     # two crossed logs under it, a 1 px gap from the fire, cut-out rings on their ends
@@ -59,13 +61,16 @@ def icon(g=80):
     # sparks rising off the top in groups of 3, 3 and 2 (the ostinato's 3+3+2), small plus shapes
     for x, y in [(20, 26), (25, 18), (29, 29), (45, 8), (60, 14), (65, 22), (70, 31), (73, 20)]:
         for dx, dy in [(0, 0), (1, 0), (-1, 0), (0, 1), (0, -1)]: m[y + dy, x + dx] = True
-    return m, fire
+    return m, fire, core
 
 def main(events, drums, audio, out):
-    bg = np.asarray(arrangement(events, drums, audio, t=40.0).resize((W, H)), np.float32) / 255
-    lum = (bg > 0.18).astype(np.float32) * 0.2 + (bg > 0.5).astype(np.float32) * 0.1   # flat: two dim levels of the one colour
+    from PIL import ImageFilter
+    full = arrangement(events, drums, audio, t=40.0)
+    x0 = int(visualize.X0) + 2                                  # drop the instrument-name panel (unreadable at thumbnail size)
+    bg = full.crop((x0, 0, full.width, full.height)).resize((W, H)).filter(ImageFilter.GaussianBlur(2.0))   # slightly soft
+    lum = np.asarray(bg, np.float32) / 255 * 0.26              # pushed back: dark, just texture behind the fire
     arr = lum[..., None] * COL
-    ic, fire = icon(); s = 7; big = np.kron(ic, np.ones((s, s), bool))
+    ic, fire, core = icon(); s = 7; big = np.kron(ic, np.ones((s, s), bool))
     ox, oy = (W - big.shape[1]) // 2, (H - big.shape[0]) // 2
     # the glow: a large circle behind the fire in 8 fine flat steps of the one colour on the icon's own pixel grid,
     # dithered only at the seams (pixel art, not a smooth gradient), fading outward
@@ -84,6 +89,7 @@ def main(events, drums, audio, out):
     glv = gl[ys.start - gy:ys.stop - gy, xs.start - gx:xs.stop - gx]
     arr[ys, xs] = np.maximum(arr[ys, xs], glv[..., None] * COL)
     reg = arr[oy:oy + big.shape[0], ox:ox + big.shape[1]]; reg[big] = COL
+    reg[np.kron(core, np.ones((s, s), bool))] = CORE
     arr[::3] *= 0.85                                            # faint, even scanlines
     Image.fromarray(np.clip(arr, 0, 255).astype(np.uint8)).save(out); print('wrote', out)
 
