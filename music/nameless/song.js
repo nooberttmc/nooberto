@@ -289,7 +289,7 @@ async function renderSong() {
   const trim = ctx.createGain(); trim.gain.value = 0.3; pin.connect(trim);   // headroom: piano chords peak ~15-20 dB over their average
   const clean = ctx.createGain(); trim.connect(clean);                          // no saturation: it squashed the loud chords (sounded broken)
   const tone = eqChain(clean, [HP(28), ['lowshelf', 140, 2.5], PK(300, -1, 0.9), PK(3500, -1, 0.9), ['highshelf', 9000, -0.5]]);   // an octave higher: more body, no extra presence
-  const pc = ctx.createDynamicsCompressor(); pc.threshold.value = -30; pc.ratio.value = 3; pc.knee.value = 12; pc.attack.value = 0.015; pc.release.value = 0.25; tone.connect(pc);   // clean level control: rounds the loud chords off
+  const pc = ctx.createDynamicsCompressor(); pc.threshold.value = -30; pc.ratio.value = SOLO ? 1 : 3; pc.knee.value = 12; pc.attack.value = 0.015; pc.release.value = 0.25; tone.connect(pc);   // clean level control: rounds the loud chords off
   // mid/side width: L' = L + k(L-R)/2, R' = R + k(R-L)/2 (the Salamander is already very wide: k < 0 narrows it a touch,
   // to the reference's ~27-40% correlation, safe in mono)
   const k = -0.3, split = ctx.createChannelSplitter(2), merge = ctx.createChannelMerger(2); pc.connect(split);
