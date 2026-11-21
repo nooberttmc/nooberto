@@ -20,7 +20,7 @@
 // If renderSong() returns { drums }, it is written to <song dir>/stems/drums.json (for visualize.py / export_midi.py).
 // If it returns { dives: [[t0, t1], ...] }, those windows get a tape-stop pitch dive (tapestop.py) before the limiter.
 const { chromium } = require('playwright');
-const fs = require('fs'), path = require('path'), { execSync } = require('child_process');
+const fs = require('fs'), path = require('path'), { execSync, execFileSync } = require('child_process');
 const args = process.argv.slice(2), file = path.resolve(args[0]), title = args[1] || path.basename(file, '.js');
 const songDir = path.dirname(file);
 const opt = { stems: {}, dips: [], free: [] };
@@ -87,11 +87,12 @@ const channels = p => { try { return +execSync(`ffprobe -v error -select_streams
     execSync(`python3 "${path.join(__dirname, 'level.py')}" "${wav}" "${wav}" --hold-from ${a0} --hold-until ${a1}` +
       opt.dips.map(d => ' --dip ' + d).join('') + opt.free.map(d => ' --free ' + d).join(''), { stdio: 'inherit' });
   }
-  const tags = [`-metadata title="${title.replace(/"/g, '')}"`, opt.artist ? `-metadata artist="${opt.artist}"` : '', opt.album ? `-metadata album="${opt.album}"` : ''].join(' ');
+  // tags go to ffmpeg as plain arguments (no shell), so a title with $ or ` is written as typed
+  const tags = ['-metadata', 'title=' + title, ...(opt.artist ? ['-metadata', 'artist=' + opt.artist] : []), ...(opt.album ? ['-metadata', 'album=' + opt.album] : [])];
   // limiter ceiling (default -2 dBFS; --ceiling DB): MP3/AAC encoding adds ~1 dB of inter-sample peaks, so -2 to -2.5 dBFS
   // keeps true peaks at or under -1 dBTP
   const lim = Math.pow(10, (opt.ceiling == null ? -2 : opt.ceiling) / 20).toFixed(4);
-  execSync(`ffmpeg -y -loglevel error -i "${wav}" -af "volume=${opt.gain == null ? 3 : opt.gain}dB,alimiter=limit=${lim}:level=false" -codec:a libmp3lame -b:a 192k ${tags} "${mp3}"`);
+  execFileSync('ffmpeg', ['-y', '-loglevel', 'error', '-i', wav, '-af', `volume=${opt.gain == null ? 3 : opt.gain}dB,alimiter=limit=${lim}:level=false`, '-codec:a', 'libmp3lame', '-b:a', '192k', ...tags, mp3]);
   fs.unlinkSync(wav);
   console.log('rendered', r.seconds.toFixed(1) + 's', 'raw peak', r.peak.toFixed(2), '->', mp3);
 })();

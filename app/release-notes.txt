@@ -1,1 +1,1 @@
-Cleaner menus: flat buttons and panels, fewer glows, less filler text, pause build box fits your build
+Update check no longer gets stuck on Wi-Fi login pages

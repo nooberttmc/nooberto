@@ -130,9 +130,8 @@ def render(mid_path, out_path, sfz=None, tuning='retuned', sr=44100):
             d = msg.value >= 64
             if d != pedal_down: ped.append((t, d)); pedal_down = d
     ped.sort()
-    def pedal_at(tt): d = False
     def release_time(t_on, t_off):   # a note-off under the pedal waits for the pedal to come up
-        down = False; last_change = 0.0
+        down = False
         for tp, d in ped:
             if tp > t_off: break
             down = d
@@ -166,13 +165,12 @@ def render(mid_path, out_path, sfz=None, tuning='retuned', sr=44100):
             add(y, t_on)
             if nxt is not None and nxt <= t_rel: continue   # cut by a repeat of the same key: no release noises
             held = t_rel - t_on
-            for regs, scale in ((P.rel, 1.0),):
-                for rr in regs:   # hammer/key-release noise and string resonance, on the effective release
-                    lo, hi, kc2 = P.keyrange(rr)
-                    if not (lo <= key <= hi and int(rr.get('lovel', 1)) <= vel <= int(rr.get('hivel', 127))): continue
-                    if 'harmV' in rr.get('sample', ''): continue
-                    db = -float(rr.get('rt_decay', 0)) * min(held, 10.0)
-                    add(P.voice(rr, kc2, key, vel, gain_db=db), t_rel)
+            for rr in P.rel:   # hammer/key-release noise and string resonance, on the effective release
+                lo, hi, kc2 = P.keyrange(rr)
+                if not (lo <= key <= hi and int(rr.get('lovel', 1)) <= vel <= int(rr.get('hivel', 127))): continue
+                if 'harmV' in rr.get('sample', ''): continue
+                db = -float(rr.get('rt_decay', 0)) * min(held, 10.0)
+                add(P.voice(rr, kc2, key, vel, gain_db=db), t_rel)
     for tp, d in ped:   # pedal noises
         regs = P.pedal['down' if d else 'up']
         if regs: rr = regs[int(tp * 997) % len(regs)]; add(P.voice(rr, 60, 60, 100, veltrack=0.0), tp)

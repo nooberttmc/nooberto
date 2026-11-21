@@ -30,6 +30,7 @@ class Updater {
 
     private final MainActivity act;
     private volatile boolean busy;
+    private volatile boolean installing;   // only then is an install-status intent ours to act on
 
     Updater(MainActivity act) { this.act = act; }
 
@@ -53,7 +54,9 @@ class Updater {
                 try {
                     byte[] body = get(VERSION_URL + "?t=" + System.currentTimeMillis(), null);
                     String json = new String(body, "UTF-8");
-                    act.js("window.onUpdateInfo && window.onUpdateInfo(" + json + ")");
+                    // parsed as data in the page: a captive-portal login page (HTTP 200, HTML) becomes an error, not stuck JS
+                    act.js("try { window.onUpdateInfo(JSON.parse(" + quote(json) + ")) } catch (e) { window.onUpdateError && window.onUpdateError("
+                        + quote("Couldn't read the update info. Check your connection.") + ", true) }");
                 } catch (Throwable t) {
                     act.js("window.onUpdateError && window.onUpdateError(" + quote("Couldn't reach the update server. Check your connection.") + ", true)");
                 }
@@ -137,6 +140,7 @@ class Updater {
             out.close();
             Intent i = new Intent(act, MainActivity.class).setAction(ACTION_STATUS);
             PendingIntent p = PendingIntent.getActivity(act, 7, i, PendingIntent.FLAG_UPDATE_CURRENT | FLAG_MUTABLE);
+            installing = true;
             s.commit(p.getIntentSender());
         } finally {
             s.close();
@@ -145,6 +149,7 @@ class Updater {
 
     /** Called from MainActivity.onNewIntent with the installer's status callback. */
     void onStatus(Intent intent) {
+        if (!installing) return;   // MainActivity is exported: any app can send this action
         int status = intent.getIntExtra(PackageInstaller.EXTRA_STATUS, -999);
         if (status == PackageInstaller.STATUS_PENDING_USER_ACTION) {
             Intent confirm = (Intent) intent.getParcelableExtra(Intent.EXTRA_INTENT);
@@ -152,7 +157,9 @@ class Updater {
                 confirm.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                 act.startActivity(confirm);
             }
-        } else if (status != PackageInstaller.STATUS_SUCCESS) {
+        } else {
+            installing = false;
+            if (status == PackageInstaller.STATUS_SUCCESS) return;
             String msg = intent.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE);
             act.js("window.onUpdateError && window.onUpdateError(" + quote("Update not installed" + (msg != null ? ": " + msg : ".")) + ")");
         }
